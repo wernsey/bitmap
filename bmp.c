@@ -49,7 +49,7 @@ TODO:
 */
 
 #ifndef NO_FONTS
-/* I basically drew font.xbm from the fonts at.
+/* I basically drew font.xbm from the fonts at
  * http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts
  * The Apple ][ font turned out to be the nicest normal font.
  * The bold font was inspired by Commodore 64.
@@ -111,7 +111,10 @@ struct rgb_triplet {
 #define BM_BLOB_SIZE(B)	(B->w * B->h * BM_BPP)
 #define BM_ROW_SIZE(B)	(B->w * BM_BPP)
 
-#define BM_SETRGB(BMP, X, Y, R, G, B, A) do { \
+#define BM_GET(b, x, y) (*((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)))
+#define BM_SET(b, x, y, c) *((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)) = c
+
+#define BM_SET_RGBA(BMP, X, Y, R, G, B, A) do { \
 		int _p = ((Y) * BM_ROW_SIZE(BMP) + (X)*BM_BPP);	\
 		BMP->data[_p++] = B;\
 		BMP->data[_p++] = G;\
@@ -126,12 +129,6 @@ struct rgb_triplet {
 
 /* N=0 -> B, N=1 -> G, N=2 -> R, N=3 -> A */
 #define BM_GETN(B,N,X,Y) (B->data[((Y) * BM_ROW_SIZE(B) + (X) * BM_BPP) + (N)])
-
-/* TODO: These macros are fairly new additions and can probably be used to improve
- * performance in some of the older functions that still uses BM_SETRGB and friends.
- */
-#define BM_GET(b, x, y) (*((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)))
-#define BM_SET(b, x, y, c) *((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)) = c
 
 Bitmap *bm_create(int w, int h) {	
 	Bitmap *b = malloc(sizeof *b);
@@ -152,8 +149,7 @@ Bitmap *bm_create(int w, int h) {
 	bm_std_font(b, BM_FONT_NORMAL);
 #endif
 
-	bm_set_color_rgb(b, 255, 255, 255);
-	bm_set_alpha(b, 255);
+	bm_set_color(b, 0xFFFFFFFF);
 	
 	return b;
 }
@@ -350,14 +346,14 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
 			for(i = 0; i < b->w; i++) {
 				uint8_t p = data[(b->h - (j) - 1) * rs + i];
 				assert(p < dib.ncolors);				
-				BM_SETRGB(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+				BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
 			}
 		}			
 	} else {	
 		for(j = 0; j < b->h; j++) {
 			for(i = 0; i < b->w; i++) {
 				int p = ((b->h - (j) - 1) * rs + (i)*3);			
-				BM_SETRGB(b, i, j, data[p+2], data[p+1], data[p+0], 0xFF);
+				BM_SET_RGBA(b, i, j, data[p+2], data[p+1], data[p+0], 0xFF);
 			}
 		}
 	}
@@ -555,7 +551,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 			png_byte *row = rows[y];
 			for(x = 0; x < w; x++) {
 				png_byte *ptr = &(row[x * 4]);
-				BM_SETRGB(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
+				BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
 			}
 		}
 	} else if(ct == PNG_COLOR_TYPE_RGB) {
@@ -563,7 +559,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 			png_byte *row = rows[y];
 			for(x = 0; x < w; x++) {
 				png_byte *ptr = &(row[x * 3]);
-				BM_SETRGB(bmp, x, y, ptr[0], ptr[1], ptr[2], 0xFF);
+				BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], 0xFF);
 			}
 		}
 	}
@@ -699,7 +695,7 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
 		jpeg_read_scanlines(&cinfo, row_pointer, 1);		
 		for(i = 0; i < bmp->w; i++) {
 			unsigned char *ptr = &(data[i * 3]);
-			BM_SETRGB(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
+			BM_SET_RGBA(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
 		}
 	}
 	free(data);
@@ -902,7 +898,7 @@ static Bitmap *bm_load_png_rw(SDL_RWops *rw) {
 			png_byte *row = rows[y];
 			for(x = 0; x < w; x++) {
 				png_byte *ptr = &(row[x * 4]);
-				BM_SETRGB(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
+				BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
 			}
 		}
 	} else if(ct == PNG_COLOR_TYPE_RGB) {
@@ -910,7 +906,7 @@ static Bitmap *bm_load_png_rw(SDL_RWops *rw) {
 			png_byte *row = rows[y];
 			for(x = 0; x < w; x++) {
 				png_byte *ptr = &(row[x * 3]);
-				BM_SETRGB(bmp, x, y, ptr[0], ptr[1], ptr[2], 0xFF);
+				BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], 0xFF);
 			}
 		}
 	}
@@ -1051,7 +1047,7 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw) {
 		jpeg_read_scanlines(&cinfo, row_pointer, 1);		
 		for(i = 0; i < bmp->w; i++) {
 			unsigned char *ptr = &(data[i * 3]);
-			BM_SETRGB(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
+			BM_SET_RGBA(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
 		}
 	}
 	free(data);
@@ -2180,8 +2176,7 @@ Bitmap *bm_bind(int w, int h, unsigned char *data) {
 	bm_std_font(b, BM_FONT_NORMAL);
 #endif
 
-	bm_set_color_rgb(b, 255, 255, 255);
-	bm_set_alpha(b, 255);
+	bm_set_color(b, 0xFFFFFFFF);
 	
 	return b;
 }
@@ -2227,12 +2222,12 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c) {
 
 void bm_set_rgb(Bitmap *b, int x, int y, unsigned char R, unsigned char G, unsigned char B) {
 	assert(x >= 0 && x < b->w && y >= 0 && y < b->h);
-	BM_SETRGB(b, x, y, R, G, B, (b->color >> 24));
+	BM_SET_RGBA(b, x, y, R, G, B, (b->color >> 24));
 }
 
 void bm_set_rgb_a(Bitmap *b, int x, int y, unsigned char R, unsigned char G, unsigned char B, unsigned char A) {
 	assert(x >= 0 && x < b->w && y >= 0 && y < b->h);
-	BM_SETRGB(b, x, y, R, G, B, A);
+	BM_SET_RGBA(b, x, y, R, G, B, A);
 }
 
 unsigned char bm_getr(Bitmap *b, int x, int y) {
@@ -2263,7 +2258,7 @@ Bitmap *bm_fromXbm(int w, int h, unsigned char *data) {
 			b = data[byte++];
 			for(i = 0; i < 8 && x < w; i++) {
 				unsigned char c = (b & (1 << i))?0x00:0xFF;
-				BM_SETRGB(bmp, x++, y, c, c, c, c);
+				BM_SET_RGBA(bmp, x++, y, c, c, c, c);
 			}
 		}
 	return bmp;
@@ -2663,7 +2658,7 @@ void bm_smooth(Bitmap *b) {
 				A += kernel[k] * BM_GETA(b,p,y);
 				c += kernel[k];
 			}
-			BM_SETRGB(tmp, x, y, R/c, G/c, B/c, A/c);
+			BM_SET_RGBA(tmp, x, y, R/c, G/c, B/c, A/c);
 		}
 	
 	for(y = 0; y < b->h; y++)
@@ -2679,7 +2674,7 @@ void bm_smooth(Bitmap *b) {
 				A += kernel[k] * BM_GETA(tmp,x,p);
 				c += kernel[k];
 			}
-			BM_SETRGB(tmp, x, y, R/c, G/c, B/c, A/c);
+			BM_SET_RGBA(tmp, x, y, R/c, G/c, B/c, A/c);
 		}
 	
 	b->data = tmp->data;
@@ -2717,7 +2712,7 @@ void bm_apply_kernel(Bitmap *b, int dim, float kernel[]) {
 			G /= c; if(G > 255) G = 255;if(G < 0) G = 0;
 			B /= c; if(B > 255) B = 255;if(B < 0) B = 0;
 			A /= c; if(A > 255) A = 255;if(A < 0) A = 0;
-			BM_SETRGB(tmp, x, y, R, G, B, A);
+			BM_SET_RGBA(tmp, x, y, R, G, B, A);
 		}
 	}
 	
@@ -2727,12 +2722,13 @@ void bm_apply_kernel(Bitmap *b, int dim, float kernel[]) {
 }
 
 void bm_swap_colour(Bitmap *b, unsigned char sR, unsigned char sG, unsigned char sB, unsigned char dR, unsigned char dG, unsigned char dB) {
+	/* Why does this function exist again? */
 	int x,y;
 	for(y = 0; y < b->h; y++)
 		for(x = 0; x < b->w; x++) {			
 			if(BM_GETR(b,x,y) == sR && BM_GETG(b,x,y) == sG && BM_GETB(b,x,y) == sB) {
 				int a = BM_GETA(b, x, y);
-				BM_SETRGB(b, x, y, dR, dG, dB, a);
+				BM_SET_RGBA(b, x, y, dR, dG, dB, a);
 			}
 		}
 }
@@ -2745,7 +2741,6 @@ Image scaling functions:
 Bilinear Interpolation is better suited for making an image larger.
 Bicubic Interpolation is better suited for making an image smaller.
 http://blog.codinghorror.com/better-image-resizing/
-
 */
 Bitmap *bm_resample(const Bitmap *in, int nw, int nh) {
 	Bitmap *out = bm_create(nw, nh);
@@ -2792,7 +2787,7 @@ Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh) {
                 int p11 = BM_GETN(in,c,sx+dx,sy+dy);
                 C[c] = (int)blerp(p00, p10, p01, p11, gx-sx, gy-sy);
             }                         
-			BM_SETRGB(out, x, y, C[0], C[1], C[2], C[3]);
+			BM_SET_RGBA(out, x, y, C[0], C[1], C[2], C[3]);
 		}
 	return out;
 }
@@ -2844,7 +2839,7 @@ Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
             }
         }
         
-        BM_SETRGB(out, x, y, sum[0]/denom[0], sum[1]/denom[1], sum[2]/denom[2], sum[3]/denom[3]);            
+        BM_SET_RGBA(out, x, y, sum[0]/denom[0], sum[1]/denom[1], sum[2]/denom[2], sum[3]/denom[3]);            
     }
 	return out;
 }
@@ -2868,7 +2863,7 @@ int bm_count_colors(Bitmap *b, int use_mask) {
 	http://stackoverflow.com/a/128055/115589
 	(according to the comments, certain qsort() 
 	implementations may have problems with large
-	images if it is recursive)
+	images if they are recursive)
 	*/
 	int count = 1, i;
 	int npx = b->w * b->h;
@@ -2912,7 +2907,7 @@ void bm_adjust_rgba(Bitmap *bm, float rf, float gf, float bf, float af) {
 			float G = BM_GETG(bm,x,y);
 			float B = BM_GETB(bm,x,y);
 			float A = BM_GETA(bm,x,y);
-			BM_SETRGB(bm, x, y, rf * R, gf * G, bf * B, af * A);
+			BM_SET_RGBA(bm, x, y, rf * R, gf * G, bf * B, af * A);
 		}
 }
 
@@ -3193,6 +3188,7 @@ unsigned int bm_color_atoi(const char *text) {
 }
 
 void bm_set_color_s(Bitmap *bm, const char *text) {	
+	/* FIXME: Better name for this function */
 	bm_set_color(bm, bm_color_atoi(text));
 }
 
@@ -3231,6 +3227,20 @@ double bm_cdist(int color1, int color2) {
 	dg = g1 - g2;
 	db = b1 - b2;
 	return sqrt(dr * dr + dg * dg + db * db);
+}
+
+/* Squared distance between colors; so you don't need to get the root if you're 
+	only interested in comparing distances. */
+static int bm_cdist_sq(int color1, int color2) {
+	int r1, g1, b1;
+	int r2, g2, b2;
+	int dr, dg, db;
+	r1 = (color1 >> 16) & 0xFF; g1 = (color1 >> 8) & 0xFF; b1 = (color1 >> 0) & 0xFF;
+	r2 = (color2 >> 16) & 0xFF; g2 = (color2 >> 8) & 0xFF; b2 = (color2 >> 0) & 0xFF;
+	dr = r1 - r2;
+	dg = g1 - g2;
+	db = b1 - b2;
+	return dr * dr + dg * dg + db * db;
 }
 
 int bm_lerp(int color1, int color2, double t) {
@@ -3374,7 +3384,7 @@ void bm_dithrect(Bitmap *b, int x0, int y0, int x1, int y1) {
 	}
 	for(y = MAX(y0, b->clip.y0); y < MIN(y1 + 1, b->clip.y1); y++) {		
 		for(x = MAX(x0, b->clip.x0); x < MIN(x1 + 1, b->clip.x1); x++) {
-            if((x + y) % 2) continue;
+            if((x + y) & 0x1) continue;
 			assert(y >= 0 && y < b->h && x >= 0 && x < b->w);
 			BM_SET(b, x, y, b->color);
 		}
@@ -3688,15 +3698,27 @@ void bm_fill(Bitmap *b, int x, int y) {
 	b->color = dc;
 }
 
-static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, double f) {
+static int closest_color(int c, int palette[], size_t n) {	
+	int i, m = 0, md = bm_cdist_sq(c, palette[m]);	
+	for(i = 1; i < n; i++) {
+		int d = bm_cdist_sq(c, palette[i]);
+		if(d < md) {
+			md = d;
+			m = i;
+		}
+	}
+	return palette[m];
+}
+
+static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f) {
 	int c, R, G, B;
 	if(x < 0 || x >= b->w || y < 0 || y >= b->h)
 		return;
 	c = bm_get(b, x, y);
 	
-	R = ((c >> 16) & 0xFF) + f * er;
-	G = ((c >> 8) & 0xFF) + f * eg;
-	B = ((c >> 0) & 0xFF) + f * eb;
+	R = ((c >> 16) & 0xFF) + ((f * er) >> 4);
+	G = ((c >> 8) & 0xFF) + ((f * eg) >> 4);
+	B = ((c >> 0) & 0xFF) + ((f * eb) >> 4);
 	
 	if(R > 255) R = 255;
 	if(R < 0) R = 0;
@@ -3705,32 +3727,23 @@ static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, doubl
 	if(B > 255) B = 255;
 	if(B < 0) B = 0;
 	
-	bm_set_rgb(b, x, y, R, G, B);
+	BM_SET_RGBA(b, x, y, R, G, B, 0);
 }
 
 void bm_reduce_palette(Bitmap *b, int palette[], size_t n) {
-	/* Floyd–Steinberg dithering
-		http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering 
-	*/
+	/* Floyd–Steinberg (error-diffusion) dithering
+		http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering */
 	int x, y;
 	if(!b) 
 		return;
 	for(y = 0; y < b->h; y++) {
 		for(x = 0; x < b->w; x++) {
-			int i, m = 0;
 			int r1, g1, b1;
 			int r2, g2, b2;
 			int er, eg, eb;
-			int newpixel, oldpixel = bm_get(b, x, y);		
-			double md = bm_cdist(oldpixel, palette[m]);	
-			for(i = 1; i < n; i++) {
-				double d = bm_cdist(oldpixel, palette[i]);
-				if(d < md) {
-					md = d;
-					m = i;
-				}
-			}
-			newpixel = palette[m];
+			int newpixel, oldpixel = BM_GET(b, x, y);		
+			
+			newpixel = closest_color(oldpixel, palette, n);
 			
 			bm_set(b, x, y, newpixel);
 			
@@ -3738,13 +3751,76 @@ void bm_reduce_palette(Bitmap *b, int palette[], size_t n) {
 			r2 = (newpixel >> 16) & 0xFF; g2 = (newpixel >> 8) & 0xFF; b2 = (newpixel >> 0) & 0xFF;
 			er = r1 - r2; eg = g1 - g2; eb = b1 - b2;
 
-			fs_add_factor(b, x + 1, y    , er, eg, eb, 7.0 / 16.0);
-			fs_add_factor(b, x - 1, y + 1, er, eg, eb, 3.0 / 16.0);
-			fs_add_factor(b, x    , y + 1, er, eg, eb, 5.0 / 16.0);
-			fs_add_factor(b, x + 1, y + 1, er, eg, eb, 1.0 / 16.0);
-			
+			fs_add_factor(b, x + 1, y    , er, eg, eb, 7);
+			fs_add_factor(b, x - 1, y + 1, er, eg, eb, 3);
+			fs_add_factor(b, x    , y + 1, er, eg, eb, 5);
+			fs_add_factor(b, x + 1, y + 1, er, eg, eb, 1);
 		}
 	}
+}
+
+static int bayer4x4[16] = { /* (1/17) */
+	1,  9,  3, 11,
+	13, 5, 15,  7,
+	4, 12,  2, 10,
+	16, 8, 14,  6
+};
+static int bayer8x8[64] = { /*(1/65)*/
+	1,  49, 13, 61,  4, 52, 16, 64,
+	33, 17, 45, 29, 36, 20, 48, 32,
+	9,  57,  5, 53, 12, 60,  8, 56,
+	41, 25, 37, 21, 44, 28, 40, 24,
+	3,  51, 15, 63,  2, 50, 14, 62,
+	35, 19, 47, 31, 34, 18, 46, 30,
+	11, 59,  7, 55, 10, 58,  6, 54,
+	43, 27, 39, 23, 42, 26, 38, 22,
+};
+static void reduce_palette_bayer(Bitmap *b, int palette[], size_t n, int bayer[], int dim, int fac) {
+	/* Ordered dithering: https://en.wikipedia.org/wiki/Ordered_dithering 
+	The resulting image may be of lower quality than you would get with
+	Floyd-Steinberg, but it does have some advantages:
+		* the repeating patterns compress better
+		* it is better suited for line-art graphics
+		* if you were to make an animation (not supported at the moment) 
+			subsequent frames would be less jittery than error-diffusion. 
+	*/		
+	int x, y;
+	int af = dim - 1; /* mod factor */
+	int sub = (dim * dim) / 2 - 1; /* 7 if dim = 4, 31 if dim = 8 */
+	if(!b) 
+		return;
+	for(y = 0; y < b->h; y++) {
+		for(x = 0; x < b->w; x++) {
+			int R, G, B;
+			int newpixel, oldpixel = BM_GET(b, x, y);	
+			
+			R = (oldpixel >> 16) & 0xFF; G = (oldpixel >> 8) & 0xFF; B = (oldpixel >> 0) & 0xFF;
+			
+			/* The "- sub" below is because otherwise colours are only adjusted upwards,
+				causing the resulting image to be brighter than the original.
+				This seems to be the same problem this guy http://stackoverflow.com/q/4441388/115589
+				ran into, but I can't find anyone else on the web solving it like I did. */
+			int f = (bayer[(y & af) * dim + (x & af)] - sub);
+			
+			R += R * f / fac;
+			if(R > 255) R = 255; if(R < 0) R = 0;
+			G += G * f / fac;
+			if(G > 255) G = 255; if(G < 0) G = 0;
+			B += B * f / fac;	
+			if(B > 255) B = 255; if(B < 0) B = 0;
+			oldpixel = (R << 16) | (G << 8) | B; 			
+			newpixel = closest_color(oldpixel, palette, n);
+			BM_SET(b, x, y, newpixel);
+		}
+	}
+}
+
+void bm_reduce_palette_OD4(Bitmap *b, int palette[], size_t n) {
+	reduce_palette_bayer(b, palette, n, bayer4x4, 4, 17);
+}
+
+void bm_reduce_palette_OD8(Bitmap *b, int palette[], size_t n) {
+	reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
 }
 
 /** FONT FUNCTIONS **********************************************************/
