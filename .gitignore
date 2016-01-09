@@ -1,6 +1,7 @@
 *.o
 *.a
 *.exe
+*.bak
 
 # Generated documentation
 bitmap.html
