@@ -44,6 +44,11 @@ The `Makefile` generates HTML documentation from `bmp.h` through the `doc.awk` s
 
 * `bmpfont.c` and `bmpfont.h` - Wrapper around [FreeType](http://www.freetype.org/) to 
    allow rendering of freetype-supported fonts on {{Bitmap}} structures.
+* The `palette/` directory contains a utility for generating palettes and converting 
+   images to those palettes.
+* The `misc/` directory contains
+** `gif.c` - the file I used to develop the GIF encoder/decoder originally. I've kept 
+   it in case I want to do something advanced later, like animated GIFs.
 
 ## References
 
