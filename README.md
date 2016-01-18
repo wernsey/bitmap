@@ -14,6 +14,7 @@ Features:
 * Floodfill and filled primitives
 * Image resizing: nearest neighbour, bilinear and bicubic
 * Blitting, blitting with masks and scaled blitting.
+* Text rendering: built-in 8-bit style raster fonts and FreeType support.
 * Filtering with kernels and smoothing.
 * [CSS-style](http://en.wikipedia.org/wiki/Web_colors) colors.
 * Cross platform. It's been known to compile under Windows (MinGW), Linux, Android and Web via Emscripten.
@@ -43,12 +44,12 @@ The `Makefile` generates HTML documentation from `bmp.h` through the `doc.awk` s
 ## Additional Utilities
 
 * `bmpfont.c` and `bmpfont.h` - Wrapper around [FreeType](http://www.freetype.org/) to 
-   allow rendering of freetype-supported fonts on {{Bitmap}} structures.
+   allow rendering of freetype-supported fonts on `Bitmap` structures.
 * The `palette/` directory contains a utility for generating palettes and converting 
    images to those palettes.
 * The `misc/` directory contains
-** `gif.c` - the file I used to develop the GIF encoder/decoder originally. I've kept 
-   it in case I want to do something advanced later, like animated GIFs.
+  * `gif.c` - the file I used to develop the GIF encoder/decoder originally. I've kept 
+     it in case I want to do something advanced later, like animated GIFs.
 
 ## References
 
