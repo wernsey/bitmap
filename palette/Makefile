@@ -1,6 +1,3 @@
-# Makefile for using TCC
-# It is intended for the UnxUtils version of GNU make
-
 EXECUTABLE=palette
 
 # Add your source files here:
