@@ -1,0 +1,29 @@
+# Makefile for using TCC
+# It is intended for the UnxUtils version of GNU make
+
+EXECUTABLE=palette
+
+# Add your source files here:
+OBJECTS=palette.o
+
+CFLAGS=-c -Wall -DNO_FONTS
+LDFLAGS=
+
+all: $(EXECUTABLE)
+
+lib: $(LIB)
+
+$(EXECUTABLE) : palette.o ../bmp.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+.c.o:
+	$(CC) $(CFLAGS) $< -o $@
+
+bmp.o : ../bmp.c ../bmp.h
+palette.o : ../bmp.h
+
+.PHONY : clean
+
+clean:
+	-rm -f *.o
+	-rm -rf $(EXECUTABLE) $(EXECUTABLE).exe

@@ -1,0 +1,61 @@
+% This is a comment
+% These colors were inspired by
+% http://jedsotherpoem.deviantart.com/art/Pixel-Art-Palette-311829267
+
+% Mini Palettes
+0f69ff-003388
+9c3bfe-400080
+ff6ab5-910048
+f24f57-810a10
+ff6f28-882d00
+ffdb0f-756400
+17e600-0a6200
+
+95a6ce-41578b
+a296c5-584985
+bf80a2-713956
+c76773-86313e
+d5a27b-955a2f
+ccb56f-8a7431
+92b494-476949
+
+c4daff-0f69ff
+e6ccff-9d3cff
+ffddee-ff6ab5
+fab6b9-f24f57
+ffd7c4-ff6f28
+fff8ce-ffdb0f
+d7ffd2-17e600
+
+% Skin tones
+f5e4c0-e4b045
+efce89-d5991e
+e4b147-9b7015
+f7eadb-e4b989
+f3ddc7-da9e5c
+f2cc99-d5861b
+
+f5eee9-dab69e
+ece2ce-d2b882
+faefda-efcb87
+
+8e979b-494e52
+e1f5fb-7acfeb
+fdffff-b7d5df
+
+% Browns
+a67340-513920
+ae8a66-685037
+e1d0b0-b78f46
+f5e4c0-e4b045
+efce89-d5991e
+e4b147-9b7015
+d69145-794d1c
+a26624-452b0e
+784818-33200b
+b75b44-633225
+
+% Metals
+f7e87d-ad990a
+f5f5f5-9d9d9d
+f5e0cb-b65c5a
