@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=-c -Wall
 LDFLAGS=
+AWK=awk
 
 # Add your source files here:
 LIB_SOURCES=bmp.c
@@ -32,13 +33,13 @@ bmp.o: bmp.c bmp.h
 
 docs: bitmap.html
 
-bitmap.html: bmp.h doc.awk
-	awk -f doc.awk bmp.h > $@
+bitmap.html: bmp.h comdown.awk
+	$(AWK) -f comdown.awk bmp.h > $@
 	
 .PHONY : clean 
 
 clean:
 	-rm -f *.o $(LIB)
 	-rm -f $(TESTS) *.exe test/*.exe
-	-rm -rf docs
+	-rm -rf bitmap.html
 # The .exe above is for MinGW, btw.

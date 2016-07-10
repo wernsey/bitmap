@@ -111,7 +111,7 @@ int parse_palette(const char *text) {
 	nextsym();
 	while(!accept(SYM_END)) {
 		if(sym == SYM_COLOR) {
-			int c1 = bm_color_atoi(token);
+			int c1 = bm_atoi(token);
 			nextsym();
 			if(sym == '-') {
 				nextsym();
@@ -119,7 +119,7 @@ int parse_palette(const char *text) {
 					fprintf(stderr, "error: %d: color expected\n", line);
 					return 0;
 				}
-				int i, c2 = bm_color_atoi(token), st = steps;
+				int i, c2 = bm_atoi(token), st = steps;
 				nextsym();
 				if(sym == ':') {
 					nextsym();
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
 				free(text);
 			} break;
 			case 'a': {
-				add_color(bm_color_atoi(optarg));
+				add_color(bm_atoi(optarg));
 			} break;
 			case 'r': {
 				bmp = bm_load(optarg);
