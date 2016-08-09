@@ -113,7 +113,7 @@ struct rgb_triplet {
 #define BM_ROW_SIZE(B)  (B->w * BM_BPP)
 
 #define BM_GET(b, x, y) (*((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)))
-#define BM_SET(b, x, y, c) *((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)) = (c)	
+#define BM_SET(b, x, y, c) *((unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP)) = (c)
 
 #if !ABGR
 #  define BM_SET_RGBA(BMP, X, Y, R, G, B, A) do { \
@@ -2455,10 +2455,16 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
     j = sy;
     for(y = dy; y < dy + h; y++) {
         i = sx;
-        for(x = dx; x < dx + w; x++) {
-            int c = BM_GET(src, i, j) & 0xFFFFFF;
-            if(c != (src->color & 0xFFFFFF))
+        for(x = dx; x < dx + w; x++) {          
+#if IGNORE_ALPHA
+            int c = BM_GET(src, i, j) & 0x00FFFFFF;
+            if(c != (src->color & 0x00FFFFFF))
                 BM_SET(dst, x, y, c);
+#else
+            int c = BM_GET(src, i, j);
+            if(c != src->color)
+                BM_SET(dst, x, y, c);
+#endif
             i++;
         }
         j++;
@@ -2469,7 +2475,11 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
     int x, y, ssx;
     int ynum = 0;
     int xnum = 0;
-    unsigned int maskc = bm_get_color(src) & 0xFFFFFF;
+#if IGNORE_ALPHA
+    unsigned int maskc = bm_get_color(src) & 0x00FFFFFF;
+#else
+    unsigned int maskc = bm_get_color(src);
+#endif
     /*
     Uses Bresenham's algoritm to implement a simple scaling while blitting.
     See the article "Scaling Bitmaps with Bresenham" by Tim Kientzle in the
@@ -2537,8 +2547,11 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
             if(sx >= src->w || x >= dst->clip.x1)
                 break;
             assert(x >= dst->clip.x0 && sx >= 0);
-
-            c = BM_GET(src, sx, sy) & 0xFFFFFF;
+#if IGNORE_ALPHA
+            c = BM_GET(src, sx, sy) & 0x00FFFFFF;
+#else
+            c = BM_GET(src, sx, sy);
+#endif
             if(!mask || c != maskc)
                 BM_SET(dst, x, y, c);
 
@@ -3511,10 +3524,25 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
  * but that one had some caveats.
  */
 void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
-    int lx = x0, ly = y0;
-    int steps = 12;
+    int lx = x0, ly = y0, steps;
+
+    /* Compute how far the point x1,y1 deviates from the line from x0,y0 to x2,y2.
+     * I make the number of steps proportional to that deviation, but it is not
+     * a perfect system.
+     */
+    double dx = x2 - x0, dy = y2 - y0;
+    if(dx == 0 && dy == 0) {
+      steps = 2;
+    } else {
+      /* https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line */
+      double denom = sqrt(dx * dx + dy * dy);
+      double dist = fabs((y2 - y0) * x1 - (x2 - x0) * y1 + x2 * y0 + y2 * x0)/denom;
+      steps = sqrt(dist);
+      if(steps == 0) steps = 1;
+    }
+
     double inc = 1.0/steps;
-    double t = inc, dx, dy;
+    double t = inc;
 
     do {
         dx = (1-t)*(1-t)*x0 + 2*(1-t)*t*x1 + t*t*x2;
@@ -3524,7 +3552,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
         ly = dy;
         t += inc;
     } while(t < 1.0);
-    bm_line(b, dx, dy, x2, y2);
+    bm_line(b, lx, ly, x2, y2);
 }
 
 void bm_fill(Bitmap *b, int x, int y) {
