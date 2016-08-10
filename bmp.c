@@ -3228,6 +3228,21 @@ unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned
 #endif
 }
 
+void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned char *B) {
+    assert(R);
+    assert(G);
+    assert(B);
+#if !ABGR
+    *R = (col >> 16) & 0xFF;
+    *G = (col >> 8) & 0xFF;
+    *B = (col >> 0) & 0xFF;
+#else
+    *B = (col >> 16) & 0xFF;
+    *G = (col >> 8) & 0xFF;
+    *R = (col >> 0) & 0xFF;
+#endif
+}
+
 unsigned int bm_hsl(double H, double S, double L) {
     /* The formula is based on the one on the wikipedia:
      * https://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
@@ -3271,6 +3286,37 @@ unsigned int bm_hsla(double H, double S, double L, double A) {
     unsigned int a = (unsigned int)(A * 255 / 100);
     unsigned int c = bm_hsl(H,S,L);
     return (c & 0x00FFFFFF) | ((a & 0xFF) << 24);
+}
+
+void bm_get_hsl(unsigned int col, double *H, double *S, double *L) {
+    unsigned char R, G, B, M, m, C;
+    assert(H);
+    assert(S);
+    assert(L);
+    bm_get_rgb(col, &R, &G, &B);
+    //printf("%.2f %.2f %.2f\n", R/255.0, G/255.0, B/255.0);
+    M = MAX(R, MAX(G, B));
+    m = MIN(R, MIN(G, B));
+    C = M - m;
+    if(C == 0) {
+        *H = 0;
+    } else if (M == R) {
+        *H = fmod((double)(G - B)/C, 6);
+    } else if (M == G) {
+        *H = (double)(B - R)/C + 2.0;
+    } else if (M == B) {
+        *H = (double)(R - G)/C + 4.0;
+    }
+    *H = fmod(*H * 60.0, 360);
+    if(*H < 0) *H = 360.0 + *H;
+    *L = 0.5 * (M + m) / 255.0;
+    if(C == 0) {
+        *S = 0;
+    } else {
+        *S = (double)C / (1.0 - fabs(2.0 * *L - 1.0)) / 255.0;
+    }
+    *L *= 100;
+    *S *= 100;
 }
 
 void bm_set_color(Bitmap *bm, unsigned int col) {

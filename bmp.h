@@ -58,26 +58,26 @@ extern "C" {
  * and the data buffer is an array of bytes BGRABGRABGRABGRABGRA...
  */
 typedef struct bitmap {
-	/* Dimesions of the bitmap */
-	int w, h;
+    /* Dimesions of the bitmap */
+    int w, h;
 
-	/* The actual pixel data in RGBA format */
-	unsigned char *data;
+    /* The actual pixel data in RGBA format */
+    unsigned char *data;
 
-	/* Color for the pen of the canvas */
-	unsigned int color;
+    /* Color for the pen of the canvas */
+    unsigned int color;
 
-	/* Font object for rendering text */
-	struct bitmap_font *font;
+    /* Font object for rendering text */
+    struct bitmap_font *font;
 
-	/* Clipping Rectangle
-	 * (x0,y0) is inclusive.
-	 * (x1,y1) is exclusive.
-	 */
-	struct {
-		int x0, y0;
-		int x1, y1;
-	} clip;
+    /* Clipping Rectangle
+     * (x0,y0) is inclusive.
+     * (x1,y1) is exclusive.
+     */
+    struct {
+        int x0, y0;
+        int x1, y1;
+    } clip;
 } Bitmap;
 
 /**
@@ -248,66 +248,11 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c);
  * Functions for manipulating colors in the image.
  */
 
-/** `unsigned int bm_atoi(const char *text)`  \
- * Converts a text string like "#FF00FF" or "white" to
- * an integer of the form `0xFF00FF`.
- * The `text` parameter is not case sensitive and spaces are
- * ignored, so for example "darkred" and "Dark Red" are equivalent.
- *
- * The shorthand `#RGB` format is also supported
- * (eg. `#0fb`, which is the same as `#00FFBB`).
- *
- * Additionally, it also supports the CSS syntax for "RGB(r,g,b)",
- * "RGBA(r,g,b,a)".
- *
- * The list of supported colors are based on the wikipedia's
- * list of HTML and X11 [Web colors](http://en.wikipedia.org/wiki/Web_colors).
- *
- * It returns 0 (black) if the string couldn't be parsed.
- */
-unsigned int bm_atoi(const char *text);
-
-/** `unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B)`  \
- * Builds a color from the specified `(R,G,B)` values
- */
-unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
-
-/** `unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`  \
- * Builds a color from the specified `(R,G,B,A)` values
- */
-unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A);
-
-/** `unsigned int bm_hsl(double H, double S, double L)`  \
- * Creates a color from the given Hue/Saturation/Lightness values.
- * See <https://en.wikipedia.org/wiki/HSL_and_HSV> for more information.
- *
- * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
- * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
- */
-unsigned int bm_hsl(double H, double S, double L);
-
-/** `unsigned int bm_hsla(double H, double S, double L, double A)`  \
- * Creates a color from the given Hue/Saturation/Lightness and alpha values.
- *
- * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
- * Saturation (`S`) and Lightness (`L`) and Alpha (`A`) are given as percentages from 0 to 100%.
- */
-unsigned int bm_hsla(double H, double S, double L, double A);
-
 /** `void bm_set_color(Bitmap *bm, unsigned int col)`  \
  * Sets the color of the pen to a color represented
  * by an integer, like `0xAARRGGBB`
  */
 void bm_set_color(Bitmap *bm, unsigned int col);
-
-/** `unsigned int bm_byte_order(unsigned int col)`  \
- * Fixes the input color to be in the proper byte order.
- *
- * The input color should be in the format `0xAARRGGBB`. The output
- * will be in either `0xAARRGGBB` or `0xAABBGGRR` depending on how the
- * library was compiled.
- */
-unsigned int bm_byte_order(unsigned int col);
 
 /** `unsigned int bm_get_color(Bitmap *bc)`  \
  * Retrieves the pen color.
@@ -328,6 +273,74 @@ void bm_set_alpha(Bitmap *bm, int a);
  * It returns the integer representation of the color.
  */
 unsigned int bm_picker(Bitmap *bm, int x, int y);
+
+/** `unsigned int bm_atoi(const char *text)`  \
+ * Converts a text string like "#FF00FF" or "white" to
+ * an integer of the form `0xFF00FF`.
+ * The `text` parameter is not case sensitive and spaces are
+ * ignored, so for example "darkred" and "Dark Red" are equivalent.
+ *
+ * The shorthand "#RGB" format is also supported
+ * (eg. "#0fb", which is the same as "#00FFBB").
+ *
+ * Additionally, it also supports the CSS syntax for "RGB(r,g,b)",
+ * "RGBA(r,g,b,a)", "HSL(h,s,l)" and "HSLA(h,s,l,a)".
+ *
+ * The list of supported colors are based on the wikipedia's
+ * list of HTML and X11 [Web colors](http://en.wikipedia.org/wiki/Web_colors).
+ *
+ * It returns 0 (black) if the string couldn't be parsed.
+ */
+unsigned int bm_atoi(const char *text);
+
+/** `unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B)`  \
+ * Builds a color from the specified `(R,G,B)` values
+ */
+unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
+
+/** `unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`  \
+ * Builds a color from the specified `(R,G,B,A)` values
+ */
+unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A);
+
+/** `void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned char *B)`  \
+ * Decomposes a color `col` into its `R,G,B` components.
+ */
+void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned char *B);
+
+/** `unsigned int bm_hsl(double H, double S, double L)`  \
+ * Creates a color from the given Hue/Saturation/Lightness values.
+ * See <https://en.wikipedia.org/wiki/HSL_and_HSV> for more information.
+ *
+ * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
+ * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
+ */
+unsigned int bm_hsl(double H, double S, double L);
+
+/** `unsigned int bm_hsla(double H, double S, double L, double A)`  \
+ * Creates a color from the given Hue/Saturation/Lightness and alpha values.
+ *
+ * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
+ * Saturation (`S`) and Lightness (`L`) and Alpha (`A`) are given as percentages from 0 to 100%.
+ */
+unsigned int bm_hsla(double H, double S, double L, double A);
+
+/** `bm_get_hsl(unsigned int col, double *H, double *S, double *L)`  \
+ * Decomposes a color `col` into its Hue/Saturation/Lightness components.
+ *
+ * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
+ * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
+ */
+void bm_get_hsl(unsigned int col, double *H, double *S, double *L);
+
+/** `unsigned int bm_byte_order(unsigned int col)`  \
+ * Fixes the input color to be in the proper byte order.
+ *
+ * The input color should be in the format `0xAARRGGBB`. The output
+ * will be in either `0xAARRGGBB` or `0xAABBGGRR` depending on how the
+ * library was compiled.
+ */
+unsigned int bm_byte_order(unsigned int col);
 
 /** `int bm_lerp(int color1, int color2, double t)`  \
  * Computes the color that is a distance `t` along the line between
@@ -548,12 +561,12 @@ void bm_fill(Bitmap *b, int x, int y);
  * * `void *data` - Additonal data that may be required by the font.
  */
 typedef struct bitmap_font {
-	const char *type;
-	int (*puts)(Bitmap *b, int x, int y, const char *text);
-	void (*dtor)(struct bitmap_font *font);
-	int (*width)(struct bitmap_font *font);
-	int (*height)(struct bitmap_font *font);
-	void *data;
+    const char *type;
+    int (*puts)(Bitmap *b, int x, int y, const char *text);
+    void (*dtor)(struct bitmap_font *font);
+    int (*width)(struct bitmap_font *font);
+    int (*height)(struct bitmap_font *font);
+    void *data;
 } BmFont;
 
 /** `bm_set_font(Bitmap *b, , BmFont *font)`  \
@@ -619,13 +632,13 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  * * `BM_FONT_THICK` - A thicker variant of the normal font.
  */
 enum bm_fonts {
-	BM_FONT_NORMAL,
-	BM_FONT_BOLD,
-	BM_FONT_CIRCUIT,
-	BM_FONT_HAND,
-	BM_FONT_SMALL,
-	BM_FONT_SMALL_I,
-	BM_FONT_THICK
+    BM_FONT_NORMAL,
+    BM_FONT_BOLD,
+    BM_FONT_CIRCUIT,
+    BM_FONT_HAND,
+    BM_FONT_SMALL,
+    BM_FONT_SMALL_I,
+    BM_FONT_THICK
 };
 
 /** `void bm_std_font(Bitmap *b, enum bm_fonts font)`  \
@@ -662,8 +675,8 @@ const char *bm_font_name(int index);
  * - [] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
  *      function that takes a callback which iterates over all the pixels to simplify
  *      the API.  \
- *      The callback can look like `int (*)(Bitmap *b, int oldcolor,int x, int y)`
- * - [] I've added a precompiler definition IGNORE_ALPHA which causes all color
+ *      The callback can look like `int (*)(Bitmap *b, int oldcolor, int x, int y)`
+ * - [] I've added a precompiler definition `IGNORE_ALPHA` which causes all color
  *      operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
  *      It is not properly tested because I don't have any serious projects that
  *      depends on the alpha values at the moment.
