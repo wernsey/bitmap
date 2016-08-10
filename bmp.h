@@ -257,10 +257,13 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c);
  * The shorthand `#RGB` format is also supported
  * (eg. `#0fb`, which is the same as `#00FFBB`).
  *
- * Additionally, it also supports the syntax "RGB(x,y,z)".
+ * Additionally, it also supports the CSS syntax for "RGB(r,g,b)",
+ * "RGBA(r,g,b,a)".
  *
  * The list of supported colors are based on the wikipedia's
- * list of HTML and X11 [Web colors](http://en.wikipedia.org/wiki/Web_colors)
+ * list of HTML and X11 [Web colors](http://en.wikipedia.org/wiki/Web_colors).
+ *
+ * It returns 0 (black) if the string couldn't be parsed.
  */
 unsigned int bm_atoi(const char *text);
 
@@ -273,6 +276,23 @@ unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
  * Builds a color from the specified `(R,G,B,A)` values
  */
 unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A);
+
+/** `unsigned int bm_hsl(double H, double S, double L)`  \
+ * Creates a color from the given Hue/Saturation/Lightness values.
+ * See <https://en.wikipedia.org/wiki/HSL_and_HSV> for more information.
+ *
+ * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
+ * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
+ */
+unsigned int bm_hsl(double H, double S, double L);
+
+/** `unsigned int bm_hsla(double H, double S, double L, double A)`  \
+ * Creates a color from the given Hue/Saturation/Lightness and alpha values.
+ *
+ * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
+ * Saturation (`S`) and Lightness (`L`) and Alpha (`A`) are given as percentages from 0 to 100%.
+ */
+unsigned int bm_hsla(double H, double S, double L, double A);
 
 /** `void bm_set_color(Bitmap *bm, unsigned int col)`  \
  * Sets the color of the pen to a color represented
@@ -647,11 +667,11 @@ const char *bm_font_name(int index);
  *      operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
  *      It is not properly tested because I don't have any serious projects that
  *      depends on the alpha values at the moment.
- * - [] Add support for the `rgba(r,g,b,a)` syntax of specifying colors.
- *   - [] Make sure the existing `rgb(r,g,b)` syntax is actually working.
- * - [] Add support for the `%` form for specifying colors: `rgb(10%,20%,30%)`.
+ * - [x] Add support for the `rgba(r,g,b,a)` syntax of specifying colors.
+ *   - [x] Make sure the existing `rgb(r,g,b)` syntax is actually working.
+ * - [x] Add support for the `%` form for specifying colors: `rgb(10%,20%,30%)`.
  *      _Those percentages are floats_.
- * - [] Add support for the `hsl(h,s,l)` and `hsla(h,s,l,a)` syntax for specifying
+ * - [x] Add support for the `hsl(h,s,l)` and `hsla(h,s,l,a)` syntax for specifying
  *      colors. See <https://en.wikipedia.org/wiki/Web_colors#CSS_colors>,
  *      <https://developer.mozilla.org/en/docs/Web/CSS/color_value> and
  *      <https://en.wikipedia.org/wiki/HSL_and_HSV>.

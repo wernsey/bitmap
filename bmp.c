@@ -2455,7 +2455,7 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
     j = sy;
     for(y = dy; y < dy + h; y++) {
         i = sx;
-        for(x = dx; x < dx + w; x++) {          
+        for(x = dx; x < dx + w; x++) {
 #if IGNORE_ALPHA
             int c = BM_GET(src, i, j) & 0x00FFFFFF;
             if(c != (src->color & 0x00FFFFFF))
@@ -2731,7 +2731,7 @@ void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest) {
     /* Why does this function exist again? */
     int x,y;
 #if IGNORE_ALPHA
-	src |= 0xFF000000; dest |= 0xFF000000;
+    src |= 0xFF000000; dest |= 0xFF000000;
 #endif
     for(y = 0; y < b->h; y++)
         for(x = 0; x < b->w; x++) {
@@ -3045,27 +3045,95 @@ unsigned int bm_atoi(const char *text) {
         text++;
 
     if(tolower(text[0]) == 'r' && tolower(text[1]) == 'g' && tolower(text[2]) == 'b') {
-        /* Color is given like RGB(r,g,b) */
-        int v,i;
+        /* Color is given like RGB(r,g,b) or RGBA(r,g,b,a) */
+        int i = 0,a = 0, c[4];
         text += 3;
+        if(text[0] == 'a') {
+            a = 1;
+            text++;
+        }
         if(text[0] != '(') return 0;
-        text++;
-
-        for(i = 0; i < 3; i++) {
-            v = 0;
+        do {
+            text++;
+            size_t len;
+            char buf[10];
             while(isspace(text[0]))
                 text++;
-            while(isdigit(text[0])) {
-                v = v * 10 + (text[0] - '0');
+            len = strspn(text, "0123456789.");
+            if(len >= sizeof buf)
+                return 0;
+            strncpy(buf,text,len);
+            buf[len] = '\0';
+            text += len;
+
+            if(text[0] == '%') {
+                double p = atof(buf);
+                c[i++] = (int)(p * 255 / 100);
                 text++;
+            } else {
+                if(i == 3) {
+                    /* alpha value is given as a value between 0.0 and 1.0 */
+                    double p = atof(buf);
+                    c[i++] = (int)(p * 255);
+                } else {
+                    c[i++] = atoi(buf);
+                }
             }
             while(isspace(text[0]))
                 text++;
-            if(text[0] != ",,)"[i]) return 0;
+
+        } while(text[0] == ',' && i < 4);
+
+        if(text[0] != ')' || i != (a ? 4 : 3))
+            return 0;
+
+        if(a)
+            return bm_rgba(c[0], c[1], c[2], c[3]);
+        else
+            return bm_rgb(c[0], c[1], c[2]);
+    } else if(tolower(text[0]) == 'h' && tolower(text[1]) == 's' && tolower(text[2]) == 'l') {
+        /* Color is given like HSL(h,s,l) or HSLA(h,s,l,a) */
+        int i = 0,a = 0;
+        double c[4];
+        text += 3;
+        if(text[0] == 'a') {
+            a = 1;
             text++;
-            col = (col << 8) + v;
         }
-        return bm_byte_order(col);
+        if(text[0] != '(') return 0;
+        do {
+            text++;
+            size_t len;
+            char buf[10];
+            while(isspace(text[0]))
+                text++;
+            len = strspn(text, "0123456789.");
+            if(len >= sizeof buf)
+                return 0;
+            strncpy(buf,text,len);
+            buf[len] = '\0';
+            text += len;
+
+            c[i] = atof(buf);
+            if(i == 1 || i == 2) {
+                if(text[0] == '%')
+                    text++;
+            }
+            i++;
+
+            while(isspace(text[0]))
+                text++;
+
+        } while(text[0] == ',' && i < 4);
+
+        if(text[0] != ')' || i != (a ? 4 : 3))
+            return 0;
+
+        if(a)
+            return bm_hsla(c[0], c[1], c[2], c[3] * 100);
+        else
+            return bm_hsl(c[0], c[1], c[2]);
+
     } else if(isalpha(text[0])) {
         const char *q, *p;
 
@@ -3115,38 +3183,94 @@ unsigned int bm_atoi(const char *text) {
         }
     } else if(text[0] == '0' && tolower(text[1]) == 'x') {
         text += 2;
-    } else if(tolower(text[0]) == 'h' && tolower(text[1]) == 's' && tolower(text[2]) == 'l') {
-        /* Not supported yet.
-        http://en.wikipedia.org/wiki/HSL_color_space
-        */
-        return 0;
     }
 
-    while(isxdigit(text[0])) {
-        int c = tolower(text[0]);
-        if(c >= 'a' && c <= 'f') {
-            col = (col << 4) + (c - 'a' + 10);
-        } else {
-            col = (col << 4) + (c - '0');
+    if(strlen(text) == 8) {
+        /* CSS specifies colors as #RRGGBBAA, but I store it internally as ARGB (or ABGR) */
+        while(isxdigit(text[0])) {
+            int c = tolower(text[0]);
+            if(c >= 'a' && c <= 'f') {
+                col = (col << 4) + (c - 'a' + 10);
+            } else {
+                col = (col << 4) + (c - '0');
+            }
+            text++;
         }
-        text++;
+        col = ((col & 0xFF) << 24) | ((col & 0xFFFFFF00) >> 8);
+    } else if(strlen(text) == 6) {
+        while(isxdigit(text[0])) {
+            int c = tolower(text[0]);
+            if(c >= 'a' && c <= 'f') {
+                col = (col << 4) + (c - 'a' + 10);
+            } else {
+                col = (col << 4) + (c - '0');
+            }
+            text++;
+        }
+    } else {
+        return 0;
     }
     return bm_byte_order(col);
 }
 
 unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B) {
 #if !ABGR
-	return 0xFF000000 | ((R) << 16) | ((G) << 8) | (B);
+    return 0xFF000000 | ((R) << 16) | ((G) << 8) | (B);
 #else
-	return 0xFF000000 | ((B) << 16) | ((G) << 8) | (R);
+    return 0xFF000000 | ((B) << 16) | ((G) << 8) | (R);
 #endif
 }
 unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A) {
 #if !ABGR
-	return ((A) << 24) | ((R) << 16) | ((G) << 8) | (B);	
+    return ((A) << 24) | ((R) << 16) | ((G) << 8) | (B);
 #else
-	return ((A) << 24) | ((B) << 16) | ((G) << 8) | (R);	
+    return ((A) << 24) | ((B) << 16) | ((G) << 8) | (R);
 #endif
+}
+
+unsigned int bm_hsl(double H, double S, double L) {
+    /* The formula is based on the one on the wikipedia:
+     * https://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
+     * If you look at the examples, (https://en.wikipedia.org/wiki/HSL_and_HSV#Examples),
+     * there seems to be a small rounding error
+     */
+    double R = 0, G = 0, B = 0;
+    double C, X, m;
+
+    if(H > 0)
+        H = fmod(H, 360.0);
+    if(S < 0 || S > 100.0) return 0;
+    S /= 100.0;
+    if(L < 0 || L > 100.0) return 0;
+    L /= 100.0;
+
+    C = (1.0 - fabs(2.0 * L - 1.0)) * S;
+    H = H / 60.0;
+    X = C * (1.0 - fabs(fmod(H, 2.0) - 1.0));
+
+    /* Treat H < 0 as H undefined */
+    if(H >= 0 && H < 1) {
+        R = C; G = X; B = 0;
+    } else if (H < 2) {
+        R = X; G = C; B = 0;
+    } else if (H < 3) {
+        R = 0; G = C; B = X;
+    } else if (H < 4) {
+        R = 0; G = X; B = C;
+    } else if (H < 5) {
+        R = X; G = 0; B = C;
+    } else if (H < 6) {
+        R = C; G = 0; B = X;
+    }
+    m = L - 0.5 * C;
+
+    return bm_rgb((R + m) * 255.0, (G + m) * 255.0, (B + m) * 255.0);
+}
+
+unsigned int bm_hsla(double H, double S, double L, double A) {
+    unsigned int a = (unsigned int)(A * 255 / 100);
+    unsigned int c = bm_hsl(H,S,L);
+    return (c & 0x00FFFFFF) | ((a & 0xFF) << 24);
 }
 
 void bm_set_color(Bitmap *bm, unsigned int col) {
@@ -3155,9 +3279,9 @@ void bm_set_color(Bitmap *bm, unsigned int col) {
 
 unsigned int bm_byte_order(unsigned int col) {
 #if !ABGR
-	return col;
+    return col;
 #else
-	return (col & 0xFF00FF00) | ((col >> 16) & 0x000000FF) | ((col & 0x000000FF) << 16);
+    return (col & 0xFF00FF00) | ((col >> 16) & 0x000000FF) | ((col & 0x000000FF) << 16);
 #endif
 }
 
