@@ -342,13 +342,13 @@ void bm_get_hsl(unsigned int col, double *H, double *S, double *L);
  */
 unsigned int bm_byte_order(unsigned int col);
 
-/** `int bm_lerp(int color1, int color2, double t)`  \
+/** `unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t)`  \
  * Computes the color that is a distance `t` along the line between
  * `color1` and `color2`.
  *
  * If `t` is 0 it returns `color1`. If `t` is 1.0 it returns `color2`.
  */
-int bm_lerp(int color1, int color2, double t);
+unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t);
 
 /**
  * ### Blitting Functions
@@ -452,14 +452,14 @@ Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh);
 void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
 
 #ifdef NULL /* <stdlib.h> included? - required for size_t */
-/** `void bm_reduce_palette(Bitmap *b, int palette[], size_t n)`  \
+/** `void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n)`  \
  * Reduces the colors in the bitmap `b` to the colors in `palette`
  * by applying Floyd-Steinberg dithering.
  *
  * `palette` is an array of integers containing the new palette and
  * `n` is the number of entries in the palette.
  */
-void bm_reduce_palette(Bitmap *b, int palette[], size_t n);
+void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n);
 #endif
 
 /**

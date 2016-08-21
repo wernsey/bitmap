@@ -30,9 +30,9 @@ int verbose = 0;
 int scale = 5;
 int cols = -1;
 
-int colors[MAX_COLORS], ncolors=0;
+unsigned int colors[MAX_COLORS], ncolors=0;
 
-void add_color(int c) {
+void add_color(unsigned int c) {
 	if(ncolors == MAX_COLORS) {
 		fprintf(stderr, "error: MAX_COLORS (%d) exceeded\n", MAX_COLORS);
 	}
@@ -111,7 +111,7 @@ int parse_palette(const char *text) {
 	nextsym();
 	while(!accept(SYM_END)) {
 		if(sym == SYM_COLOR) {
-			int c1 = bm_atoi(token);
+			unsigned int c1 = bm_atoi(token);
 			nextsym();
 			if(sym == '-') {
 				nextsym();
@@ -119,7 +119,7 @@ int parse_palette(const char *text) {
 					fprintf(stderr, "error: %d: color expected\n", line);
 					return 0;
 				}
-				int i, c2 = bm_atoi(token), st = steps;
+				unsigned int i, c2 = bm_atoi(token), st = steps;
 				nextsym();
 				if(sym == ':') {
 					nextsym();
@@ -133,7 +133,7 @@ int parse_palette(const char *text) {
 				if(st < 2) st = 2;
 				for(i = 0; i < st; i++) {
 					double t = (double)(i) / (st - 1);
-					int c = bm_lerp(c1, c2, t);
+					unsigned int c = bm_lerp(c1, c2, t);
 					add_color(c);
 				}
 			} else {
@@ -242,7 +242,7 @@ void usage(const char *name) {
 
 static char *read_file(const char *fname);
 
-extern void bm_reduce_palette_OD8(Bitmap *b, int palette[], size_t n);
+extern void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n);
 
 int main(int argc, char *argv[]) {
 	int opt;

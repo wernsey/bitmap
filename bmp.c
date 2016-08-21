@@ -1805,7 +1805,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 
     nc = count_colors_build_palette(b, gct);
     if(nc < 0) {
-        int palette[256], q;
+        unsigned int palette[256], q;
 
         /* Too many colors */
         sgct = 256;
@@ -2099,7 +2099,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
             Sample random pixels and generate a palette from them.
             A better solution would be to use some clustering, but
             I don't have the stomach for that now. */
-        int palette[256], q;
+        unsigned int palette[256], q;
         ncolors = 0;
         for(ncolors = 0; ncolors < 256; ncolors++) {
             unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
@@ -3254,9 +3254,11 @@ unsigned int bm_hsl(double H, double S, double L) {
 
     if(H > 0)
         H = fmod(H, 360.0);
-    if(S < 0 || S > 100.0) return 0;
+    if(S < 0) S = 0;
+    if(S > 100.0) S = 100.0;
     S /= 100.0;
-    if(L < 0 || L > 100.0) return 0;
+    if(L < 0) L = 0;
+    if(L > 100.0) L = 100;
     L /= 100.0;
 
     C = (1.0 - fabs(2.0 * L - 1.0)) * S;
@@ -3342,21 +3344,7 @@ unsigned int bm_picker(Bitmap *bm, int x, int y) {
     return bm->color;
 }
 
-/* Squared distance between colors; so you don't need to get the root if you're
-    only interested in comparing distances. */
-static int col_dist_sq(int color1, int color2) {
-    int r1, g1, b1;
-    int r2, g2, b2;
-    int dr, dg, db;
-    r1 = (color1 >> 16) & 0xFF; g1 = (color1 >> 8) & 0xFF; b1 = (color1 >> 0) & 0xFF;
-    r2 = (color2 >> 16) & 0xFF; g2 = (color2 >> 8) & 0xFF; b2 = (color2 >> 0) & 0xFF;
-    dr = r1 - r2;
-    dg = g1 - g2;
-    db = b1 - b2;
-    return dr * dr + dg * dg + db * db;
-}
-
-int bm_lerp(int color1, int color2, double t) {
+unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
     int r1, g1, b1;
     int r2, g2, b2;
     int r3, g3, b3;
@@ -3806,10 +3794,25 @@ void bm_fill(Bitmap *b, int x, int y) {
     b->color = dc;
 }
 
-static int closest_color(int c, int palette[], size_t n) {
-    int i, m = 0, md = col_dist_sq(c, palette[m]);
+/* Squared distance between colors; so you don't need to get the root if you're
+    only interested in comparing distances. */
+static unsigned int col_dist_sq(unsigned int color1, unsigned int color2) {
+    unsigned int r1, g1, b1;
+    unsigned int r2, g2, b2;
+    unsigned int dr, dg, db;
+    r1 = (color1 >> 16) & 0xFF; g1 = (color1 >> 8) & 0xFF; b1 = (color1 >> 0) & 0xFF;
+    r2 = (color2 >> 16) & 0xFF; g2 = (color2 >> 8) & 0xFF; b2 = (color2 >> 0) & 0xFF;
+    dr = r1 - r2;
+    dg = g1 - g2;
+    db = b1 - b2;
+    return dr * dr + dg * dg + db * db;
+}
+
+static unsigned int closest_color(unsigned int c, unsigned int palette[], size_t n) {
+    int i, m = 0;
+	unsigned int md = col_dist_sq(c, palette[m]);
     for(i = 1; i < n; i++) {
-        int d = col_dist_sq(c, palette[i]);
+        unsigned int d = col_dist_sq(c, palette[i]);
         if(d < md) {
             md = d;
             m = i;
@@ -3838,7 +3841,7 @@ static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f
     BM_SET_RGBA(b, x, y, R, G, B, 0);
 }
 
-void bm_reduce_palette(Bitmap *b, int palette[], size_t n) {
+void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n) {
     /* Floyd-Steinberg (error-diffusion) dithering
         http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering */
     int x, y;
@@ -3846,10 +3849,10 @@ void bm_reduce_palette(Bitmap *b, int palette[], size_t n) {
         return;
     for(y = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
-            int r1, g1, b1;
-            int r2, g2, b2;
-            int er, eg, eb;
-            int newpixel, oldpixel = BM_GET(b, x, y);
+            unsigned int r1, g1, b1;
+            unsigned int r2, g2, b2;
+            unsigned int er, eg, eb;
+            unsigned int newpixel, oldpixel = BM_GET(b, x, y);
 
             newpixel = closest_color(oldpixel, palette, n);
 
@@ -3883,7 +3886,7 @@ static int bayer8x8[64] = { /*(1/65)*/
     11, 59,  7, 55, 10, 58,  6, 54,
     43, 27, 39, 23, 42, 26, 38, 22,
 };
-static void reduce_palette_bayer(Bitmap *b, int palette[], size_t n, int bayer[], int dim, int fac) {
+static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, int bayer[], int dim, int fac) {
     /* Ordered dithering: https://en.wikipedia.org/wiki/Ordered_dithering
     The resulting image may be of lower quality than you would get with
     Floyd-Steinberg, but it does have some advantages:
@@ -3899,8 +3902,8 @@ static void reduce_palette_bayer(Bitmap *b, int palette[], size_t n, int bayer[]
         return;
     for(y = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
-            int R, G, B;
-            int newpixel, oldpixel = BM_GET(b, x, y);
+            unsigned int R, G, B;
+            unsigned int newpixel, oldpixel = BM_GET(b, x, y);
 
             R = (oldpixel >> 16) & 0xFF; G = (oldpixel >> 8) & 0xFF; B = (oldpixel >> 0) & 0xFF;
 
@@ -3923,11 +3926,11 @@ static void reduce_palette_bayer(Bitmap *b, int palette[], size_t n, int bayer[]
     }
 }
 
-void bm_reduce_palette_OD4(Bitmap *b, int palette[], size_t n) {
+void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n) {
     reduce_palette_bayer(b, palette, n, bayer4x4, 4, 17);
 }
 
-void bm_reduce_palette_OD8(Bitmap *b, int palette[], size_t n) {
+void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n) {
     reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
 }
 
