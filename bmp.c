@@ -1854,7 +1854,11 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     }
 
     /* See if we can find the background color in the palette */
+#ifndef IGNORE_ALPHA
     bg = b->color & 0x00FFFFFF;
+#else
+    bg = b->color;
+#endif
     bg = bsrch_palette_lookup(gct, bg, 0, nc - 1);
     if(bg >= 0) {
         gif.lsd.background = bg;
@@ -3246,8 +3250,6 @@ void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned c
 unsigned int bm_hsl(double H, double S, double L) {
     /* The formula is based on the one on the wikipedia:
      * https://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
-     * If you look at the examples, (https://en.wikipedia.org/wiki/HSL_and_HSV#Examples),
-     * there seems to be a small rounding error
      */
     double R = 0, G = 0, B = 0;
     double C, X, m;
