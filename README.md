@@ -51,16 +51,21 @@ script.
 
 ## Additional Utilities
 
-* `bmpfont.c` and `bmpfont.h` - Wrapper around
+* The `fonts/` directory contains some 8&times;8 bitmap fonts in XBM format
+  that can be loaded via the `bm_make_xbm_font()` function.
+  * Most of the fonts are based on 80's home computers, drawn from the examples
+  at http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts
+  * The `INSTRUCTIONS`
+* The `ftypefont/` directory contains a wrapper for
   [FreeType](http://www.freetype.org/) to allow rendering of freetype-supported
   fonts on `Bitmap` structures.
-* The `palette/` directory contains a utility for generating palettes and
-  converting images to those palettes.
 * The `misc/` directory contains
   * `gif.c` - the file I used to develop the GIF encoder/decoder originally.
     I've kept it in case I want to do something advanced later, like animated
     GIFs.
-
+  * The `palette/` subdirectory contains a utility for generating palettes and
+    converting images to those palettes.
+  
 ## References
 
 - <http://en.wikipedia.org/wiki/BMP_file_format>

@@ -570,10 +570,7 @@ void bm_fill(Bitmap *b, int x, int y);
  * Structure that represents the details about a font.
  * * `const char *type` - a text description of the type of font
  * * `int (*puts)(Bitmap *b, int x, int y, const char *text)` -
- *   Pointer to the structure that will actually render the text.
- * * `void (*dtor)(struct bitmap_font *font)` -
- *   Destructor that will be used to delete the font if the bitmap is deleted
- *   or another font chosen.
+ *   Pointer to the function that will actually render the text.
  * * `int (*width)(struct bitmap_font *font)` - Function that returns the
  *   width (in pixels) of a single character in the font.
  * * `int (*height)(struct bitmap_font *font)` - Function that returns the
@@ -652,11 +649,7 @@ void bm_free_xbm_font(BmFont *font);
  * TODO
  * ----
  * - [] I should also go through the API and make the naming a bit more consistent.
- *   - [] and double check that the parameters of functions are consistent, e.g
- *     all functions that take `x0,y0 - x1,y1` parameters use those names and not `x1,y1 - x2,y2`
- *   - [x] ~~and that `x0,y0` is inclusive and `x1,y1` is exclusive.~~
- *      You can't do that because `bm_rect()` *should* include `<x1,y1>`, but clipping shouldn't.
- *      It would've been a different story if it used `<w,h>` instead.
+ *   - Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.
  * - [] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
  *      function that takes a callback which iterates over all the pixels to simplify
  *      the API.  \
@@ -665,16 +658,6 @@ void bm_free_xbm_font(BmFont *font);
  *      operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
  *      It is not properly tested because I don't have any serious projects that
  *      depends on the alpha values at the moment.
- * - [x] Add support for the `rgba(r,g,b,a)` syntax of specifying colors.
- *   - [x] Make sure the existing `rgb(r,g,b)` syntax is actually working.
- * - [x] Add support for the `%` form for specifying colors: `rgb(10%,20%,30%)`.
- *      _Those percentages are floats_.
- * - [x] Add support for the `hsl(h,s,l)` and `hsla(h,s,l,a)` syntax for specifying
- *      colors. See <https://en.wikipedia.org/wiki/Web_colors#CSS_colors>,
- *      <https://developer.mozilla.org/en/docs/Web/CSS/color_value> and
- *      <https://en.wikipedia.org/wiki/HSL_and_HSV>.
- *   - Formulas here <https://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB>
- *   - You'll find examples on the wikipedia here: <https://en.wikipedia.org/wiki/HSL_and_HSV#Examples>
  */
 
 #endif /* BMP_H */
