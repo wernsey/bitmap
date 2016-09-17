@@ -87,6 +87,7 @@ static int tt_puts(Bitmap *b, int x, int y, const char *s) {
         }
 		s++;
 	}
+	return 1;
 }
 
 static int tt_width(struct bitmap_font *font) {
@@ -107,7 +108,6 @@ BmFont tomthumb = {
 #ifdef TEST
 int main(int argc, char *argv[]) {
 	
-	int x, y, a = 0;
 	Bitmap *b = bm_create(240, 160);
 	
     bm_set_color(b, 0xFFFFFF);
