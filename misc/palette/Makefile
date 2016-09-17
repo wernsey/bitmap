@@ -10,14 +10,13 @@ all: $(EXECUTABLE)
 
 lib: $(LIB)
 
-$(EXECUTABLE) : palette.o ../bmp.o
+$(EXECUTABLE) : palette.o ../../bmp.o
 	$(CC) $(LDFLAGS) -o $@ $^
 
 .c.o:
 	$(CC) $(CFLAGS) $< -o $@
 
-bmp.o : ../bmp.c ../bmp.h
-palette.o : ../bmp.h
+palette.o : ../../bmp.h
 
 .PHONY : clean
 

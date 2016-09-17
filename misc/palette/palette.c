@@ -16,7 +16,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "../bmp.h"
+#include "../../bmp.h"
 
 #define MAX_COLORS		256
 
