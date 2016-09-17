@@ -460,6 +460,26 @@ void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
  * `n` is the number of entries in the palette.
  */
 void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n);
+
+/** `void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n)`  \
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) 
+ * and a 4x4 Bayer matrix.
+ *
+ * `palette` is an array of integers containing the new palette and
+ * `n` is the number of entries in the palette.
+ */
+void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n);
+
+/** `void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n)`  \
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) 
+ * and a 8x8 Bayer matrix.
+ *
+ * `palette` is an array of integers containing the new palette and
+ * `n` is the number of entries in the palette.
+ */
+void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n);
 #endif
 
 /**
@@ -563,7 +583,6 @@ void bm_fill(Bitmap *b, int x, int y);
 typedef struct bitmap_font {
     const char *type;
     int (*puts)(Bitmap *b, int x, int y, const char *text);
-    void (*dtor)(struct bitmap_font *font);
     int (*width)(struct bitmap_font *font);
     int (*height)(struct bitmap_font *font);
     void *data;
@@ -573,6 +592,12 @@ typedef struct bitmap_font {
  * Changes the font used to render text on the bitmap.
  */
 void bm_set_font(Bitmap *b, BmFont *font);
+
+/** `void bm_reset_font(BmFont *b)` \
+ * Resets the font used to draw on the `Bitmap` to the 
+ * default *Apple II*-inspired font
+ */
+void bm_reset_font(Bitmap *b);
 
 /** `int bm_text_width(Bitmap *b, const char *s)`  \
  * Returns the width in pixels of a string of text.
@@ -614,50 +639,10 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
-#ifndef NO_FONTS
-/**
- * #### Built-in XBM fonts.
- * There are a number of built-in fonts available which is placed in the
- * `fonts/` directory.
- *
- * If you don't wish to use these, compile with the `-DNO_FONTS` flag.
- * `enum bm_fonts`  \
- * Built-in XBM fonts that can be set with `bm_std_font()`
- * * `BM_FONT_NORMAL` - A default font.
- * * `BM_FONT_BOLD` - A bold font.
- * * `BM_FONT_CIRCUIT` - A "computer" font that looks like a circuit board.
- * * `BM_FONT_HAND` - A font that looks like hand writing.
- * * `BM_FONT_SMALL` - A small font.
- * * `BM_FONT_SMALL_I` - A variant of the small font with the foreground and background inverted.
- * * `BM_FONT_THICK` - A thicker variant of the normal font.
+/** `void bm_free_xbm_font(BmFont *font)`  \
+ * Frees an XBM font previously created with `bm_make_xbm_font()`.
  */
-enum bm_fonts {
-    BM_FONT_NORMAL,
-    BM_FONT_BOLD,
-    BM_FONT_CIRCUIT,
-    BM_FONT_HAND,
-    BM_FONT_SMALL,
-    BM_FONT_SMALL_I,
-    BM_FONT_THICK
-};
-
-/** `void bm_std_font(Bitmap *b, enum bm_fonts font)`  \
- * Sets the font to one of the standard (built-in) ones.
- */
-void bm_std_font(Bitmap *b, enum bm_fonts font);
-
-/** `int bm_font_index(const char *name)`  \
- * Returns the index of one of the standard (built-in) XBM fonts identified
- * by the `name`.
- */
-int bm_font_index(const char *name);
-
-/** `const char *bm_font_name(int index)`  \
- * Returns the name of the standard (built-in) XBM font identified
- * by `index`, which should fall in the range of the `enum bm_fonts`.
- */
-const char *bm_font_name(int index);
-#endif /* NO_FONTS */
+void bm_free_xbm_font(BmFont *font);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 } /* extern "C" */
