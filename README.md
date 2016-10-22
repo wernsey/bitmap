@@ -31,9 +31,6 @@ The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 Copy `bmp.c` and `bmp.h` to your project directory, and add `bmp.c` to your
 list of files to compile.
 
-Copy the `fonts/` directory into your project directory. If you don't want the
-8-bit fonts, compile with `-DNO_FONTS` instead.
-
 To enable PNG support you need zlib and [libpng](http://www.libpng.org) (the
 development versions) installed. Use the `-DUSEPNG` command line option when
 compiling.
@@ -67,6 +64,8 @@ script.
     GIFs.
   * The `palette/` subdirectory contains a utility for generating palettes and
     converting images to those palettes.
+  * `pbm.c` and `xbm.c`: Samples on how to use the module with PBM and XBM file
+    formats.
   
 ## References
 
