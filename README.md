@@ -53,7 +53,7 @@ script.
   * Most of the fonts are based on 80's home computers, drawn from the examples
   at http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts
   * The `INSTRUCTIONS` file contains information for using them.
-  * The `tomthumb.c` file contains a 4&times;6 font based on the "Tom Thumb" 
+  * The `tomthumb.c` file contains a 4&times;6 font based on the "Tom Thumb"
     monospace font at http://robey.lag.net/2010/01/23/tiny-monospace-font.html
 * The `ftypefont/` directory contains a wrapper for
   [FreeType](http://www.freetype.org/) to allow rendering of freetype-supported
@@ -66,7 +66,10 @@ script.
     converting images to those palettes.
   * `pbm.c` and `xbm.c`: Samples on how to use the module with PBM and XBM file
     formats.
-  
+  * The `kmeans/` subdirectory contains a program that uses
+    [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering)
+    to identify the dominant colors in an image.
+
 ## References
 
 - <http://en.wikipedia.org/wiki/BMP_file_format>

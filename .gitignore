@@ -11,4 +11,8 @@ ftypefont/ftfont.html
 out.bmp
 out.gif
 
+misc/*.gif
+misc/*.bmp
+misc/kmeans/*.bmp
+
 *.gdbinit
