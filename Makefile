@@ -33,8 +33,8 @@ bmp.o: bmp.c bmp.h
 
 docs: bitmap.html
 
-bitmap.html: bmp.h comdown.awk
-	$(AWK) -f comdown.awk bmp.h > $@
+bitmap.html: bmp.h d.awk
+	$(AWK) -f d.awk $< > $@
 	
 .PHONY : clean 
 
