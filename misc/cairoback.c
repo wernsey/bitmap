@@ -2,6 +2,9 @@
  * Example of using the bitmap module as a backend for Cairo...
  * https://cairographics.org
  *
+ * See also https://cairographics.org/manual/cairo-Image-Surfaces.html and
+ * http://stackoverflow.com/a/24317443/115589
+ *
  * On Windows, I can compile it with MinGW like so:
  *   $ gcc -I/local/include cairoback.c ../bmp.c -L/local/lib -lcairo -lpixman-1 -lfreetype -lpng -lz -mwindows
  * Compiling libcairo with MinGW is a different story, but this may help:
