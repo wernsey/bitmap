@@ -11,8 +11,10 @@ Features:
   * `Bitmap` structures can also be created from XBM data.
 * Support fo SDL2' `SDL_RWops` file manipulation routines for loading images in
   the supported formats.
-* Supports manipulation of OpenGL textures, SDL surfaces and so on. See the
-  `bm_bind()` function.
+* Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/) surfaces,
+  [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface) contexts. See the
+  `bm_bind()` function. It can also serve as a back end for
+  [Cairo graphics](https://cairographics.org)
 * Primitives: Lines, circles, elipses, bezier curves, etc.
   * Clipping rectangles are obeyed.
 * Floodfill and filled primitives
@@ -62,6 +64,8 @@ script.
   * `gif.c` - the file I used to develop the GIF encoder/decoder originally.
     I've kept it in case I want to do something advanced later, like animated
     GIFs.
+  * `cairoback.c` - A demo of how the bitmap objects can be used as a back-end
+    for the [Cairo graphics library](https://cairographics.org)
   * The `palette/` subdirectory contains a utility for generating palettes and
     converting images to those palettes.
   * `pbm.c` and `xbm.c`: Samples on how to use the module with PBM and XBM file
