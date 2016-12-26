@@ -138,11 +138,11 @@ static Bitmap *load_gif_reader(BmReader rd) {
     /* Section 17. Header. */
     if(rd.fread(&gif.header, sizeof gif.header, 1, rd.data) != 1) {
         fprintf(stderr, "error: unable to read header\n");
-        return;
+        return NULL;
     }
     if(memcmp(gif.header.signature, "GIF", 3)){
         fprintf(stderr, "error: not a GIF\n");
-        return;
+        return NULL;
     }
     if(!memcmp(gif.header.version, "87a", 3)){
         printf("GIF 87a\n");
@@ -152,7 +152,7 @@ static Bitmap *load_gif_reader(BmReader rd) {
         gif.version = gif_89a;
     } else {
         fprintf(stderr, "error: invalid version number\n");
-        return;
+        return NULL;
     }
 
     /* Section 18. Logical Screen Descriptor. */
@@ -163,11 +163,11 @@ static Bitmap *load_gif_reader(BmReader rd) {
 
     if(rd.fread(&gif.lsd, sizeof gif.lsd, 1, rd.data) != 1) {
         fprintf(stderr, "error: unable to read Logical Screen Descriptor\n");
-        return;
+        return NULL;
     }
 
     gct = !!(gif.lsd.fields & 0x80);
-    col_res = (gif.lsd.fields >> 4) & 0x07 + 1;
+    col_res = ((gif.lsd.fields >> 4) & 0x07) + 1;
     sort_flag = !!(gif.lsd.fields & 0x08);
     sgct = gif.lsd.fields & 0x07;
 
@@ -197,25 +197,25 @@ static Bitmap *load_gif_reader(BmReader rd) {
 
     if(gct) {
         /* Section 19. Global Color Table. */
-        int i;
         struct rgb_triplet *bg;
         palette = calloc(sgct, sizeof *palette);
 
         if(rd.fread(palette, sizeof *palette, sgct, rd.data) != sgct) {
             fprintf(stderr, "error: unable to read Global Color Table\n");
             free(palette);
-            return;
+            return NULL;
         }
 
         printf("Global Color Table: %d entries\n", sgct);
 #if SHOW_CT
+		int i;
         for(i = 0; i < sgct; i++) {
             printf(" %3d: %02X %02X %02X\n", i, palette[i].r, palette[i].g, palette[i].b);
         }
 #endif
         /* Set the Bitmap's color to the background color.*/
         bg = &palette[gif.lsd.background];
-        bm_set_color_rgb(gif.bmp, bg->r, bg->g, bg->b);
+        bm_set_color(gif.bmp, bm_rgb(bg->r, bg->g, bg->b));
         bm_clear(gif.bmp);
         bm_set_color(gif.bmp, 0);
         bm_set_alpha(gif.bmp, 0);
@@ -280,29 +280,31 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
     } else if(label == 0xFE) {
         /* Section 24. Comment Extension. */
         int len;
-        char *bytes = gif_data_sub_blocks(rd, &len);
+        unsigned char *bytes = gif_data_sub_blocks(rd, &len);
         printf("Comment Extension: (%d bytes)\n  '%s'\n", len, bytes);
     } else if(label == 0x01) {
         /* Section 25. Plain Text Extension. */
         GIF_TXT_EXT te;
         int len;
-        char *bytes;
+        unsigned char *bytes;
         if(rd.fread(&te, sizeof te, 1, rd.data) != 1) {
             fprintf(stderr, "warning: unable to read Text Extension\n");
             return 0;
         }
         bytes = gif_data_sub_blocks(rd, &len);
+		(void)bytes;
         printf("Text Extension: (%d bytes)\n", len);
     } else if(label == 0xFF) {
         /* Section 26. Application Extension. */
         GIF_APP_EXT ae;
         int len;
-        char *bytes;
+        unsigned char *bytes;
         if(rd.fread(&ae, sizeof ae, 1, rd.data) != 1) {
             fprintf(stderr, "warning: unable to read Application Extension\n");
             return 0;
         }
         bytes = gif_data_sub_blocks(rd, &len);
+		(void)bytes;
         printf("Application Extension: (%d bytes)\n", len);
     } else {
         printf("error: unknown label 0x%02X\n", label);
@@ -345,7 +347,6 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
     slct = gif_id.fields & 0x07;
     if(lct) {
         /* Section 21. Local Color Table. */
-        int i;
 
         /* raise 2 to the power of [slct+1] */
         slct = 1 << (slct + 1);
@@ -360,6 +361,7 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
 
         printf("Local Color Table: %d entries\n", slct);
 #if SHOW_CT
+        int i;
         for(i = 0; i < slct; i++) {
             printf(" %3d: %02X %02X %02X\n", i, ct[i].r, ct[i].g, ct[i].b);
         }
@@ -449,11 +451,13 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
         /* Packed fields in the Graphic Control Extension */
         int dispose = 0, user_in = 0, trans_flag = 0;
 
-        lct = !!(gif_id->fields & 0x80);
+        lct = !!(gif_id->fields & 0x80); 
         intl = !!(gif_id->fields & 0x40);
-        sort = !!(gif_id->fields & 0x20);
-        slct = gif_id->fields & 0x07;
-
+        sort = !!(gif_id->fields & 0x20); 
+        slct = gif_id->fields & 0x07; 
+		
+		(void)lct; (void)sort; (void)slct;
+		
         if(gce->block_size) {
             /* gce->block_size will be 4 if the GCE is present, 0 otherwise */
             dispose = (gce->fields >> 2) & 0x07;
@@ -464,9 +468,10 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
                     situations where different image blocks in the
                     GIF has different transparent colors */
                 struct rgb_triplet *bg = &ct[gce->trans_index];
-                bm_set_color_rgb(gif->bmp, bg->r, bg->g, bg->b);
+                bm_set_color(gif->bmp, bm_rgb(bg->r, bg->g, bg->b));
             }
         }
+		(void)user_in;
 
         if(gif_id->top + gif_id->height > gif->bmp->h ||
             gif_id->left + gif_id->width > gif->bmp->w) {
@@ -532,9 +537,9 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
                                 struct rgb_triplet *rgb = &ct[c];
                                 assert(x + gif_id->left >= 0 && x + gif_id->left < gif->bmp->w);
                                 if(trans_flag && c == gce->trans_index) {
-                                    bm_set_rgb_a(gif->bmp, x + gif_id->left, truey, rgb->r, rgb->g, rgb->b, 0x00);
+                                    bm_set(gif->bmp, x + gif_id->left, truey, bm_rgba(rgb->r, rgb->g, rgb->b, 0x00));
                                 } else {
-                                    bm_set_rgb(gif->bmp, x + gif_id->left, truey, rgb->r, rgb->g, rgb->b);
+                                    bm_set(gif->bmp, x + gif_id->left, truey, bm_rgb(rgb->r, rgb->g, rgb->b));
                                 }
                             } else {
                                 /* Decode error */
@@ -791,32 +796,31 @@ reread:
     return buffer;
 }
 
-static Bitmap *load_gif_fp(FILE *f) {
+static Bitmap *gif_load_fp(FILE *f) {
     BmReader rd = make_file_reader(f);
     return load_gif_reader(rd);
 }
 
-static Bitmap *load_gif(const char *filename) {
+Bitmap *gif_load(const char *filename) {
     FILE *fp = fopen(filename, "rb");
     Bitmap *bm;
     if(!fp) {
         fprintf(stderr, "error: unable to open %s\n", filename);
         return NULL;
     }
-    bm = load_gif_fp(fp);
+    bm = gif_load_fp(fp);
 
     fclose(fp);
     return bm;
 }
 
-static int save_gif_fp(Bitmap *b, FILE *f) {
+static int gif_save_fp(Bitmap *b, FILE *f) {
     GIF gif;
     GIF_GCE gce;
     GIF_ID gif_id;
     int nc, sgct, bg;
     struct rgb_triplet gct[256];
     Bitmap *bo = b;
-    unsigned char trailer = 0x3B;
     unsigned char code_size = 0x08;
 
     memcpy(gif.header.signature, "GIF", 3);
@@ -838,7 +842,7 @@ static int save_gif_fp(Bitmap *b, FILE *f) {
         gif.lsd.fields |= 0x07;
 
         /* color quantization - see bm_save_pcx() */
-        int palette[256], q;
+        unsigned int palette[256], q;
         nc = 0;
         for(nc = 0; nc < 256; nc++) {
             int c = bm_get(b, rand()%b->w, rand()%b->h);
@@ -980,81 +984,24 @@ static int save_gif_fp(Bitmap *b, FILE *f) {
     return 1;
 }
 
-static int save_gif(Bitmap *b, const char *filename) {
+int gif_save(Bitmap *b, const char *filename) {
     FILE *fp = fopen(filename, "wb");
-    int rv;
+
     if(!fp) {
         fprintf(stderr, "error: unable to open %s\n", filename);
         return 0;
     }
-    save_gif_fp(b, fp);
+    gif_save_fp(b, fp);
     fclose(fp);
     return 1;
 }
 
-
-
-
-
-
-int main(int argc, char *argv[]) {
-    Bitmap *bmp;
-
-    srand(time(NULL));
-
 #if 1
-    if(argc < 2) {
-        fprintf(stderr, "usage: %s file.gif\n", argv[0]);
-        return 1;
-    }
-    assert(sizeof(unsigned short) == 2);
-
-    bmp = load_gif(argv[1]);
-    if(bmp) {
-        printf("Count Colours: %d\n", bm_count_colors(bmp, 0));
-        bm_save(bmp, "gifout.bmp");
-        if(!save_gif(bmp, "gifout.gif")) {
-            fprintf(stderr, "error: Unable to save GIF\n");
-            return 1;
-        }
-        bm_free(bmp);
-    }
-#else
-    bmp = bm_load("lenna.bmp");
-    if(!bmp) {
-        fprintf(stderr, "error: Unable to open bitmap\n");
-        return 1;
-    }
-#define FILENAME "gifout.gif"
-    if(!save_gif(bmp, FILENAME)) {
-        fprintf(stderr, "error: Unable to save GIF\n");
-        return 1;
-    }
-    printf("------------------------------------------\n");
-    bm_free(bmp);
-    bmp = load_gif(FILENAME);
-    if(!bmp) {
-        fprintf(stderr, "error: Unable to open GIF\n");
-        return 1;
-    }
-    bm_free(bmp);
-#endif
-    return 0;
-}
-
-
-
-
-
-
-
-
-/*
-    --- already defined in bmp.c, but here's a bugfix ---
-Also, once you can presumably optimize the palette lookup by building a palette
-from the image (once you've reduced the image to less than 256 colors), sorting it,
-and then using a binary search to find the index of the color you're looking for.
-*/
+/*****
+These functions are already defined as static in bmp.c.
+I'd like to modify the API at some stage to expose the functionality 
+via bmp.h, but the function prototypes would need some thought.
+*****/
 static int get_palette_idx(struct rgb_triplet rgb[], int *nentries, int c) {
     int r = (c >> 16) & 0xFF;
     int g = (c >> 8) & 0xFF;
@@ -1151,4 +1098,52 @@ static int comp_rgb(const void *ap, const void *bp) {
     int b = (tb->r << 16) | (tb->g << 8) | tb->b;
     return a - b;
 }
+#endif
 
+/* Test program main() function */
+#ifdef TEST
+int main(int argc, char *argv[]) {
+    Bitmap *bmp;
+
+    srand(time(NULL));
+
+#  if 1
+    if(argc < 2) {
+        fprintf(stderr, "usage: %s file.gif\n", argv[0]);
+        return 1;
+    }
+    assert(sizeof(unsigned short) == 2);
+
+    bmp = gif_load(argv[1]);
+    if(bmp) {
+        //printf("Count Colours: %d\n", bm_count_colors(bmp, 0));
+        bm_save(bmp, "gifout.bmp");
+        if(!gif_save(bmp, "gifout.gif")) {
+            fprintf(stderr, "error: Unable to save GIF\n");
+            return 1;
+        }
+        bm_free(bmp);
+    }
+#  else
+    bmp = bm_load("lenna.bmp");
+    if(!bmp) {
+        fprintf(stderr, "error: Unable to open bitmap\n");
+        return 1;
+    }
+#define FILENAME "gifout.gif"
+    if(!gif_save(bmp, FILENAME)) {
+        fprintf(stderr, "error: Unable to save GIF\n");
+        return 1;
+    }
+    printf("------------------------------------------\n");
+    bm_free(bmp);
+    bmp = gif_load(FILENAME);
+    if(!bmp) {
+        fprintf(stderr, "error: Unable to open GIF\n");
+        return 1;
+    }
+    bm_free(bmp);
+#  endif
+    return 0;
+}
+#endif
