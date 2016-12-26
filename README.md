@@ -61,9 +61,8 @@ script.
   [FreeType](http://www.freetype.org/) to allow rendering of freetype-supported
   fonts on `Bitmap` structures.
 * The `misc/` directory contains
-  * `gif.c` - the file I used to develop the GIF encoder/decoder originally.
-    I've kept it in case I want to do something advanced later, like animated
-    GIFs.
+  * `gif.c` and `gif.h` - code for programmatically manipulating animated GIFs.
+    It originates from the file I used to develop the GIF encoder/decoder originally.
   * `cairoback.c` - A demo of how the bitmap objects can be used as a back-end
     for the [Cairo graphics library](https://cairographics.org)
   * The `palette/` subdirectory contains a utility for generating palettes and
