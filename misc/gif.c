@@ -11,6 +11,7 @@ http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <float.h>
 #include <string.h>
 #include <math.h>
@@ -19,13 +20,11 @@ http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 
 #include "../bmp.h"
 
-#define SHOW_CT    0
-#define SHOW_DATA  0
+int gif_verbose = 0;
 
 #pragma pack(push, 1) /* Don't use any padding */
 
-/* This is the same RGB triplet structure used in bmp.c for GIF and PCX */
-struct rgb_triplet {
+struct gif_triplet {
     unsigned char r, g, b;
 };
 
@@ -92,14 +91,23 @@ typedef struct {
 /* Already defined in bmp.c for the GIF and PCX code, but duplicated here because I
 	need to reconsider the API */
 static int cnt_comp_mask(const void*ap, const void*bp);
-static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]);
-static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int imax);
+static int count_colors_build_palette(Bitmap *b, struct gif_triplet rgb[256]);
+static int bsrch_palette_lookup(struct gif_triplet rgb[], int c, int imin, int imax);
 static int comp_rgb(const void *ap, const void *bp);
 
-static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct);
-static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct);
+static int gif_read_image(FILE *fp, GIF *gif, struct gif_triplet *ct, int sct);
+static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct gif_triplet *ct, int sct);
 static unsigned char *gif_data_sub_blocks(FILE *fp, int *r_tsize);
 static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int code_size, int *out_len);
+
+static void output(FILE *outfile, const char *fmt, ...) {
+	if(gif_verbose) {
+		va_list arg;
+		va_start(arg, fmt);
+		vfprintf(outfile, fmt, arg);
+		va_end(arg);
+	}
+}
 
 static Bitmap *load_gif_reader(FILE *fp) {
     GIF gif;
@@ -108,7 +116,7 @@ static Bitmap *load_gif_reader(FILE *fp) {
     int gct, col_res, sort_flag, sgct;
     float aspect_ratio;
 
-    struct rgb_triplet *palette = NULL;
+    struct gif_triplet *palette = NULL;
 
     unsigned char trailer;
 
@@ -116,21 +124,21 @@ static Bitmap *load_gif_reader(FILE *fp) {
 
     /* Section 17. Header. */
     if(fread(&gif.header, sizeof gif.header, 1, fp) != 1) {
-        fprintf(stderr, "error: unable to read header\n");
+        output(stderr, "error: unable to read header\n");
         return NULL;
     }
     if(memcmp(gif.header.signature, "GIF", 3)){
-        fprintf(stderr, "error: not a GIF\n");
+        output(stderr, "error: not a GIF\n");
         return NULL;
     }
     if(!memcmp(gif.header.version, "87a", 3)){
-        printf("GIF 87a\n");
+        output(stdout, "GIF 87a\n");
         gif.version = gif_87a;
     } else if(!memcmp(gif.header.version, "89a", 3)){
-        printf("GIF 89a\n");
+        output(stdout, "GIF 89a\n");
         gif.version = gif_89a;
     } else {
-        fprintf(stderr, "error: invalid version number\n");
+        output(stderr, "error: invalid version number\n");
         return NULL;
     }
 
@@ -141,7 +149,7 @@ static Bitmap *load_gif_reader(FILE *fp) {
     assert(sizeof *palette == 3);
 
     if(fread(&gif.lsd, sizeof gif.lsd, 1, fp) != 1) {
-        fprintf(stderr, "error: unable to read Logical Screen Descriptor\n");
+        output(stderr, "error: unable to read Logical Screen Descriptor\n");
         return NULL;
     }
 
@@ -161,37 +169,37 @@ static Bitmap *load_gif_reader(FILE *fp) {
         aspect_ratio = ((float)gif.lsd.par + 15.0f)/64.0f;
     }
 
-    printf("Width .......................: %u\n", gif.lsd.width);
-    printf("Height ......................: %u\n", gif.lsd.height);
-    printf("Fields ......................: 0x%X\n", gif.lsd.fields);
-    printf("  Global color table ..: %d\n", gct);
-    printf("  Color Resolution ....: %d\n", col_res);
-    printf("  Sort Flag ...........: %d\n", sort_flag);
-    printf("  Size of GCT .........: %d\n", sgct);
-    printf("Background ..................: %u\n", gif.lsd.background);
-    printf("Px Aspect Ratio .............: %u\n", gif.lsd.par);
-    printf("  Calculated ..........: %.4f\n", aspect_ratio);
+    output(stdout, "Width .......................: %u\n", gif.lsd.width);
+    output(stdout, "Height ......................: %u\n", gif.lsd.height);
+    output(stdout, "Fields ......................: 0x%X\n", gif.lsd.fields);
+    output(stdout, "  Global color table ..: %d\n", gct);
+    output(stdout, "  Color Resolution ....: %d\n", col_res);
+    output(stdout, "  Sort Flag ...........: %d\n", sort_flag);
+    output(stdout, "  Size of GCT .........: %d\n", sgct);
+    output(stdout, "Background ..................: %u\n", gif.lsd.background);
+    output(stdout, "Px Aspect Ratio .............: %u\n", gif.lsd.par);
+    output(stdout, "  Calculated ..........: %.4f\n", aspect_ratio);
 
     gif.bmp = bm_create(gif.lsd.width, gif.lsd.height);
 
     if(gct) {
         /* Section 19. Global Color Table. */
-        struct rgb_triplet *bg;
+        struct gif_triplet *bg;
         palette = calloc(sgct, sizeof *palette);
 
         if(fread(palette, sizeof *palette, sgct, fp) != sgct) {
-            fprintf(stderr, "error: unable to read Global Color Table\n");
+            output(stderr, "error: unable to read Global Color Table\n");
             free(palette);
             return NULL;
         }
 
-        printf("Global Color Table: %d entries\n", sgct);
-#if SHOW_CT
-		int i;
-        for(i = 0; i < sgct; i++) {
-            printf(" %3d: %02X %02X %02X\n", i, palette[i].r, palette[i].g, palette[i].b);
-        }
-#endif
+        output(stdout, "Global Color Table: %d entries\n", sgct);		
+		if(gif_verbose > 1) {
+			int i;
+			for(i = 0; i < sgct; i++) {
+				output(stdout, " %3d: %02X %02X %02X\n", i, palette[i].r, palette[i].g, palette[i].b);
+			}
+		}
         /* Set the Bitmap's color to the background color.*/
         bg = &palette[gif.lsd.background];
         bm_set_color(gif.bmp, bm_rgb(bg->r, bg->g, bg->b));
@@ -217,11 +225,11 @@ static Bitmap *load_gif_reader(FILE *fp) {
 
     /* Section 27. Trailer. */
     if((fread(&trailer, 1, 1, fp) != 1) || trailer != 0x3B) {
-        fprintf(stderr, "error: trailer is not 0x3B\n");
+        output(stderr, "error: trailer is not 0x3B\n");
         bm_free(gif.bmp);
         return NULL;
     }
-    printf("Trailer: %02X\n", trailer);
+    output(stdout, "Trailer: %02X\n", trailer);
 
     return gif.bmp;
 }
@@ -238,61 +246,61 @@ static int gif_read_extension(FILE *fp, GIF_GCE *gce) {
         return 0;
     }
 
-    printf("  Introducer ..........: 0x%02X\n", introducer);
-    printf("  Label ...............: 0x%02X\n", label);
+    output(stdout, "  Introducer ..........: 0x%02X\n", introducer);
+    output(stdout, "  Label ...............: 0x%02X\n", label);
 
     if(label == 0xF9) {
         /* 23. Graphic Control Extension. */
         if(fread(gce, sizeof *gce, 1, fp) != 1) {
-            fprintf(stderr, "warning: unable to read Graphic Control Extension\n");
+            output(stderr, "warning: unable to read Graphic Control Extension\n");
             return 0;
         }
-        printf("Graphic Control Extension:\n");
-        printf("  Terminator ..........: 0x%02X\n", gce->terminator);
-        printf("  Block Size ..........: %d\n", gce->block_size);
-        printf("  Fields ..............: 0x%02X\n", gce->fields);
-        printf("    Dispose ......: %d\n", (gce->fields >> 2) & 0x07);
-        printf("    User Input ...: %d\n", !!(gce->fields & 0x02));
-        printf("    Transparent ..: %d\n", gce->fields & 0x01);
-        printf("  Delay ...............: %u\n", gce->delay);
-        printf("  Transparent Index ...: %d\n", gce->trans_index);
+        output(stdout, "Graphic Control Extension:\n");
+        output(stdout, "  Terminator ..........: 0x%02X\n", gce->terminator);
+        output(stdout, "  Block Size ..........: %d\n", gce->block_size);
+        output(stdout, "  Fields ..............: 0x%02X\n", gce->fields);
+        output(stdout, "    Dispose ......: %d\n", (gce->fields >> 2) & 0x07);
+        output(stdout, "    User Input ...: %d\n", !!(gce->fields & 0x02));
+        output(stdout, "    Transparent ..: %d\n", gce->fields & 0x01);
+        output(stdout, "  Delay ...............: %u\n", gce->delay);
+        output(stdout, "  Transparent Index ...: %d\n", gce->trans_index);
     } else if(label == 0xFE) {
         /* Section 24. Comment Extension. */
         int len;
         unsigned char *bytes = gif_data_sub_blocks(fp, &len);
-        printf("Comment Extension: (%d bytes)\n  '%s'\n", len, bytes);
+        output(stdout, "Comment Extension: (%d bytes)\n  '%s'\n", len, bytes);
     } else if(label == 0x01) {
         /* Section 25. Plain Text Extension. */
         GIF_TXT_EXT te;
         int len;
         unsigned char *bytes;
         if(fread(&te, sizeof te, 1, fp) != 1) {
-            fprintf(stderr, "warning: unable to read Text Extension\n");
+            output(stderr, "warning: unable to read Text Extension\n");
             return 0;
         }
         bytes = gif_data_sub_blocks(fp, &len);
 		(void)bytes;
-        printf("Text Extension: (%d bytes)\n", len);
+        output(stdout, "Text Extension: (%d bytes)\n", len);
     } else if(label == 0xFF) {
         /* Section 26. Application Extension. */
         GIF_APP_EXT ae;
         int len;
         unsigned char *bytes;
         if(fread(&ae, sizeof ae, 1, fp) != 1) {
-            fprintf(stderr, "warning: unable to read Application Extension\n");
+            output(stderr, "warning: unable to read Application Extension\n");
             return 0;
         }
         bytes = gif_data_sub_blocks(fp, &len);
 		(void)bytes;
-        printf("Application Extension: (%d bytes)\n", len);
+        output(stdout, "Application Extension: (%d bytes)\n", len);
     } else {
-        printf("error: unknown label 0x%02X\n", label);
+        output(stdout, "error: unknown label 0x%02X\n", label);
     }
     return 1;
 }
 
 /* Section 20. Image Descriptor. */
-static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct) {
+static int gif_read_image(FILE *fp, GIF *gif, struct gif_triplet *ct, int sct) {
     GIF_GCE gce;
     GIF_ID gif_id;
 
@@ -316,7 +324,7 @@ static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct) {
     }
 
     if(gif_id.separator != 0x2C) {
-        fprintf(stderr, "error: block is not an image descriptor (0x%02X)\n", gif_id.separator);
+        output(stderr, "error: block is not an image descriptor (0x%02X)\n", gif_id.separator);
         return 0;
     }
 
@@ -333,32 +341,32 @@ static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct) {
         ct = calloc(slct, sizeof *ct);
 
         if(fread(ct, sizeof *ct, slct, fp) != slct) {
-            fprintf(stderr, "error: unable to read local color table\n");
+            output(stderr, "error: unable to read local color table\n");
             free(ct);
             return 0;
         }
 
-        printf("Local Color Table: %d entries\n", slct);
-#if SHOW_CT
-        int i;
-        for(i = 0; i < slct; i++) {
-            printf(" %3d: %02X %02X %02X\n", i, ct[i].r, ct[i].g, ct[i].b);
-        }
-#endif
+        output(stdout, "Local Color Table: %d entries\n", slct);
+		if(gif_verbose > 1) {
+			int i;
+			for(i = 0; i < slct; i++) {
+				output(stdout, " %3d: %02X %02X %02X\n", i, ct[i].r, ct[i].g, ct[i].b);
+			}
+		}
 
         sct = slct;
     }
 
-    printf("Image Descriptor:\n");
-    printf("  Left ................: %d\n", gif_id.left);
-    printf("  Top .................: %d\n", gif_id.top);
-    printf("  Width ...............: %d\n", gif_id.width);
-    printf("  Height ..............: %d\n", gif_id.height);
-    printf("  Fields ..............: 0x%02X\n", gif_id.fields);
-    printf("    LCT ..........: %d\n", lct);
-    printf("    Interlace ....: %d\n", intl);
-    printf("    Sort .........: %d\n", sort);
-    printf("    Size of LCT ..: %d\n", slct);
+    output(stdout, "Image Descriptor:\n");
+    output(stdout, "  Left ................: %d\n", gif_id.left);
+    output(stdout, "  Top .................: %d\n", gif_id.top);
+    output(stdout, "  Width ...............: %d\n", gif_id.width);
+    output(stdout, "  Height ..............: %d\n", gif_id.height);
+    output(stdout, "  Fields ..............: 0x%02X\n", gif_id.fields);
+    output(stdout, "    LCT ..........: %d\n", lct);
+    output(stdout, "    Interlace ....: %d\n", intl);
+    output(stdout, "    Sort .........: %d\n", sort);
+    output(stdout, "    Size of LCT ..: %d\n", slct);
 
     if(!gif_read_tbid(fp, gif, &gif_id, &gce, ct, sct)) {
         return 0; /* what? */
@@ -385,9 +393,9 @@ static unsigned char *gif_data_sub_blocks(FILE *fp, int *r_tsize) {
     buffer = realloc(buffer, 1);
 
     while(size > 0) {
-#if SHOW_DATA
-        printf("  Size ................: %d (%d)\n", size, tsize);
-#endif
+        if(gif_verbose > 2) {
+			output(stdout, "  Size ................: %d (%d)\n", size, tsize);
+		}
         buffer = realloc(buffer, tsize + size + 1);
         pos = buffer + tsize;
 
@@ -410,7 +418,7 @@ static unsigned char *gif_data_sub_blocks(FILE *fp, int *r_tsize) {
 }
 
 /* Section 22. Table Based Image Data. */
-static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct) {
+static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct gif_triplet *ct, int sct) {
     int len, rv = 1;
     unsigned char *bytes, min_code_size;
 
@@ -418,8 +426,8 @@ static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struc
         return 0;
     }
 
-    printf("Table Based Image Data:\n");
-    printf("  Minimum Code Size ...: %d\n", min_code_size);
+    output(stdout, "Table Based Image Data:\n");
+    output(stdout, "  Minimum Code Size ...: %d\n", min_code_size);
 
     bytes = gif_data_sub_blocks(fp, &len);
     if(bytes && len > 0) {
@@ -447,24 +455,24 @@ static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struc
                 /* Mmmm, my bitmap module won't be able to handle
                     situations where different image blocks in the
                     GIF has different transparent colors */
-                struct rgb_triplet *bg = &ct[gce->trans_index];
+                struct gif_triplet *bg = &ct[gce->trans_index];
                 bm_set_color(gif->bmp, bm_rgb(bg->r, bg->g, bg->b));
             }
         }
 
         if(gif_id->top + gif_id->height > gif->bmp->h ||
             gif_id->left + gif_id->width > gif->bmp->w) {
-            fprintf(stderr, "error: this image descriptor doesn't fall within the bounds of the image");
+            output(stderr, "error: this image descriptor doesn't fall within the bounds of the image");
             return 0;
         }
 
-        printf("Data block: %d bytes\n", len);
-#if SHOW_DATA
-        for(i = 0; i < len; i++) {
-            printf("%02X ", bytes[i]);
-        }
-        printf("\n");
-#endif
+        output(stdout, "Data block: %d bytes\n", len);
+		if(gif_verbose > 1) {
+			for(i = 0; i < len; i++) {
+				output(stdout, "%02X ", bytes[i]);
+			}
+			output(stdout, "\n");
+		}
 
         if(dispose == 2) {
             /* Restore the background color */
@@ -477,15 +485,15 @@ static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struc
             /* dispose = 0 or 1; if dispose is 3, we leave ignore the new image */
             unsigned char *decoded = lzw_decode_bytes(bytes, len, min_code_size, &outlen);
             if(decoded) {
-#if SHOW_DATA
-                for(i = 0; i < outlen; i++) {
-                    printf("%02X ", decoded[i]);
-                }
-                printf("\n");
-#endif
+				if(gif_verbose > 1) {
+					for(i = 0; i < outlen; i++) {
+						output(stdout, "%02X ", decoded[i]);
+					}
+					output(stdout, "\n");
+				}
                 if(outlen != gif_id->width * gif_id->height) {
                     /* Shouldn't happen unless the file is corrupt */
-                    fprintf(stderr, "error: %d decoded bytes does not fit dimensions %d x %d pixels\n", outlen, gif_id->width, gif_id->height);
+                    output(stderr, "error: %d decoded bytes does not fit dimensions %d x %d pixels\n", outlen, gif_id->width, gif_id->height);
                     rv = 0;
                 } else {
                     /* Vars for interlacing: */
@@ -493,7 +501,7 @@ static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struc
                         inty = 0, /* Y we're currently at */
                         inti = 8, /* amount by which we should increment inty */
                         truey; /* True Y, taking interlacing and the image descriptor into account */
-                    printf("%d decoded bytes; %d x %d pixels\n", outlen, gif_id->width, gif_id->height);
+                    output(stdout, "%d decoded bytes; %d x %d pixels\n", outlen, gif_id->width, gif_id->height);
                     for(i = 0, y = 0; y < gif_id->height && rv; y++) {
                         /* Appendix E. Interlaced Images. */
                         if(intl) {
@@ -513,7 +521,7 @@ static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struc
                         for(x = 0; x < gif_id->width && rv; x++, i++) {
                             int c = decoded[i];
                             if(c < sct) {
-                                struct rgb_triplet *rgb = &ct[c];
+                                struct gif_triplet *rgb = &ct[c];
                                 assert(x + gif_id->left >= 0 && x + gif_id->left < gif->bmp->w);
                                 if(trans_flag && c == gce->trans_index) {
                                     bm_set(gif->bmp, x + gif_id->left, truey, bm_rgba(rgb->r, rgb->g, rgb->b, 0x00));
@@ -601,7 +609,7 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
 
         if(code > di) {
             /* Shouldn't happen, unless file corrupted */
-            fprintf(stderr, "error: code (%02Xh) is outside dictionary (%02Xh); code size: %d\n", code, di, code_size);
+            output(stderr, "error: code (%02Xh) is outside dictionary (%02Xh); code size: %d\n", code, di, code_size);
             free(out);
             return NULL;
         }
@@ -783,7 +791,7 @@ Bitmap *gif_load(const char *filename) {
     FILE *fp = fopen(filename, "rb");
     Bitmap *bm;
     if(!fp) {
-        fprintf(stderr, "error: unable to open %s\n", filename);
+        output(stderr, "error: unable to open %s\n", filename);
         return NULL;
     }
     bm = gif_load_fp(fp);
@@ -797,7 +805,7 @@ static int gif_save_fp(Bitmap *b, FILE *f) {
     GIF_GCE gce;
     GIF_ID gif_id;
     int nc, sgct, bg;
-    struct rgb_triplet gct[256];
+    struct gif_triplet gct[256];
     Bitmap *bo = b;
     unsigned char code_size = 0x08;
 
@@ -886,17 +894,17 @@ static int gif_save_fp(Bitmap *b, FILE *f) {
     assert(p == b->w * b->h);
 
     if(fwrite(&gif.header, sizeof gif.header, 1, f) != 1) {
-        fprintf(stderr, "error: unable to write header.\n");
+        output(stderr, "error: unable to write header.\n");
         return 0;
     }
 
     if(fwrite(&gif.lsd, sizeof gif.lsd, 1, f) != 1) {
-        fprintf(stderr, "error: unable to write logical screen descriptor.\n");
+        output(stderr, "error: unable to write logical screen descriptor.\n");
         return 0;
     }
 
     if(fwrite(gct, sizeof *gct, sgct, f) != sgct) {
-        fprintf(stderr, "error: unable to write global color table.\n");
+        output(stderr, "error: unable to write global color table.\n");
         return 0;
     }
 
@@ -915,7 +923,7 @@ static int gif_save_fp(Bitmap *b, FILE *f) {
     fputc(0x21, f);
     fputc(0xF9, f);
     if(fwrite(&gce, sizeof gce, 1, f) != 1) {
-        fprintf(stderr, "error: unable to write graphic control extension.\n");
+        output(stderr, "error: unable to write graphic control extension.\n");
         return 0;
     }
 
@@ -927,7 +935,7 @@ static int gif_save_fp(Bitmap *b, FILE *f) {
     /* Not using local color table or interlacing */
     gif_id.fields = 0;
     if(fwrite(&gif_id, sizeof gif_id, 1, f) != 1) {
-        fprintf(stderr, "error: unable to write image descriptor.\n");
+        output(stderr, "error: unable to write image descriptor.\n");
         return 0;
     }
 
@@ -966,7 +974,7 @@ int gif_save(Bitmap *b, const char *filename) {
     FILE *fp = fopen(filename, "wb");
 
     if(!fp) {
-        fprintf(stderr, "error: unable to open %s\n", filename);
+        output(stderr, "error: unable to open %s\n", filename);
         return 0;
     }
     gif_save_fp(b, fp);
@@ -980,7 +988,7 @@ These functions are already defined as static in bmp.c.
 I'd like to modify the API at some stage to expose the functionality
 via bmp.h, but the function prototypes would need some thought.
 *****/
-static int get_palette_idx(struct rgb_triplet rgb[], int *nentries, int c) {
+static int get_palette_idx(struct gif_triplet rgb[], int *nentries, int c) {
     int r = (c >> 16) & 0xFF;
     int g = (c >> 8) & 0xFF;
     int b = (c >> 0) & 0xFF;
@@ -1025,7 +1033,7 @@ static int cnt_comp_mask(const void*ap, const void*bp) {
  * image will have to be quantized first.
  * It also ignores the alpha values of the pixels.
  */
-static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]) {
+static int count_colors_build_palette(Bitmap *b, struct gif_triplet rgb[256]) {
     int count = 1, i, c;
     int npx = b->w * b->h;
     int *sort = malloc(npx * sizeof *sort);
@@ -1053,7 +1061,7 @@ static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]) {
 
 /* Uses a binary search to find the index of a colour in a palette.
 It almost goes without saying that the palette must be sorted */
-static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int imax) {
+static int bsrch_palette_lookup(struct gif_triplet rgb[], int c, int imin, int imax) {
     c &= 0x00FFFFFF; /* Ignore the alpha value */
     while(imax >= imin) {
         int imid = (imin + imax) >> 1;
@@ -1071,7 +1079,7 @@ static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int i
 
 /* Comparison function for sorting an array of rgb_triplets with qsort() */
 static int comp_rgb(const void *ap, const void *bp) {
-    const struct rgb_triplet *ta = ap, *tb = bp;
+    const struct gif_triplet *ta = ap, *tb = bp;
     int a = (ta->r << 16) | (ta->g << 8) | ta->b;
     int b = (tb->r << 16) | (tb->g << 8) | tb->b;
     return a - b;
@@ -1083,8 +1091,11 @@ static int comp_rgb(const void *ap, const void *bp) {
 int main(int argc, char *argv[]) {
     Bitmap *bmp;
 
+	/* FIXME: The color quantization shouldn't depend on rand() :( */
     srand(time(NULL));
 
+	gif_verbose = 1;
+	
 #  if 1
     if(argc < 2) {
         fprintf(stderr, "usage: %s file.gif\n", argv[0]);
@@ -1094,7 +1105,6 @@ int main(int argc, char *argv[]) {
 
     bmp = gif_load(argv[1]);
     if(bmp) {
-        //printf("Count Colours: %d\n", bm_count_colors(bmp, 0));
         bm_save(bmp, "gifout.bmp");
         if(!gif_save(bmp, "gifout.gif")) {
             fprintf(stderr, "error: Unable to save GIF\n");
