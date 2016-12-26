@@ -1,7 +1,7 @@
 /*
 
 Compile:
-cc gif.c bmp.c -DNO_FONTS
+gcc gif.c bmp.c -DNO_FONTS
 
 References:
 http://www.w3.org/Graphics/GIF/spec-gif89a.txt
@@ -24,8 +24,7 @@ http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 
 #pragma pack(push, 1) /* Don't use any padding */
 
-/* Duplicate of the RGB triplet used for PCX.
-Move globally when integrating with bmp.c */
+/* This is the same RGB triplet structure used in bmp.c for GIF and PCX */
 struct rgb_triplet {
     unsigned char r, g, b;
 };
@@ -90,39 +89,19 @@ typedef struct {
 
 #pragma pack(pop)
 
-/* Already defined in bmp.c for the PCX code */
+/* Already defined in bmp.c for the GIF and PCX code, but duplicated here because I
+	need to reconsider the API */
 static int cnt_comp_mask(const void*ap, const void*bp);
 static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]);
 static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int imax);
 static int comp_rgb(const void *ap, const void *bp);
 
-/* TODO: This should be integrated with the rest of the bitmap module so
-    that I don't duplicate code between bm_load_bmp_fp() and bm_load_bmp_rw()
-    and so on.
-    It is unfortunately an abstraction over an abstraction in the case of
-    SDL_RWops, but such is life. */
-typedef struct {
-    void *data;
-    size_t (*fread)(void* ptr, size_t size, size_t nobj, void* stream);
-    long (*ftell)(void* stream);
-    int (*fseek)(void* stream, long offset, int origin);
-} BmReader;
-
-static BmReader make_file_reader(FILE *fp) {
-    BmReader rd;
-    rd.data = fp;
-    rd.fread = (size_t(*)(void*,size_t,size_t,void*))fread;
-    rd.ftell = (long(*)(void* ))ftell;
-    rd.fseek = (int(*)(void*,long,int))fseek;
-    return rd;
-}
-
-static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct);
-static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct);
-static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize);
+static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct);
+static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct);
+static unsigned char *gif_data_sub_blocks(FILE *fp, int *r_tsize);
 static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int code_size, int *out_len);
 
-static Bitmap *load_gif_reader(BmReader rd) {
+static Bitmap *load_gif_reader(FILE *fp) {
     GIF gif;
 
     /* From the packed fields in the logical screen descriptor */
@@ -136,7 +115,7 @@ static Bitmap *load_gif_reader(BmReader rd) {
     gif.bmp = NULL;
 
     /* Section 17. Header. */
-    if(rd.fread(&gif.header, sizeof gif.header, 1, rd.data) != 1) {
+    if(fread(&gif.header, sizeof gif.header, 1, fp) != 1) {
         fprintf(stderr, "error: unable to read header\n");
         return NULL;
     }
@@ -161,7 +140,7 @@ static Bitmap *load_gif_reader(BmReader rd) {
     assert(sizeof gif.lsd == 7);
     assert(sizeof *palette == 3);
 
-    if(rd.fread(&gif.lsd, sizeof gif.lsd, 1, rd.data) != 1) {
+    if(fread(&gif.lsd, sizeof gif.lsd, 1, fp) != 1) {
         fprintf(stderr, "error: unable to read Logical Screen Descriptor\n");
         return NULL;
     }
@@ -200,7 +179,7 @@ static Bitmap *load_gif_reader(BmReader rd) {
         struct rgb_triplet *bg;
         palette = calloc(sgct, sizeof *palette);
 
-        if(rd.fread(palette, sizeof *palette, sgct, rd.data) != sgct) {
+        if(fread(palette, sizeof *palette, sgct, fp) != sgct) {
             fprintf(stderr, "error: unable to read Global Color Table\n");
             free(palette);
             return NULL;
@@ -226,9 +205,9 @@ static Bitmap *load_gif_reader(BmReader rd) {
     }
 
     for(;;) {
-        long pos = rd.ftell(rd.data);
-        if(!gif_read_image(rd, &gif, palette, sgct)) {
-            rd.fseek(rd.data, pos, SEEK_SET);
+        long pos = ftell(fp);
+        if(!gif_read_image(fp, &gif, palette, sgct)) {
+            fseek(fp, pos, SEEK_SET);
             break;
         }
     }
@@ -237,7 +216,7 @@ static Bitmap *load_gif_reader(BmReader rd) {
         free(palette);
 
     /* Section 27. Trailer. */
-    if((rd.fread(&trailer, 1, 1, rd.data) != 1) || trailer != 0x3B) {
+    if((fread(&trailer, 1, 1, fp) != 1) || trailer != 0x3B) {
         fprintf(stderr, "error: trailer is not 0x3B\n");
         bm_free(gif.bmp);
         return NULL;
@@ -247,15 +226,15 @@ static Bitmap *load_gif_reader(BmReader rd) {
     return gif.bmp;
 }
 
-static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
+static int gif_read_extension(FILE *fp, GIF_GCE *gce) {
 
     unsigned char introducer, label;
 
-    if((rd.fread(&introducer, 1, 1, rd.data) != 1) || introducer != 0x21) {
+    if((fread(&introducer, 1, 1, fp) != 1) || introducer != 0x21) {
         return 0;
     }
 
-    if(rd.fread(&label, 1, 1, rd.data) != 1) {
+    if(fread(&label, 1, 1, fp) != 1) {
         return 0;
     }
 
@@ -264,7 +243,7 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
 
     if(label == 0xF9) {
         /* 23. Graphic Control Extension. */
-        if(rd.fread(gce, sizeof *gce, 1, rd.data) != 1) {
+        if(fread(gce, sizeof *gce, 1, fp) != 1) {
             fprintf(stderr, "warning: unable to read Graphic Control Extension\n");
             return 0;
         }
@@ -280,18 +259,18 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
     } else if(label == 0xFE) {
         /* Section 24. Comment Extension. */
         int len;
-        unsigned char *bytes = gif_data_sub_blocks(rd, &len);
+        unsigned char *bytes = gif_data_sub_blocks(fp, &len);
         printf("Comment Extension: (%d bytes)\n  '%s'\n", len, bytes);
     } else if(label == 0x01) {
         /* Section 25. Plain Text Extension. */
         GIF_TXT_EXT te;
         int len;
         unsigned char *bytes;
-        if(rd.fread(&te, sizeof te, 1, rd.data) != 1) {
+        if(fread(&te, sizeof te, 1, fp) != 1) {
             fprintf(stderr, "warning: unable to read Text Extension\n");
             return 0;
         }
-        bytes = gif_data_sub_blocks(rd, &len);
+        bytes = gif_data_sub_blocks(fp, &len);
 		(void)bytes;
         printf("Text Extension: (%d bytes)\n", len);
     } else if(label == 0xFF) {
@@ -299,11 +278,11 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
         GIF_APP_EXT ae;
         int len;
         unsigned char *bytes;
-        if(rd.fread(&ae, sizeof ae, 1, rd.data) != 1) {
+        if(fread(&ae, sizeof ae, 1, fp) != 1) {
             fprintf(stderr, "warning: unable to read Application Extension\n");
             return 0;
         }
-        bytes = gif_data_sub_blocks(rd, &len);
+        bytes = gif_data_sub_blocks(fp, &len);
 		(void)bytes;
         printf("Application Extension: (%d bytes)\n", len);
     } else {
@@ -313,7 +292,7 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
 }
 
 /* Section 20. Image Descriptor. */
-static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct) {
+static int gif_read_image(FILE *fp, GIF *gif, struct rgb_triplet *ct, int sct) {
     GIF_GCE gce;
     GIF_ID gif_id;
 
@@ -324,15 +303,15 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
 
     if(gif->version >= gif_89a) {
         for(;;) {
-            long pos = rd.ftell(rd.data);
-            if(!gif_read_extension(rd, &gce)) {
-                rd.fseek(rd.data, pos, SEEK_SET);
+            long pos = ftell(fp);
+            if(!gif_read_extension(fp, &gce)) {
+                fseek(fp, pos, SEEK_SET);
                 break;
             }
         }
     }
 
-    if(rd.fread(&gif_id, sizeof gif_id, 1, rd.data) != 1) {
+    if(fread(&gif_id, sizeof gif_id, 1, fp) != 1) {
         return 0; /* no more blocks to read */
     }
 
@@ -353,7 +332,7 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
 
         ct = calloc(slct, sizeof *ct);
 
-        if(rd.fread(ct, sizeof *ct, slct, rd.data) != slct) {
+        if(fread(ct, sizeof *ct, slct, fp) != slct) {
             fprintf(stderr, "error: unable to read local color table\n");
             free(ct);
             return 0;
@@ -381,7 +360,7 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
     printf("    Sort .........: %d\n", sort);
     printf("    Size of LCT ..: %d\n", slct);
 
-    if(!gif_read_tbid(rd, gif, &gif_id, &gce, ct, sct)) {
+    if(!gif_read_tbid(fp, gif, &gif_id, &gce, ct, sct)) {
         return 0; /* what? */
     }
 
@@ -393,14 +372,14 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
 }
 
 /* Section 15. Data Sub-blocks. */
-static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
+static unsigned char *gif_data_sub_blocks(FILE *fp, int *r_tsize) {
     unsigned char *buffer = NULL, *pos, size;
     int tsize = 0;
 
     if(r_tsize)
         *r_tsize = 0;
 
-    if(rd.fread(&size, 1, 1, rd.data) != 1) {
+    if(fread(&size, 1, 1, fp) != 1) {
         return NULL;
     }
     buffer = realloc(buffer, 1);
@@ -412,13 +391,13 @@ static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
         buffer = realloc(buffer, tsize + size + 1);
         pos = buffer + tsize;
 
-        if(rd.fread(pos, sizeof *pos, size, rd.data) != size) {
+        if(fread(pos, sizeof *pos, size, fp) != size) {
             free(buffer);
             return NULL;
         }
 
         tsize += size;
-        if(rd.fread(&size, 1, 1, rd.data) != 1) {
+        if(fread(&size, 1, 1, fp) != 1) {
             free(buffer);
             return NULL;
         }
@@ -431,18 +410,18 @@ static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
 }
 
 /* Section 22. Table Based Image Data. */
-static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct) {
+static int gif_read_tbid(FILE *fp, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct) {
     int len, rv = 1;
     unsigned char *bytes, min_code_size;
 
-    if(rd.fread(&min_code_size, 1, 1, rd.data) != 1) {
+    if(fread(&min_code_size, 1, 1, fp) != 1) {
         return 0;
     }
 
     printf("Table Based Image Data:\n");
     printf("  Minimum Code Size ...: %d\n", min_code_size);
 
-    bytes = gif_data_sub_blocks(rd, &len);
+    bytes = gif_data_sub_blocks(fp, &len);
     if(bytes && len > 0) {
         int i, outlen, x, y;
         /* Packed fields in the Image Descriptor */
@@ -451,17 +430,18 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
         /* Packed fields in the Graphic Control Extension */
         int dispose = 0, user_in = 0, trans_flag = 0;
 
-        lct = !!(gif_id->fields & 0x80); 
+        lct = !!(gif_id->fields & 0x80);
         intl = !!(gif_id->fields & 0x40);
-        sort = !!(gif_id->fields & 0x20); 
-        slct = gif_id->fields & 0x07; 
-		
+        sort = !!(gif_id->fields & 0x20);
+        slct = gif_id->fields & 0x07;
+
 		(void)lct; (void)sort; (void)slct;
-		
+
         if(gce->block_size) {
             /* gce->block_size will be 4 if the GCE is present, 0 otherwise */
             dispose = (gce->fields >> 2) & 0x07;
             user_in = !!(gce->fields & 0x02);
+			(void)user_in;
             trans_flag = gce->fields & 0x01;
             if(trans_flag) {
                 /* Mmmm, my bitmap module won't be able to handle
@@ -471,7 +451,6 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
                 bm_set_color(gif->bmp, bm_rgb(bg->r, bg->g, bg->b));
             }
         }
-		(void)user_in;
 
         if(gif_id->top + gif_id->height > gif->bmp->h ||
             gif_id->left + gif_id->width > gif->bmp->w) {
@@ -797,8 +776,7 @@ reread:
 }
 
 static Bitmap *gif_load_fp(FILE *f) {
-    BmReader rd = make_file_reader(f);
-    return load_gif_reader(rd);
+    return load_gif_reader(f);
 }
 
 Bitmap *gif_load(const char *filename) {
@@ -999,7 +977,7 @@ int gif_save(Bitmap *b, const char *filename) {
 #if 1
 /*****
 These functions are already defined as static in bmp.c.
-I'd like to modify the API at some stage to expose the functionality 
+I'd like to modify the API at some stage to expose the functionality
 via bmp.h, but the function prototypes would need some thought.
 *****/
 static int get_palette_idx(struct rgb_triplet rgb[], int *nentries, int c) {
