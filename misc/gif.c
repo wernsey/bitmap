@@ -250,8 +250,8 @@ static int gif_read_extension(FILE *fp, GIF_FILE *file, GIF_GCE *gce) {
         return 0;
     }
 
-    output(stdout, "  Introducer ..........: 0x%02X\n", introducer);
-    output(stdout, "  Label ...............: 0x%02X\n", label);
+    output(stdout, "# Introducer ..........: 0x%02X\n", introducer);
+    output(stdout, "# Label ...............: 0x%02X\n", label);
 
     if(label == 0xF9) {
         /* 23. Graphic Control Extension. */
@@ -259,15 +259,17 @@ static int gif_read_extension(FILE *fp, GIF_FILE *file, GIF_GCE *gce) {
             output(stderr, "warning: unable to read Graphic Control Extension\n");
             return 0;
         }
-        output(stdout, "Graphic Control Extension:\n");
-        output(stdout, "  Terminator ..........: 0x%02X\n", gce->terminator);
-        output(stdout, "  Block Size ..........: %d\n", gce->block_size);
-        output(stdout, "  Fields ..............: 0x%02X\n", gce->fields);
-        output(stdout, "    Dispose ......: %d\n", (gce->fields >> 2) & 0x07);
-        output(stdout, "    User Input ...: %d\n", !!(gce->fields & 0x02));
-        output(stdout, "    Transparent ..: %d\n", gce->fields & 0x01);
-        output(stdout, "  Delay ...............: %u\n", gce->delay);
-        output(stdout, "  Transparent Index ...: %d\n", gce->trans_index);
+		if(gif_verbose) {
+			output(stdout, "Graphic Control Extension:\n");
+			output(stdout, "  Terminator ..........: 0x%02X\n", gce->terminator);
+			output(stdout, "  Block Size ..........: %d\n", gce->block_size);
+			output(stdout, "  Fields ..............: 0x%02X\n", gce->fields);
+			output(stdout, "    Dispose ......: %d\n", (gce->fields >> 2) & 0x07);
+			output(stdout, "    User Input ...: %d\n", !!(gce->fields & 0x02));
+			output(stdout, "    Transparent ..: %d\n", gce->fields & 0x01);
+			output(stdout, "  Delay ...............: %u\n", gce->delay);
+			output(stdout, "  Transparent Index ...: %d\n", gce->trans_index);
+		}
     } else if(label == 0xFE) {
         /* Section 24. Comment Extension. */
         int len;
@@ -374,17 +376,18 @@ static int gif_read_image(FILE *fp, GIF_FILE *file, struct gif_triplet *ct, int 
         sct = slct;
     }
 
-    output(stdout, "Image Descriptor:\n");
-    output(stdout, "  Left ................: %d\n", gif_id.left);
-    output(stdout, "  Top .................: %d\n", gif_id.top);
-    output(stdout, "  Width ...............: %d\n", gif_id.width);
-    output(stdout, "  Height ..............: %d\n", gif_id.height);
-    output(stdout, "  Fields ..............: 0x%02X\n", gif_id.fields);
-    output(stdout, "    LCT ..........: %d\n", lct);
-    output(stdout, "    Interlace ....: %d\n", intl);
-    output(stdout, "    Sort .........: %d\n", sort);
-    output(stdout, "    Size of LCT ..: %d\n", slct);
-
+	if(gif_verbose) {
+		output(stdout, "Image Descriptor:\n");
+		output(stdout, "  Left ................: %d\n", gif_id.left);
+		output(stdout, "  Top .................: %d\n", gif_id.top);
+		output(stdout, "  Width ...............: %d\n", gif_id.width);
+		output(stdout, "  Height ..............: %d\n", gif_id.height);
+		output(stdout, "  Fields ..............: 0x%02X\n", gif_id.fields);
+		output(stdout, "    LCT ..........: %d\n", lct);
+		output(stdout, "    Interlace ....: %d\n", intl);
+		output(stdout, "    Sort .........: %d\n", sort);
+		output(stdout, "    Size of LCT ..: %d\n", slct);
+	}
     if(!gif_read_tbid(fp, file, &gif_id, &gce, ct, sct)) {
         return 0; /* what? */
     }
@@ -507,6 +510,7 @@ static int gif_read_tbid(FILE *fp, GIF_FILE *file, GIF_ID *gif_id, GIF_GCE *gce,
 				frame = gif_add_frame(file->gif, frame->image);
 			} else
 				frame = gif_new_frame(file->gif);
+			frame->delay = gce->delay;
 			b = frame->image;
 			unsigned char *decoded = lzw_decode_bytes(bytes, len, min_code_size, &outlen);
             if(decoded) {
@@ -548,9 +552,7 @@ static int gif_read_tbid(FILE *fp, GIF_FILE *file, GIF_ID *gif_id, GIF_GCE *gce,
                             if(c < sct) {
                                 struct gif_triplet *rgb = &ct[c];
                                 assert(x + gif_id->left >= 0 && x + gif_id->left < file->gif->w);
-                                if(trans_flag && c == gce->trans_index) {
-                                    bm_set(b, x + gif_id->left, truey, bm_rgba(rgb->r, rgb->g, rgb->b, 0x00));
-                                } else {
+                                if(!trans_flag || c != gce->trans_index) {
                                     bm_set(b, x + gif_id->left, truey, bm_rgb(rgb->r, rgb->g, rgb->b));
                                 }
                             } else {
@@ -850,9 +852,10 @@ static int gif_save_fp(GIF *g, FILE *f) {
         /* Too many colors */
         sgct = 256;
         file.lsd.fields |= 0x07;
-
-        nc = 0;
         for(nc = 0; nc < 256; nc++) {
+			/* FIXME: Octree color quantization
+			My color quantization method is to just choose random pixels, 
+			and hope for the best. */
             int c = bm_get(b, rand()%b->w, rand()%b->h);
             gct[nc].r = (c >> 16) & 0xFF;
             gct[nc].g = (c >> 8) & 0xFF;
@@ -1184,7 +1187,6 @@ int main(int argc, char *argv[]) {
 			printf("Saving %s...\n", buffer);
 			bm_save(gif->frames[i].image, buffer);
 		}
-		//gif->repetitions = 5;
 		printf("Saving GIF output...\n");
 		if(!gif_save(gif, "gifout.gif")) {
             fprintf(stderr, "error: Unable to save GIF\n");
