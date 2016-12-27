@@ -176,17 +176,18 @@ static GIF *gif_load_fp(FILE *fp) {
         aspect_ratio = ((float)file.lsd.par + 15.0f)/64.0f;
     }
 
-    output(stdout, "Width .......................: %u\n", file.lsd.width);
-    output(stdout, "Height ......................: %u\n", file.lsd.height);
-    output(stdout, "Fields ......................: 0x%X\n", file.lsd.fields);
-    output(stdout, "  Global color table ..: %d\n", gct);
-    output(stdout, "  Color Resolution ....: %d\n", col_res);
-    output(stdout, "  Sort Flag ...........: %d\n", sort_flag);
-    output(stdout, "  Size of GCT .........: %d\n", sgct);
-    output(stdout, "Background ..................: %u\n", file.lsd.background);
-    output(stdout, "Px Aspect Ratio .............: %u\n", file.lsd.par);
-    output(stdout, "  Calculated ..........: %.4f\n", aspect_ratio);
-
+	if(gif_verbose) {
+		output(stdout, "Width .......................: %u\n", file.lsd.width);
+		output(stdout, "Height ......................: %u\n", file.lsd.height);
+		output(stdout, "Fields ......................: 0x%X\n", file.lsd.fields);
+		output(stdout, "  Global color table ..: %d\n", gct);
+		output(stdout, "  Color Resolution ....: %d\n", col_res);
+		output(stdout, "  Sort Flag ...........: %d\n", sort_flag);
+		output(stdout, "  Size of GCT .........: %d\n", sgct);
+		output(stdout, "Background ..................: %u\n", file.lsd.background);
+		output(stdout, "Px Aspect Ratio .............: %u\n", file.lsd.par);
+		output(stdout, "  Calculated ..........: %.4f\n", aspect_ratio);
+	}
     file.gif = gif_create(file.lsd.width, file.lsd.height);
 
     if(gct) {
@@ -501,17 +502,21 @@ static int gif_read_tbid(FILE *fp, GIF_FILE *file, GIF_ID *gif_id, GIF_GCE *gce,
 			Bitmap *b = frame->image;
 			bm_set_color(b, background);
 			bm_clear(b);
+			frame->delay = gce->delay;
+			frame->trans = gce->fields & 0x01;
         } else if(dispose != 3) {
             /* dispose = 0 or 1; if dispose is 3, we leave the new image */
             GIF_FRAME *frame;
-			Bitmap *b;
 			if(file->gif->n) {
 				frame = &file->gif->frames[file->gif->n - 1];
 				frame = gif_add_frame(file->gif, frame->image);
-			} else
+			} else {
 				frame = gif_new_frame(file->gif);
+			}
 			frame->delay = gce->delay;
-			b = frame->image;
+			frame->trans = gce->fields & 0x01;
+			
+			Bitmap *b = frame->image;
 			unsigned char *decoded = lzw_decode_bytes(bytes, len, min_code_size, &outlen);
             if(decoded) {
 				if(gif_verbose > 1) {
@@ -968,7 +973,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
 		gce.block_size = 4;
 		gce.fields = 0x04;
 		gce.delay = g->frames[fi].delay;
-		if(bg >= 0) {
+		if(g->frames[fi].trans && bg >= 0) {
 			gce.fields |= 0x01;
 			gce.trans_index = bg;
 		} else {
@@ -1072,6 +1077,7 @@ GIF_FRAME *gif_add_frame(GIF *g, Bitmap *b) {
 		g->frames = realloc(g->frames, g->a * sizeof *g->frames);
 	}
 	assert(g->n < g->a);
+	memset(&g->frames[g->n], 0, sizeof g->frames[g->n]);
 	g->frames[g->n].image = b;
 	g->frames[g->n].delay = 2;
 	return &g->frames[g->n++];
@@ -1086,6 +1092,7 @@ GIF_FRAME *gif_new_frame(GIF *g) {
 		g->frames = realloc(g->frames, g->a * sizeof *g->frames);
 	}
 	assert(g->n < g->a);
+	memset(&g->frames[g->n], 0, sizeof g->frames[g->n]);
 	g->frames[g->n].image = b;
 	g->frames[g->n].delay = 2;
 	return &g->frames[g->n++];
