@@ -614,7 +614,7 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
     int stack_size = 2;
     unsigned char *stack = realloc(NULL, stack_size);
     int sp = 0;
-    int sym, ptr;
+    int sym = -1, ptr;
 
     *out_len = 0;
     out = realloc(NULL, out_size);
