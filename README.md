@@ -4,7 +4,7 @@ A C library for manipulating bitmap graphics.
 
 Features:
 * Supported formats:
-  * Windows BMP, GIF and PCX files can be loaded and saved without third-party
+  * Windows BMP, GIF, PCX and TGA files can be loaded and saved without third-party
     dependencies.
   * PNG through [libpng](http://www.libpng.org)
   * JPEG through [libjpeg](http://www.ijg.org/)
@@ -88,3 +88,6 @@ script.
 - <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
 - <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
 - <http://www.shikadi.net/moddingwiki/PCX_Format>
+- <https://en.wikipedia.org/wiki/Truevision_TGA>
+- <http://paulbourke.net/dataformats/tga/>
+- <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>

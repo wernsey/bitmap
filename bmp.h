@@ -5,7 +5,7 @@
  *
  * Low-level routines to manipulate bitmap graphic files.
  *
- * * It supports BMP, GIF and PCX files without any third party dependencies.
+ * * It supports BMP, GIF, PCX and TGA files without any third party dependencies.
  * * PNG support is optional through [libpng][]. Use `-DUSEPNG` when compiling.
  * * JPG support is optional through [libjpeg][]. Use `-DUSEJPG` when compiling.
  *
@@ -28,6 +28,9 @@
  * * <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
  * * <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
  * * <http://www.shikadi.net/moddingwiki/PCX_Format>
+ * * <https://en.wikipedia.org/wiki/Truevision_TGA>
+ * * <http://paulbourke.net/dataformats/tga/>
+ * * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
  *
  * License
  * -------
@@ -128,7 +131,7 @@ int bm_height(Bitmap *b);
  *
  * It tries to detect the file type from the first bytes in the file.
  *
- * BMP, GIF and PCX support is always enabled, while JPG and PNG support
+ * BMP, GIF, PCX and TGA support is always enabled, while JPG and PNG support
  * depends on how the library was compiled.
  *
  * Returns `NULL` if the file could not be loaded.
@@ -164,10 +167,10 @@ Bitmap *bm_load_rw(SDL_RWops *file);
 #endif
 
 /** `int bm_save(Bitmap *b, const char *fname)`  \
- * Saves the bitmap `b` to a BMP, JPG or PNG file named `fname`.
+ * Saves the bitmap `b` to a bitmap file named `fname`.
  *
- * If the filename contains `".bmp"`, `".gif"`, `".pcx"` or `".jpg"` the file is
- * saved as a BMP, GIF, PCX or JPG, respectively, otherwise the PNG format is the default.
+ * If the filename contains `".png"`, `".gif"`, `".pcx"`, `".tga"` or `".jpg"` the file is
+ * saved as a PNG, GIF, PCX or JPG, respectively, otherwise the BMP format is the default.
  * It can only save to JPG or PNG if JPG or PNG support is enabled
  * at compile time, otherwise it saves to a BMP file.
  *
