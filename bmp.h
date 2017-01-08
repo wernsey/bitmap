@@ -466,7 +466,7 @@ void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n);
 
 /** `void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n)`  \
  * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) 
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
  * and a 4x4 Bayer matrix.
  *
  * `palette` is an array of integers containing the new palette and
@@ -476,7 +476,7 @@ void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n);
 
 /** `void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n)`  \
  * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering) 
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
  * and a 8x8 Bayer matrix.
  *
  * `palette` is an array of integers containing the new palette and
@@ -594,7 +594,7 @@ typedef struct bitmap_font {
 void bm_set_font(Bitmap *b, BmFont *font);
 
 /** `void bm_reset_font(BmFont *b)` \
- * Resets the font used to draw on the `Bitmap` to the 
+ * Resets the font used to draw on the `Bitmap` to the
  * default *Apple II*-inspired font
  */
 void bm_reset_font(Bitmap *b);

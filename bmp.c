@@ -231,7 +231,7 @@ Bitmap *bm_load_fp(FILE *f) {
         isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
 
     BmReader rd = make_file_reader(f);
-    /* Tries to detect the type of file by looking at the first bytes. 
+    /* Tries to detect the type of file by looking at the first bytes.
 	http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html
 	*/
     if(rd.fread(magic, sizeof magic, 1, rd.data) == 1) {
@@ -394,10 +394,10 @@ static int bm_save_jpg(Bitmap *b, const char *fname);
 #endif
 
 int bm_save(Bitmap *b, const char *fname) {
-    /* Chooses the file type to save as based on the 
+    /* Chooses the file type to save as based on the
 	extension in the filename */
     char *lname = strdup(fname), *c,
-        bmp = 0, jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0;
+        jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0;
     for(c = lname; *c; c++)
         *c = tolower(*c);
     png = !!strstr(lname, ".png");
@@ -405,7 +405,6 @@ int bm_save(Bitmap *b, const char *fname) {
     gif = !!strstr(lname, ".gif");
     tga = !!strstr(lname, ".tga");
     jpg = !!strstr(lname, ".jpg") || !!strstr(lname, ".jpeg");
-    bmp = !png && !jpg && !gif && !pcx;
     free(lname);
 
 #ifdef USEPNG
@@ -2366,7 +2365,7 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
         y = i / b->w;
         y = b->h - 1 - y;
         x = i % b->w;
-        unsigned int c = bm_get(b, x, y), c2;
+        unsigned int c = bm_get(b, x, y);
 #if TGA_SAVE_RLE
         uint8_t n = 1;
         size_t nb = 4;
