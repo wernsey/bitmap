@@ -4260,6 +4260,10 @@ void bm_set_font(Bitmap *b, BmFont *font) {
         b->font = font;
 }
 
+BmFont *bm_get_font(Bitmap *b) {
+    return b->font;
+}
+
 int bm_text_width(Bitmap *b, const char *s) {
     int len = 0, max_len = 0;
     int glyph_width;

@@ -588,10 +588,15 @@ typedef struct bitmap_font {
     void *data;
 } BmFont;
 
-/** `bm_set_font(Bitmap *b, , BmFont *font)`  \
+/** `void bm_set_font(Bitmap *b, BmFont *font)`  \
  * Changes the font used to render text on the bitmap.
  */
 void bm_set_font(Bitmap *b, BmFont *font);
+
+/** `BmFont *bm_get_font(Bitmap *b)`  \
+ * Retrieves the current font used to render text on the bitmap.
+ */
+BmFont *bm_get_font(Bitmap *b);
 
 /** `void bm_reset_font(BmFont *b)` \
  * Resets the font used to draw on the `Bitmap` to the
