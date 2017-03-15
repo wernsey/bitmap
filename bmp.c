@@ -4184,8 +4184,7 @@ void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n) {
 }
 
 void bm_set_font(Bitmap *b, BmFont *font) {
-    if(b->font != font)
-        b->font = font;
+    b->font = font;
 }
 
 BmFont *bm_get_font(Bitmap *b) {
@@ -4249,6 +4248,84 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
     vsnprintf(buffer, sizeof buffer, fmt, arg);
     va_end(arg);
     return bm_puts(b, x, y, buffer);
+}
+
+/** RASTER FONT FUNCTIONS ******************************************************/
+
+typedef struct {
+	Bitmap *bmp;
+	int width;
+	int height;
+	int spacing;
+} RasterFontData;
+
+static int rf_puts(Bitmap *b, int x, int y, const char *s) {
+	assert(!strcmp(b->font->type, "RASTER_FONT"));
+	RasterFontData *data = b->font->data;
+	int x0 = x;
+	while(*s) {
+		if(*s == '\n') {
+			y += data->height;
+			x = x0;
+		} else if(*s == '\b') {
+			if(x > x0) x -= data->spacing;
+		} else if(*s == '\r') {
+			x = x0;
+		} else if(*s == '\t') {
+			x += 4 * data->spacing;
+		} else {
+			int c = *s;
+			c -= 32;
+			int sy = (c >> 4) * data->height;
+			int sx = (c & 0xF) * data->width;			
+			bm_maskedblit(b, x, y, data->bmp, sx, sy, data->width, data->height);			
+            x += data->spacing;
+        }
+		s++;
+	}
+	return 1;
+}
+
+static int rf_width(struct bitmap_font *font) {
+	assert(!strcmp(font->type, "RASTER_FONT"));
+	RasterFontData *data = font->data;
+    return data->width;
+}
+static int rf_height(struct bitmap_font *font) {
+    assert(!strcmp(font->type, "RASTER_FONT"));
+	RasterFontData *data = font->data;
+	return data->height;
+}
+
+BmFont *bm_make_ras_font(const char *file, int spacing) {
+	BmFont *font = malloc(sizeof *font);
+	font->type = "RASTER_FONT";
+	font->puts = rf_puts;
+	font->width = rf_width;
+	font->height = rf_height;
+	RasterFontData *data = malloc(sizeof *data);
+	data->bmp = bm_load(file);
+	if(!data->bmp) {
+		free(data);
+		free(font);
+		return NULL;
+	}
+	bm_set_color(data->bmp, 0);
+	/* The width/height depends on the bitmap being laid out as prescribed */
+	data->width = data->bmp->w / 16;
+	data->height = data->bmp->h / 6;
+	if(spacing <= 0) spacing = data->width;
+	data->spacing = spacing;
+	font->data = data;
+	return font;
+}
+
+void bm_free_ras_font(BmFont *font) {
+	if(!font || strcmp(font->type, "RASTER_FONT")) 
+		return;
+	bm_free(((RasterFontData*)font->data)->bmp);
+	free(font->data);
+	free(font);
 }
 
 /** XBM FONT FUNCTIONS *********************************************************/
