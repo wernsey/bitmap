@@ -31,6 +31,8 @@
  * * <https://en.wikipedia.org/wiki/Truevision_TGA>
  * * <http://paulbourke.net/dataformats/tga/>
  * * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
+ * * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
+ * * <http://www.fileformat.info/format/xpm/egff.htm>
  *
  * License
  * -------
@@ -87,7 +89,7 @@ typedef struct bitmap {
  * ### Creating and Destroying bitmaps
  */
 
-/** `Bitmap *bm_create(int w, int h)`  \
+/**`Bitmap *bm_create(int w, int h)`  \
  * Creates a bitmap of the specified dimensions
  */
 Bitmap *bm_create(int w, int h);
@@ -98,17 +100,23 @@ Bitmap *bm_create(int w, int h);
 void bm_free(Bitmap *b);
 
 /** `Bitmap *bm_copy(Bitmap *b)`  \
- * Creates a duplicate of the bitmap structure.
- *
- * _Font information is not copied and must be set on the copy before
- * text can be drawn on it._
+ * Creates a duplicate of the bitmap structure `b`.
  */
 Bitmap *bm_copy(Bitmap *b);
 
-/** `Bitmap *bm_fromXbm(int w, int h, unsigned char *data)`  \
- * Creates a `Bitmap` object from XBM data.
+/** `Bitmap *bm_from_Xbm(int w, int h, unsigned char *data)`  \
+ * Creates a `Bitmap` object from [XBM data](https://en.wikipedia.org/wiki/X_BitMap).  \
+ * The XBM image is imported into a program through a `#include "include.xbm"` directive.  \
+ * The width `w` and height `h` are the `_width` and `_height` variables at the top of the XBM file.
+ * The `data` parameter is the `_bits` variable in the XBM file.
  */
-Bitmap *bm_fromXbm(int w, int h, unsigned char *data);
+Bitmap *bm_from_Xbm(int w, int h, unsigned char *data);
+
+/** `Bitmap *bm_from_Xpm(char *xpm[])`  \
+ * Creates a `Bitmap` object from [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
+ * data in a source file.
+ */
+Bitmap *bm_from_Xpm(char *xpm[]);
 
 /** `int bm_width(Bitmap *b)`  \
  * Retrieves the width of the bitmap `b`

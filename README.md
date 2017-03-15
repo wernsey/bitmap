@@ -8,7 +8,6 @@ Features:
     dependencies.
   * PNG through [libpng](http://www.libpng.org)
   * JPEG through [libjpeg](http://www.ijg.org/)
-  * `Bitmap` structures can also be created from XBM data.
 * Support fo SDL2' `SDL_RWops` file manipulation routines for loading images in
   the supported formats.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/) surfaces,
@@ -20,9 +19,11 @@ Features:
 * Floodfill and filled primitives
 * Image resizing: nearest neighbour, bilinear and bicubic
 * Blitting, blitting with masks and scaled blitting.
-* Text rendering: built-in 8-bit style raster fonts and FreeType support.
+* Text rendering: built-in _8-bit_ style raster fonts and FreeType support.
 * Filtering with kernels and smoothing.
 * [CSS-style](http://en.wikipedia.org/wiki/Web_colors) colors.
+* Loading images from [XBM](https://en.wikipedia.org/wiki/X_BitMap) and
+  [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) data.
 * Cross platform. It's been known to compile under Windows (MinGW), Linux,
   Android and Web via Emscripten.
 

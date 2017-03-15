@@ -2480,7 +2480,7 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c) {
     *p = c;
 }
 
-Bitmap *bm_fromXbm(int w, int h, unsigned char *data) {
+Bitmap *bm_from_Xbm(int w, int h, unsigned char *data) {
     int x,y;
 
     Bitmap *bmp = bm_create(w, h);
@@ -2496,6 +2496,59 @@ Bitmap *bm_fromXbm(int w, int h, unsigned char *data) {
             }
         }
     return bmp;
+}
+
+Bitmap *bm_from_Xpm(char *xpm[]) {
+#define XPM_MAX_COLORS 256
+#define XPM_TRANS_COLOR 1
+    Bitmap *b;
+    int w, h, nc, cp;
+    int i, j, r;
+    unsigned int colors[XPM_MAX_COLORS];
+    unsigned char chars[XPM_MAX_COLORS];
+
+    r = sscanf(xpm[0], "%d %d %d %d", &w, &h, &nc, &cp);
+    assert(r == 4);(void)r;
+    assert(w > 0 && h > 0);
+    assert(nc > 0 && nc < XPM_MAX_COLORS);
+    assert(cp == 1); /* cp != 1 not supported */
+
+    b = bm_create(w, h);
+    for(i = 0; i < nc; i++) {
+        char k, col[20];
+        col[sizeof col - 1] = 0;
+        chars[i] = xpm[i+1][0]; /* to allow spaces */
+        r = sscanf(xpm[i+1] + 1, " %c %s", &k, col);
+        assert(r == 2);(void)r;
+        assert(k == 'c'); /* other keys not supported */
+        assert(col[sizeof col - 1] == 0);
+        colors[i] = bm_atoi(col);
+
+#ifdef XPM_TRANS_COLOR
+        for(j=0;col[j];j++){col[j]=tolower(col[j]);}
+        if(!strcmp(col,"none")){colors[i]=XPM_TRANS_COLOR;}
+#endif
+    }
+
+    for(j = 0; j < h; j++) {
+        char *row = xpm[1 + nc + j];
+        for(i = 0; i < w; i++) {
+            assert(row[i]);
+            for(r = 0; r < nc; r++) {
+                if(chars[r] == row[i]) {
+                    bm_set_color(b, colors[r]);
+                    break;
+                }
+            }
+            bm_putpixel(b, i, j);
+        }
+    }
+#ifdef XPM_TRANS_COLOR
+    bm_set_color(b, XPM_TRANS_COLOR);
+#else
+    bm_set_color(b,1);/* arb color for transparency when saving to GIF */
+#endif
+    return b;
 }
 
 void bm_clip(Bitmap *b, int x0, int y0, int x1, int y1) {
@@ -3971,7 +4024,7 @@ void bm_fill(Bitmap *b, int x, int y) {
     unsigned int sc, dc; /* Source and Destination colors */
 
     dc = b->color;
-    bm_picker(b, x, y);
+    b->color = BM_GET(b, x, y);
     sc = b->color;
 
     /* Don't fill if source == dest
@@ -3995,17 +4048,17 @@ void bm_fill(Bitmap *b, int x, int y) {
         w = n;
         e = n;
 
-        if(bm_picker(b, n.x, n.y) != sc)
+        if(BM_GET(b, n.x, n.y) != sc)
             continue;
 
         while(w.x > b->clip.x0) {
-            if(bm_picker(b, w.x-1, w.y) != sc) {
+            if(BM_GET(b, w.x-1, w.y) != sc) {
                 break;
             }
             w.x--;
         }
         while(e.x < b->clip.x1 - 1) {
-            if(bm_picker(b, e.x+1, e.y) != sc) {
+            if(BM_GET(b, e.x+1, e.y) != sc) {
                 break;
             }
             e.x++;
@@ -4014,7 +4067,7 @@ void bm_fill(Bitmap *b, int x, int y) {
             assert(i >= 0 && i < b->w);
             BM_SET(b, i, w.y, dc);
             if(w.y > b->clip.y0) {
-                if(bm_picker(b, i, w.y - 1) == sc) {
+                if(BM_GET(b, i, w.y - 1) == sc) {
                     nn.x = i; nn.y = w.y - 1;
                     queue[qs++] = nn;
                     if(qs == mqs) {
@@ -4026,7 +4079,7 @@ void bm_fill(Bitmap *b, int x, int y) {
                 }
             }
             if(w.y < b->clip.y1 - 1) {
-                if(bm_picker(b, i, w.y + 1) == sc) {
+                if(BM_GET(b, i, w.y + 1) == sc) {
                     nn.x = i; nn.y = w.y + 1;
                     queue[qs++] = nn;
                     if(qs == mqs) {
@@ -4141,7 +4194,7 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
     Floyd-Steinberg, but it does have some advantages:
         * the repeating patterns compress better
         * it is better suited for line-art graphics
-        * if you were to make an animation (not supported at the moment)
+        * if you were to make a limited palette animation (e.g. animated GIF)
             subsequent frames would be less jittery than error-diffusion.
     */
     int x, y;
