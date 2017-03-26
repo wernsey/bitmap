@@ -9,7 +9,7 @@ http://en.wikipedia.org/wiki/Netpbm_format
 
 #include "../bmp.h"
 
-static char *readfile(const char *fname) {
+static char *pbm_readfile(const char *fname) {
     FILE *f;
     long len,r;
     char *str;
@@ -72,7 +72,7 @@ start:
 
 struct bitmap *parse_pbm(const char *filename) {
     struct bitmap *bm = NULL;
-    char *s = readfile(filename);
+    char *s = pbm_readfile(filename);
     char *p, *r;
     int type = 0, w, h, d = 1, x, y;
     if(!s) {
@@ -150,7 +150,7 @@ done:
     return bm;
 }
 
-#ifdef TEST
+#ifdef PBM_TEST
 int main(int argc, char *argv[]) {
     int i;
     for(i = 1; i < argc; i++) {
