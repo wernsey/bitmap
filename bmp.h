@@ -158,6 +158,18 @@ Bitmap *bm_load(const char *filename);
 Bitmap *bm_load_fp(FILE *f);
 #endif
 
+/** `Bitmap *bm_load_mem(const unsigned char *buffer, long len)`  \
+ * Loads a bitmap file from an array of bytes `buffer` of size `len`.
+ *
+ * It tries to detect the file type from the first bytes in the file.
+ *
+ * Only supports BMP, GIF, PCX and TGA at the moment.
+ * _Don't use it with user input._
+ *
+ * Returns `NULL` if the file could not be loaded.
+ */
+Bitmap *bm_load_mem(const unsigned char *buffer, long len);
+
 #if defined(USESDL) && defined(_SDL_H)
 /** `Bitmap *bm_load_rw(SDL_RWops *file)`  \
  * Loads a bitmap from a SDL `SDL_RWops*` structure,
@@ -465,7 +477,7 @@ void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
 #ifdef NULL /* <stdlib.h> included? - required for size_t */
 /** `void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n)`  \
  * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying Floyd-Steinberg dithering.
+ * by applying [Floyd-Steinberg dithering](http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
  *
  * `palette` is an array of integers containing the new palette and
  * `n` is the number of entries in the palette.
@@ -640,7 +652,7 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
 
 /**
  * ### Raster Font Functions
- * `bmp.h` has support for drawing text using raster fonts from any of the 
+ * `bmp.h` has support for drawing text using raster fonts from any of the
  * supported file types.
  *
  * The characters in the bitmap must be arranged like this:
@@ -650,9 +662,9 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
  * @ABCDEFGHIJKLMNO
  * PQRSTUVWXYZ[\]^_
  * `abcdefghijklmno
- * pqrstuvwxyz{|}~ 
+ * pqrstuvwxyz{|}~
  * ```
- * The characters are in ASCII sequence, without the first 32 control characters. 
+ * The characters are in ASCII sequence, without the first 32 control characters.
  * The pixel width and hight of the individual characters is calculated by dividing
  * the width and height of the bitmap by 16 and 6 respectively.
  *
@@ -663,7 +675,7 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
  * The image is 128x48 pixels, so the individual characters are 8x8 pixels.
  * (128/16=8 and 48/6=8)
  */
- 
+
 /** `BmFont *bm_make_ras_font(const char *file, int spacing)`  \
  * Creates a raster font from a bitmap file named `file`.  \
  * The file can be in any of the supported file formats.
@@ -679,11 +691,11 @@ BmFont *bm_make_ras_font(const char *file, int spacing);
  * Frees a raster font previously created with `bm_make_ras_font()`.
  */
 void bm_free_ras_font(BmFont *font);
- 
+
 /**
  * ### XBM Font Functions
  * `bmp.h` has support for drawing text using XBM fonts built
- * into the library. The XBM bitmaps can be compiled directly into 
+ * into the library. The XBM bitmaps can be compiled directly into
  * a program's executable rather than being loaded at runtime, which
  * has the .
  */

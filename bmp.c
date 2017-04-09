@@ -172,6 +172,47 @@ static BmReader make_file_reader(FILE *fp) {
     return rd;
 }
 
+struct BmMemReader {
+    const unsigned char *buffer;
+    long len;
+    long pos;
+};
+
+static size_t memread(void *ptr, size_t size, size_t nobj, struct BmMemReader *mem) {
+    size = size * nobj;
+    if(mem->pos + size > mem->len) {
+        return 0;
+    }
+    memcpy(ptr, mem->buffer + mem->pos, size);
+    mem->pos += size;
+    return nobj;
+}
+static long memtell(struct BmMemReader *mem) {
+    return mem->pos;
+}
+static int memseek(struct BmMemReader *mem, long offset, int origin) {
+    switch(origin) {
+    case SEEK_SET: mem->pos = offset; break;
+    case SEEK_CUR: mem->pos += offset; break;
+    case SEEK_END: mem->pos = mem->len - offset; break;
+    }
+    if(mem->pos < 0 || mem->pos >= mem->len) {
+        mem->pos = 0;
+        return -1;
+    }
+    return 0;
+}
+
+static BmReader make_mem_reader(struct BmMemReader *mem) {
+    BmReader rd;
+    rd.data = mem;
+    mem->pos = 0;
+    rd.fread = (size_t(*)(void*,size_t,size_t,void*))memread;
+    rd.ftell = (long(*)(void* ))memtell;
+    rd.fseek = (int(*)(void*,long,int))memseek;
+    return rd;
+}
+
 #ifdef USESDL
 static size_t rw_fread(void *ptr, size_t size, size_t nobj, SDL_RWops *stream) {
     return SDL_RWread(stream, ptr, size, nobj);
@@ -279,6 +320,72 @@ Bitmap *bm_load_fp(FILE *f) {
     }
     return NULL;
 }
+
+Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
+    unsigned char magic[4];
+
+    long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
+
+    struct BmMemReader memr;
+    memr.buffer = buffer;
+    memr.len = len;
+
+    BmReader rd = make_mem_reader(&memr);
+    /* Tries to detect the type of file by looking at the first bytes.
+	http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html
+	*/
+    if(rd.fread(magic, sizeof magic, 1, rd.data) == 1) {
+        if(!memcmp(magic, "BM", 2))
+            isbmp = 1;
+        else if(!memcmp(magic, "GIF", 3))
+            isgif = 1;
+        else if(magic[0] == 0xFF && magic[1] == 0xD8)
+            isjpg = 1;
+        else if(magic[0] == 0x0A)
+            ispcx = 1;
+        else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
+            ispng = 1;
+		else {
+			/* Might be a TGA. TGA does not have a magic number :( */
+            rd.fseek(rd.data, 0, SEEK_SET);
+			istga = is_tga_file(rd);
+		}
+    } else {
+        return NULL;
+    }
+    rd.fseek(rd.data, 0, SEEK_SET);
+
+#ifdef USEJPG
+    if(isjpg) {
+        /* TODO: JPG support */
+        return NULL;
+    }
+#else
+    (void)isjpg;
+#endif
+#ifdef USEPNG
+    if(ispng) {
+        /* TODO: PNG support */
+        return NULL;
+    }
+#else
+    (void)ispng;
+#endif
+    if(isgif) {
+        return bm_load_gif_rd(rd);
+    }
+    if(ispcx) {
+        return bm_load_pcx_rd(rd);
+    }
+    if(isbmp) {
+        return bm_load_bmp_rd(rd);
+    }
+    if(istga) {
+        return bm_load_tga_rd(rd);
+    }
+    return NULL;
+}
+
 
 static Bitmap *bm_load_bmp_rd(BmReader rd) {
     struct bmpfile_magic magic;
@@ -4330,8 +4437,8 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
 			int c = *s;
 			c -= 32;
 			int sy = (c >> 4) * data->height;
-			int sx = (c & 0xF) * data->width;			
-			bm_maskedblit(b, x, y, data->bmp, sx, sy, data->width, data->height);			
+			int sx = (c & 0xF) * data->width;
+			bm_maskedblit(b, x, y, data->bmp, sx, sy, data->width, data->height);
             x += data->spacing;
         }
 		s++;
@@ -4374,7 +4481,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
 }
 
 void bm_free_ras_font(BmFont *font) {
-	if(!font || strcmp(font->type, "RASTER_FONT")) 
+	if(!font || strcmp(font->type, "RASTER_FONT"))
 		return;
 	bm_free(((RasterFontData*)font->data)->bmp);
 	free(font->data);
