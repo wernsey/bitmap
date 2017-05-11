@@ -142,6 +142,9 @@ struct rgb_triplet {
 Bitmap *bm_create(int w, int h) {
     Bitmap *b = malloc(sizeof *b);
 
+    assert(w > 0);
+    assert(h > 0);
+
     b->w = w;
     b->h = h;
 
