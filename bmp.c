@@ -49,6 +49,15 @@ FIXME: Not all functions that should respect IGNORE_ALPHA does so.
 
 #define TGA_SAVE_RLE    1 /* Use RLE when saving TGA files? */
 
+/* Save transparent backgrounds when saving GIF?
+It used to be on by default, but it turned out to be less useful
+than I expected, and caused some confusion.
+Still, it is here if you need it
+*/
+#ifndef SAVE_GIF_TRANSPARENT
+#  define SAVE_GIF_TRANSPARENT 0
+#endif
+
 #include "bmp.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -1993,12 +2002,16 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     gce.block_size = 4;
     gce.fields = 0;
     gce.delay = 0;
+#if SAVE_GIF_TRANSPARENT
     if(bg >= 0) {
         gce.fields |= 0x01;
         gce.trans_index = bg;
     } else {
         gce.trans_index = 0;
     }
+#else
+    gce.trans_index = 0;
+#endif
     gce.terminator = 0x00;
 
     fputc(0x21, f);
@@ -2521,6 +2534,13 @@ Bitmap *bm_copy(Bitmap *b) {
     memcpy(&out->clip, &b->clip, sizeof b->clip);
 
     return out;
+}
+
+Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
+    Bitmap *o = bm_create(w, h);
+    if(!o) return NULL;
+    bm_blit(o, 0, 0, b, x, y, w, h);
+    return o;
 }
 
 void bm_free(Bitmap *b) {

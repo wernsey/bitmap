@@ -100,9 +100,14 @@ Bitmap *bm_create(int w, int h);
 void bm_free(Bitmap *b);
 
 /** `Bitmap *bm_copy(Bitmap *b)`  \
- * Creates a duplicate of the bitmap structure `b`.
+ * Creates a duplicate of the bitmap `b`.
  */
 Bitmap *bm_copy(Bitmap *b);
+
+/** `Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h)`  \
+ * Crops the bitmap `b` to the region defined by `{x,y,w,h}`
+ */
+Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h);
 
 /** `Bitmap *bm_from_Xbm(int w, int h, unsigned char *data)`  \
  * Creates a `Bitmap` object from [XBM data](https://en.wikipedia.org/wiki/X_BitMap).  \
