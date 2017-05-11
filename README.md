@@ -1,6 +1,9 @@
 # bitmap
 
-A C library for manipulating bitmap graphics.
+A C library for manipulating bitmap graphics in memory and on disk.
+
+The code is licensed under the terms of the MIT License. See the file 
+[LICENSE](LICENSE) for details.
 
 Features:
 * Supported formats:
@@ -16,18 +19,21 @@ Features:
   [Cairo graphics](https://cairographics.org)
 * Primitives: Lines, circles, elipses, bezier curves, etc.
   * Clipping rectangles are obeyed.
-* Floodfill and filled primitives
-* Image resizing: nearest neighbour, bilinear and bicubic
+* Floodfill and filled primitives.
+* Image resizing: nearest neighbour, bilinear and bicubic.
 * Blitting, blitting with masks and scaled blitting.
-* Text rendering: built-in _8-bit_ style raster fonts and FreeType support.
+* Text rendering: [FreeType][freetype] support and built-in _8-bit_ style raster fonts.
 * Filtering with kernels and smoothing.
 * [CSS-style](http://en.wikipedia.org/wiki/Web_colors) colors.
 * Loading images from [XBM](https://en.wikipedia.org/wiki/X_BitMap) and
   [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) data.
 * Cross platform. It's been known to compile under Windows (MinGW), Linux,
-  Android and Web via Emscripten.
+  Android and Web via [Emscripten][emscripten].
 
 The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
+
+[freetype]: https://www.freetype.org/
+[emscripten]: http://kripken.github.io/emscripten-site/
 
 ## Getting Started
 
