@@ -54,6 +54,19 @@ extern "C" {
 
 /**
  * ### Structures
+ */
+
+/** `typedef struct BmRect BmRect`  \
+ * Rectangle structure.
+ * `(x0,y0)` is inclusive.
+ * `(x1,y1)` is exclusive.
+ */
+typedef struct BmRect {
+    int x0, y0;
+    int x1, y1;
+} BmRect;
+
+/**
  * `typedef struct bitmap Bitmap`  \
  * Structure containing a bitmap image.
  *
@@ -61,6 +74,15 @@ extern "C" {
  * Meaning that p[0] contains B, p[1] contains G,
  * p[2] contains R and p[3] contains A
  * and the data buffer is an array of bytes BGRABGRABGRABGRABGRA...
+ *
+ * The member `color` contains the color that will be used for drawing
+ * primitives, and for transparency while blitting.
+ *
+ * The member `font` is a pointer to a `BmFont` structure that is used
+ * to render text. See the [Font Routines][] section for more details.
+ *
+ * The member `clip` is a `BmRect` that defines the clipping rectangle
+ * when drawing primitives and text.
  */
 typedef struct bitmap {
     /* Dimesions of the bitmap */
@@ -75,14 +97,8 @@ typedef struct bitmap {
     /* Font object for rendering text */
     struct bitmap_font *font;
 
-    /* Clipping Rectangle
-     * (x0,y0) is inclusive.
-     * (x1,y1) is exclusive.
-     */
-    struct {
-        int x0, y0;
-        int x1, y1;
-    } clip;
+    /* Clipping rectangle */
+    BmRect clip;
 } Bitmap;
 
 /**
@@ -591,7 +607,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2);
 void bm_fill(Bitmap *b, int x, int y);
 
 /**
- * ### Font routines
+ * ### Font Routines
  */
 
 /** `typedef struct bitmap_font BmFont`  \
