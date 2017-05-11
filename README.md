@@ -68,8 +68,8 @@ script.
     for the [Cairo graphics library](https://cairographics.org)
   * The `palette/` subdirectory contains a utility for generating palettes and
     converting images to those palettes.
-  * `pbm.c` and `xbm.c`: Samples on how to use the module with PBM and XBM file
-    formats.
+  * `pbm.c` and `xpm.c`: Samples on how to use the module with PBM and XPM file
+    formats. `to_xbm.c` contains a function that can output a bitmap as a XBM.
   * The `kmeans/` subdirectory contains a program that uses
     [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering)
     to identify the dominant colors in an image.
