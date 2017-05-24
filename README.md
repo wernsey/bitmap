@@ -21,7 +21,7 @@ Features:
   * Clipping rectangles are obeyed.
 * Floodfill and filled primitives.
 * Image resizing: nearest neighbour, bilinear and bicubic.
-* Blitting, blitting with masks and scaled blitting.
+* Blitting, blitting with color masks, scaled and rotated blitting.
 * Text rendering: [FreeType][freetype] support and built-in _8-bit_ style raster fonts.
 * Filtering with kernels and smoothing.
 * [CSS-style](http://en.wikipedia.org/wiki/Web_colors) colors.
@@ -98,3 +98,6 @@ script.
 - <https://en.wikipedia.org/wiki/Truevision_TGA>
 - <http://paulbourke.net/dataformats/tga/>
 - <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
+- "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001  \
+    <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
+- <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>

@@ -3067,6 +3067,87 @@ void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, in
     }
 }
 
+void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale) {
+    /*
+    "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001
+    http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337
+    See also http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm
+    */
+
+#if IGNORE_ALPHA
+    unsigned int maskc = bm_get_color(src) & 0x00FFFFFF;
+#else
+    unsigned int maskc = bm_get_color(src);
+#endif
+    int x,y;
+
+    int minx = dst->clip.x1, miny = dst->clip.y1;
+    int maxx = dst->clip.x0, maxy = dst->clip.y0;
+
+    double sinAngle = sin(angle);
+    double cosAngle = cos(angle);
+
+    double dx, dy;
+    /* Compute the position of where each corner on the source bitmap
+    will be on the destination to get a bounding box for scanning */
+    dx = -cosAngle * px * scale + sinAngle * py * scale + ox;
+    dy = -sinAngle * px * scale - cosAngle * py * scale + oy;
+    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+
+    dx = cosAngle * (src->w - px) * scale + sinAngle * py * scale + ox;
+    dy = sinAngle * (src->w - px) * scale - cosAngle * py * scale + oy;
+    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+
+    dx = cosAngle * (src->w - px) * scale - sinAngle * (src->h - py) * scale + ox;
+    dy = sinAngle * (src->w - px) * scale + cosAngle * (src->h - py) * scale + oy;
+    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+
+    dx = -cosAngle * px * scale - sinAngle * (src->h - py) * scale + ox;
+    dy = -sinAngle * px * scale + cosAngle * (src->h - py) * scale + oy;
+    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+
+    /* Clipping */
+    if(minx < dst->clip.x0) minx = dst->clip.x0;
+    if(maxx > dst->clip.x1 - 1) maxx = dst->clip.x1 - 1;
+    if(miny < dst->clip.y0) miny = dst->clip.y0;
+    if(maxy > dst->clip.y1 - 1) maxy = dst->clip.y1 - 1;
+
+    double dvCol = cos(angle) / scale;
+    double duCol = sin(angle) / scale;
+
+    double duRow = dvCol;
+    double dvRow = -duCol;
+
+    double startu = px - (ox * dvCol + oy * duCol);
+    double startv = py - (ox * dvRow + oy * duRow);
+
+    double rowu = startu + miny * duCol;
+    double rowv = startv + miny * dvCol;
+
+    for(y = miny; y <= maxy; y++) {
+        double u = rowu + minx * duRow;
+        double v = rowv + minx * dvRow;
+        for(x = minx; x <= maxx; x++) {            
+            if(u >= 0 && u < src->w && v >= 0 && v < src->h) {
+#if IGNORE_ALPHA
+                unsigned int c = BM_GET(src, (int)u, (int)v) & 0x00FFFFFF;
+#else
+                unsigned int c = BM_GET(src, (int)u, (int)v);
+#endif
+                if(c != maskc) BM_SET(dst, x, y, c);
+            }
+            u += duRow;
+            v += dvRow;
+        }
+        rowu += duCol;
+        rowv += dvCol;
+    }
+}
+
 void bm_smooth(Bitmap *b) {
     Bitmap *tmp = bm_create(b->w, b->h);
     unsigned char *t = b->data;

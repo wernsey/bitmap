@@ -3,7 +3,7 @@
  * ========================
  * ![toc-]
  *
- * Low-level routines to manipulate bitmap graphic files.
+ * Low-level routines to manipulate bitmap graphic objects in memory and files on disk.
  *
  * * It supports BMP, GIF, PCX and TGA files without any third party dependencies.
  * * PNG support is optional through [libpng][]. Use `-DUSEPNG` when compiling.
@@ -11,28 +11,6 @@
  *
  * [libpng]: http://www.libpng.org/pub/png/libpng.html
  * [libjpeg]: http://www.ijg.org/
- *
- * References
- * ----------
- *
- * * [BMP file format](http://en.wikipedia.org/wiki/BMP_file_format)
- * * [Bresenham's line algorithm](http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
- * * <http://members.chello.at/~easyfilter/bresenham.html>
- * * [Flood fill](http://en.wikipedia.org/wiki/Flood_fill)
- * * <http://en.wikipedia.org/wiki/Midpoint_circle_algorithm>
- * * <http://web.archive.org/web/20110706093850/http://free.pages.at/easyfilter/bresenham.html>
- * * <http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>
- * * <http://www.w3.org/Graphics/GIF/spec-gif89a.txt>
- * * Nelson, M.R. : "LZW Data Compression", Dr. Dobb's Journal, October 1989.
- * * <http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011>
- * * <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
- * * <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
- * * <http://www.shikadi.net/moddingwiki/PCX_Format>
- * * <https://en.wikipedia.org/wiki/Truevision_TGA>
- * * <http://paulbourke.net/dataformats/tga/>
- * * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
- * * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
- * * <http://www.fileformat.info/format/xpm/egff.htm>
  *
  * License
  * -------
@@ -124,7 +102,7 @@ typedef struct bitmap {
  */
 
 /**`Bitmap *bm_create(int w, int h)`  \
- * Creates a bitmap of the specified dimensions
+ * Creates a bitmap of the specified dimensions `w` &times; `h`.
  */
 Bitmap *bm_create(int w, int h);
 
@@ -144,8 +122,10 @@ Bitmap *bm_copy(Bitmap *b);
 Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h);
 
 /** `Bitmap *bm_from_Xbm(int w, int h, unsigned char *data)`  \
- * Creates a `Bitmap` object from [XBM data](https://en.wikipedia.org/wiki/X_BitMap).  \
- * The XBM image is imported into a program through a `#include "include.xbm"` directive.  \
+ * Creates a `Bitmap` object from [XBM data](https://en.wikipedia.org/wiki/X_BitMap).
+ *
+ * The XBM image is imported into a program through a `#include "include.xbm"` directive.
+ *
  * The width `w` and height `h` are the `_width` and `_height` variables at the top of the XBM file.
  * The `data` parameter is the `_bits` variable in the XBM file.
  */
@@ -247,7 +227,8 @@ int bm_save(Bitmap *b, const char *fname);
 /** `Bitmap *bm_bind(int w, int h, unsigned char *data)`  \
  * Creates a bitmap structure bound to an existing array
  * of pixel data (for example, an OpenGL texture or a SDL surface). The
- * `data` must be an array of `w` \* `h` \* 4 bytes of ARGB pixel data.
+ * `data` must be an array of `w` &times; `h` &times; 4 bytes of ARGB pixel data.
+ *
  * The returned `Bitmap*` must be destroyed with `bm_unbind()`
  * rather than `bm_free()`.
  */
@@ -417,13 +398,13 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t);
  */
 
 /** `void bm_blit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, int h)`  \
- * Blits an area of w*h pixels at sx,sy on the src bitmap to
- * dx,dy on the `dst` bitmap.
+ * Blits an area of `w` &times; `h` pixels at `sx,sy` on the source bitmap `src` to
+ * `dx,dy` on the destination bitmap `dst`.
  */
 void bm_blit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, int h);
 
 /** `void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, int h)`  \
- * Blits an area of `w` \* `h` pixels at `sx,sy` on the `src` bitmap to
+ * Blits an area of `w` &times; `h` pixels at `sx,sy` on the `src` bitmap to
  * `dx,dy` on the `dst` bitmap.
  *
  * Pixels on the `src` bitmap that matches the `src` bitmap color are not blitted.
@@ -432,8 +413,8 @@ void bm_blit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, in
 void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, int h);
 
 /** `void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, int mask)`  \
- * Extended blit function. Blits an area of `sw` \* `sh` pixels at `sx,sy` from the `src` bitmap to
- * `dx,dy` on the `dst` bitmap into an area of `dw` \* `dh` pixels, stretching or shrinking the blitted area as neccessary.
+ * Extended blit function. Blits an area of `sw` &times; `sh` pixels at `sx,sy` from the `src` bitmap to
+ * `dx,dy` on the `dst` bitmap into an area of `dw` &times; `dh` pixels, stretching or shrinking the blitted area as neccessary.
  *
  * If `mask` is non-zero, pixels on the `src` bitmap that matches the `src` bitmap color are not blitted.
  * Whether the alpha value of the pixels is taken into account depends on whether IGNORE_ALPHA is enabled.
@@ -449,7 +430,7 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
  *
  * `mask` is the mask color of the source bitmap. The function can decide whether or not to blit the pixel based on this.
  *
- * It should return 1 on success. If it returns 0 bm_blit_ex_fun will terminate immediately.
+ * It should return 1 on success. If it returns 0 `bm_blit_ex_fun()` will terminate immediately.
  */
 typedef int (*bm_blit_fun)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int mask, void *data);
 
@@ -465,6 +446,15 @@ typedef int (*bm_blit_fun)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int
  * The other parameters are the same as for `bm_blit_ex()`.
  */
 void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_blit_fun fun, void *data);
+
+/** `void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`  \
+ * Rotates a source bitmap `src` around a pivot point `px,py` and blits it onto a destination bitmap `dst`.
+ *
+ * The bitmap is positioned such that the point `px,py` on the source is at the offset `ox,oy` on the destination. 
+ *
+ * The `angle` is clockwise, in radians. The bitmap is also scaled by the factor `scale`.
+ */
+void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);
 
 /**
  * ### Filter Functions
@@ -615,9 +605,9 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r);
 void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2);
 
 /** `void bm_fill(Bitmap *b, int x, int y)`  \
- * Floodfills from <x,y> using the pen color.
+ * Floodfills from `<x,y>` using the pen color.
  *
- * The color of the pixel at <x,y> is used as the source color.
+ * The color of the pixel at `<x,y>` is used as the source color.
  * The color of the pen is used as the target color.
  *
  * __NOTE__: The function does not take the clipping into account.
@@ -757,17 +747,45 @@ void bm_free_xbm_font(BmFont *font);
 /**
  * TODO
  * ----
- * - [] I should also go through the API and make the naming a bit more consistent.
- *   - Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.
- * - [] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
- *      function that takes a callback which iterates over all the pixels to simplify
- *      the API.  \
- *      The callback can look like `int (*)(Bitmap *b, int oldcolor, int x, int y)`
- * - [] I've added a precompiler definition `IGNORE_ALPHA` which causes all color
- *      operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
- *      It is not properly tested because I don't have any serious projects that
- *      depends on the alpha values at the moment.
+ * - [ ] I should also go through the API and make the naming a bit more consistent.
+ *     - Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.
+ * - [ ] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
+ *       function that takes a callback which iterates over all the pixels to simplify
+ *       the API.  \
+ *       The callback can look like `int (*)(Bitmap *b, int oldcolor, int x, int y)`
+ * - [ ] I've added a precompiler definition `IGNORE_ALPHA` which causes all color
+ *       operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
+ *       It is not properly tested because I don't have any serious projects that
+ *       depends on the alpha values at the moment.
  * - [x] `bm_fill()` should _perhaps_ stop using `bm_picker()`
+ * - [ ] To consider: In `bm_rotate_blit()` perhaps check `u,v` against the `src` 
+ *       clipping rect instead.  \
+ *       If I do this, I might have to do it for all blitting functions.
+ *
+ * References
+ * ----------
+ *
+ * * [BMP file format](http://en.wikipedia.org/wiki/BMP_file_format)
+ * * [Bresenham's line algorithm](http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
+ * * <http://members.chello.at/~easyfilter/bresenham.html>
+ * * [Flood fill](http://en.wikipedia.org/wiki/Flood_fill)
+ * * <http://en.wikipedia.org/wiki/Midpoint_circle_algorithm>
+ * * <http://web.archive.org/web/20110706093850/http://free.pages.at/easyfilter/bresenham.html>
+ * * <http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>
+ * * <http://www.w3.org/Graphics/GIF/spec-gif89a.txt>
+ * * Nelson, M.R. : "LZW Data Compression", Dr. Dobb's Journal, October 1989.
+ * * <http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011>
+ * * <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
+ * * <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
+ * * <http://www.shikadi.net/moddingwiki/PCX_Format>
+ * * <https://en.wikipedia.org/wiki/Truevision_TGA>
+ * * <http://paulbourke.net/dataformats/tga/>
+ * * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
+ * * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
+ * * <http://www.fileformat.info/format/xpm/egff.htm>
+ * * "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001  \
+ *   <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
+ * * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
  */
 
 #endif /* BMP_H */
