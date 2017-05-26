@@ -315,6 +315,7 @@ function filter(st,       res,tmp) {
 function scrub(st,    mp, ms, me, r, p, tg, a) {
 	sub(/  $/,"<br>\n",st);
 	gsub(/(  |[[:space:]]+\\)\n/,"<br>\n",st);
+	gsub(/(  |[[:space:]]+\\)$/,"<br>\n",st);
 	while(match(st, /(__?|\*\*?|~~|`+|[&><\\])/)) {
 		a = substr(st, 1, RSTART-1);
 		mp = substr(st, RSTART, RLENGTH);
@@ -487,10 +488,17 @@ function make_toc(st,              r,p,dis,t,n) {
     }
     return r st;
 }
-function fix_links(st,          lt,ld,lr,url,img,res,rx,pos) {
-    do {
+function fix_links(st,          lt,ld,lr,url,img,res,rx,pos,pre) {
+    do {        
+        pre = match(st, /<pre>/); # Don't substitute in <pre> blocks        
         pos = match(st, /\[[^\]]+\]/);
         if(!pos)break;
+        if(pre && pre < pos) {
+            pre = match(st, /<\/pre>/);
+            res = res substr(st,1,RSTART+RLENGTH);
+            st = substr(st, RSTART+RLENGTH);
+            continue;
+        }
         img=substr(st,RSTART-1,1)=="!";
         if(substr(st, RSTART-(img?2:1),1)=="\\") {
             res = res substr(st,1,RSTART-(img?3:2));
@@ -634,9 +642,9 @@ function init_css(Theme,             css,ss,hr,c1,c2,c3,c4,c5,bg1,bg2,bg3,bg4,ff
     css["a:hover"] = "color:%color4%;";
     css["a.top"] = "font-size:x-small;text-decoration:initial;float:right;";
     css["strong,b"] = "color:%color1%";
-    css["code"] = "color:%color2%;";
-    css["blockquote"] = "margin-left:1em;color:%color2%;background:%color5%;border-left:0.2em solid %color3%;border-radius:3px;padding:0.25em 0.5em;";
-    css["pre"] = "color:%color2%;background:%color5%;border-radius:5px;line-height:1.25em;margin:0.25em 0.5em;padding:0.75em;";
+    css["code"] = "color:%color1%;";
+    css["blockquote"] = "margin-left:1em;color:%color2%;border-left:0.2em solid %color3%;padding:0.25em 0.5em;";
+    css["pre"] = "color:%color1%;border:1px solid;border-radius:5px;line-height:1.25em;margin:0.25em 0.5em;padding:0.75em;";
     css["table"] = "border-collapse:collapse;margin:0.5em;";
     css["th,td"] = "padding:0.5em 0.75em;border:1px solid %color4%;";
     css["th"] = "color:%color2%;border:1px solid %color3%;border-bottom:2px solid %color3%;";

@@ -52,8 +52,10 @@ Use `bm_create()` to create `Bitmap` objects and `bm_free()` to destroy them.
 `bm_bind()` can be used to wrap a Bitmap object around an existing buffer of
 bytes, such as OpenGL textures and SDL surfaces.
 
-The `Makefile` generates HTML documentation from `bmp.h` through the `doc.awk`
-script.
+The `Makefile` generates HTML documentation from `bmp.h` through the `[d.awk][dawk]`
+script. Type `make docs` to create the documentation.
+
+[dawk]: https://github.com/wernsey/d.awk
 
 ## Additional Utilities
 
