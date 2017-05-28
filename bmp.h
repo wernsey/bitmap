@@ -194,7 +194,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len);
  * Loads a bitmap from a SDL `SDL_RWops*` structure,
  * for use with the [SDL library] (http://www.libsdl.org).
  *
- * This function is only available if the USESDL preprocessor macro
+ * This function is only available if the `USESDL` preprocessor macro
  * is defined, and `SDL.h` is included before `bmp.h`.
  *
  * BMP, GIF and PCX support is always enabled, while JPG and PNG support
@@ -233,6 +233,24 @@ int bm_save(Bitmap *b, const char *fname);
  * rather than `bm_free()`.
  */
 Bitmap *bm_bind(int w, int h, unsigned char *data);
+
+/** `Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h)`  \
+ * Binds a `Bitmap` structure to an array of `w` &times; `h` &times; 4 bytes.
+ *
+ * The intended use case is to manipulate bitmaps in local variables in functions.
+ * This function does not allocate memory for the `Bitmap` structure, so the
+ * return value should _not_ be freed by `bm_free()`.
+ *
+ * The following example creates a temporary copy if a bitmap `orig` which will
+ * be removed automatically when the calling function returns, and does not require
+ * the overhead of `malloc()` and `free()` as the other Bitmap create/bind functions.
+ *
+ *    Bitmap b;
+ *    unsigned char buffer[WIDTH * HEIGHT * 4];
+ *    bm_bind_static(&b, buffer, WIDTH, HEIGHT);
+ *    memcpy(b.data, orig->data, WIDTH * HEIGHT * 4);
+ */
+Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h);
 
 /** `void bm_rebind(Bitmap *b, unsigned char *data)`  \
  * Changes the data referred to by a bitmap structure previously
@@ -450,7 +468,7 @@ void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, in
 /** `void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`  \
  * Rotates a source bitmap `src` around a pivot point `px,py` and blits it onto a destination bitmap `dst`.
  *
- * The bitmap is positioned such that the point `px,py` on the source is at the offset `ox,oy` on the destination. 
+ * The bitmap is positioned such that the point `px,py` on the source is at the offset `ox,oy` on the destination.
  *
  * The `angle` is clockwise, in radians. The bitmap is also scaled by the factor `scale`.
  */
@@ -461,17 +479,22 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
  */
 
 /** `void bm_smooth(Bitmap *b)`  \
- * Smoothes the bitmap `b` by applying a 5x5 Gaussian filter.
+ * Smoothes the bitmap `b` by applying a 5&times;5 Gaussian filter.
  */
 void bm_smooth(Bitmap *b);
 
 /** `void bm_apply_kernel(Bitmap *b, int dim, float kernel[])`  \
- * Applies a `dim` * `dim` kernel to the image.
+ * Applies a `dim` &times; `dim` kernel to the image.
+ *
+ *     float smooth_kernel[] = { 0.0, 0.1, 0.0,
+ *                               0.1, 0.6, 0.1,
+ *                               0.0, 0.1, 0.0};
+ *     bm_apply_kernel(screen, 3, smooth_kernel);
  */
 void bm_apply_kernel(Bitmap *b, int dim, float kernel[]);
 
 /** `Bitmap *bm_resample(const Bitmap *in, int nw, int nh)`  \
- * Creates a new bitmap of dimensions `nw` * `nh` that is a scaled
+ * Creates a new bitmap of dimensions `nw` &times; `nh` that is a scaled
  * using the Nearest Neighbour method the input bitmap.
  *
  * The input bimap remains untouched.
@@ -479,7 +502,7 @@ void bm_apply_kernel(Bitmap *b, int dim, float kernel[]);
 Bitmap *bm_resample(const Bitmap *in, int nw, int nh);
 
 /** `Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh)`  \
- * Creates a new bitmap of dimensions `nw` * `nh` that is a scaled
+ * Creates a new bitmap of dimensions `nw` &times; `nh` that is a scaled
  * using Bilinear Interpolation from the input bitmap.
  *
  * The input bimap remains untouched.
@@ -489,7 +512,7 @@ Bitmap *bm_resample(const Bitmap *in, int nw, int nh);
 Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh);
 
 /** `Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh)`  \
- * Creates a new bitmap of dimensions `nw` * `nh` that is a scaled
+ * Creates a new bitmap of dimensions `nw` &times; `nh` that is a scaled
  * using Bicubic Interpolation from the input bitmap.
  *
  * The input bimap remains untouched.
@@ -758,34 +781,34 @@ void bm_free_xbm_font(BmFont *font);
  *       It is not properly tested because I don't have any serious projects that
  *       depends on the alpha values at the moment.
  * - [x] `bm_fill()` should _perhaps_ stop using `bm_picker()`
- * - [ ] To consider: In `bm_rotate_blit()` perhaps check `u,v` against the `src` 
+ * - [ ] To consider: In `bm_rotate_blit()` perhaps check `u,v` against the `src`
  *       clipping rect instead.  \
  *       If I do this, I might have to do it for all blitting functions.
  *
  * References
  * ----------
  *
- * * [BMP file format](http://en.wikipedia.org/wiki/BMP_file_format)
- * * [Bresenham's line algorithm](http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
+ * * [BMP file format](http://en.wikipedia.org/wiki/BMP_file_format) on Wikipedia
+ * * [Bresenham's line algorithm](http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) on Wikipedia
  * * <http://members.chello.at/~easyfilter/bresenham.html>
- * * [Flood fill](http://en.wikipedia.org/wiki/Flood_fill)
- * * <http://en.wikipedia.org/wiki/Midpoint_circle_algorithm>
+ * * [Flood fill](http://en.wikipedia.org/wiki/Flood_fill) on Wikipedia
+ * * [Midpoint circle algorithm](http://en.wikipedia.org/wiki/Midpoint_circle_algorithm) on Wikipedia
  * * <http://web.archive.org/web/20110706093850/http://free.pages.at/easyfilter/bresenham.html>
- * * <http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>
- * * <http://www.w3.org/Graphics/GIF/spec-gif89a.txt>
+ * * [Typography in 8 bits: System fonts](http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts)
+ * * [GIF89a specification](http://www.w3.org/Graphics/GIF/spec-gif89a.txt)
  * * Nelson, M.R. : "LZW Data Compression", Dr. Dobb's Journal, October 1989.
  * * <http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011>
- * * <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
+ * * [What's In A GIF](http://www.matthewflickinger.com/lab/whatsinagif/index.html) by Matthew Flickinger
  * * <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
  * * <http://www.shikadi.net/moddingwiki/PCX_Format>
- * * <https://en.wikipedia.org/wiki/Truevision_TGA>
+ * * [Truevision TGA](https://en.wikipedia.org/wiki/Truevision_TGA) on Wikipedia
  * * <http://paulbourke.net/dataformats/tga/>
  * * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
- * * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
+ * * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) on Wikipedia
  * * <http://www.fileformat.info/format/xpm/egff.htm>
  * * "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001  \
  *   <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
  * * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
+ * * [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
  */
-
 #endif /* BMP_H */
