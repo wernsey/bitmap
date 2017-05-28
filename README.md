@@ -84,22 +84,26 @@ script. Type `make docs` to create the documentation.
 
 ## References
 
-- <http://en.wikipedia.org/wiki/BMP_file_format>
-- <http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm>
-- <http://members.chello.at/~easyfilter/bresenham.html>
-- <http://en.wikipedia.org/wiki/Flood_fill>
-- <http://en.wikipedia.org/wiki/Midpoint_circle_algorithm>
-- <http://web.archive.org/web/20110706093850/http://free.pages.at/easyfilter/bresenham.html>
-- <http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>
-- <http://www.w3.org/Graphics/GIF/spec-gif89a.txt>
-- Nelson, M.R. : "LZW Data Compression", Dr. Dobb's Journal, October 1989.
-- <http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011>
-- <http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp>
-- <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
-- <http://www.shikadi.net/moddingwiki/PCX_Format>
-- <https://en.wikipedia.org/wiki/Truevision_TGA>
-- <http://paulbourke.net/dataformats/tga/>
-- <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
-- "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001  \
-    <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
-- <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
+* [BMP file format](http://en.wikipedia.org/wiki/BMP_file_format) on Wikipedia
+* [Bresenham's line algorithm](http://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm) on Wikipedia
+* <http://members.chello.at/~easyfilter/bresenham.html>
+* [Flood fill](http://en.wikipedia.org/wiki/Flood_fill) on Wikipedia
+* [Midpoint circle algorithm](http://en.wikipedia.org/wiki/Midpoint_circle_algorithm) on Wikipedia
+* <http://web.archive.org/web/20110706093850/http://free.pages.at/easyfilter/bresenham.html>
+* [Typography in 8 bits: System fonts](http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts)
+* [GIF89a specification](http://www.w3.org/Graphics/GIF/spec-gif89a.txt)
+* Nelson, M.R. : "LZW Data Compression", Dr. Dobb's Journal, October 1989.
+* <http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011>
+* [What's In A GIF](http://www.matthewflickinger.com/lab/whatsinagif/index.html) by Matthew Flickinger
+* <http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt>
+* <http://www.shikadi.net/moddingwiki/PCX_Format>
+* [Truevision TGA](https://en.wikipedia.org/wiki/Truevision_TGA) on Wikipedia
+* <http://paulbourke.net/dataformats/tga/>
+* <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
+* [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) on Wikipedia
+* <http://www.fileformat.info/format/xpm/egff.htm>
+* "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001  \
+  <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
+* <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
+* [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
+ 
