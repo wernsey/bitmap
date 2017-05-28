@@ -13,7 +13,7 @@ int bm_to_Xbm(Bitmap *b, const char *name) {
     //unsigned int c = bm_get_color(b) & 0x00FFFFFF;
     char fname[30];
     snprintf(fname, sizeof fname, "%s.xbm", name);
-    FILE *f = fopen(fname, "w");
+    FILE *f = fopen(fname, "wb");
     if(!f) return 0;
     fprintf(f, "#define %s_width  %3d\n", name, b->w);
     fprintf(f, "#define %s_height %3d\n", name, b->h);
