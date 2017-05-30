@@ -18,42 +18,24 @@ http://www.freetype.org/freetype2/docs/tutorial/step1.html
 
 static FT_Library library;
 
-typedef struct bmf_font {
-	char *name;
-	BmFont *font;
-	struct bmf_font *next;
-} BmfFont;
+static void bmft_deinit();
 
-static BmfFont *fonts = NULL;
-
-int bmf_init() {
-	int error;
-	fonts = NULL;
-	error = FT_Init_FreeType(&library);
+int bmft_init() {
+	int error = FT_Init_FreeType(&library);
 	if(error) {
 		return 0;
 	}
+	atexit(bmft_deinit);
 	return 1;
 }
 
-static void deinit_font(BmfFont *bmf) {
-	if(!bmf) return;
-	if(bmf->next) 
-		deinit_font(bmf->next);
-	FT_Done_Face((FT_Face)(bmf->font->data));
-	free(bmf->font);
-	free(bmf->name);
-	free(bmf);
-}
-
-void bmf_deinit() {
-	deinit_font(fonts);
+static void bmft_deinit() {
 	FT_Done_FreeType(library);
 }
 
-static int bmf_puts(Bitmap *bmp, int pen_x, int pen_y, const char *text);
+static int bmft_puts(Bitmap *bmp, int pen_x, int pen_y, const char *text);
 
-static int bmf_width(struct bitmap_font *font) {
+static int bmft_width(struct bitmap_font *font) {
 	FT_Face face;
 	if(strcmp(font->type, "FreeType"))
 		return 0;				
@@ -61,7 +43,7 @@ static int bmf_width(struct bitmap_font *font) {
 	return face->size->metrics.max_advance >> 6;
 }
 
-static int bmf_height(struct bitmap_font *font) {
+static int bmft_height(struct bitmap_font *font) {
 	FT_Face face;
 	if(strcmp(font->type, "FreeType"))
 		return 0;
@@ -70,47 +52,37 @@ static int bmf_height(struct bitmap_font *font) {
 	return face->size->metrics.height/64;
 }	
 
-static BmFont *make_bmf_font(FT_Face face) {
+
+static void bmft_dtor(BmFont *bmf) {
+	FT_Done_Face((FT_Face)(bmf->data));
+	free(bmf);
+}
+
+static BmFont *make_bmft_font(FT_Face face) {
 	BmFont *font = malloc(sizeof *font);
 	font->type = "FreeType";
-	font->puts = bmf_puts;
-	font->width = bmf_width; 
-	font->height = bmf_height; 
+	font->puts = bmft_puts;
+	font->width = bmft_width; 
+	font->height = bmft_height; 
+	font->dtor = bmft_dtor; 
 	font->data = face;
 	return font;
 }
 
-BmFont *bmf_load_font(const char *file) {
+BmFont *bmft_load_font(const char *file) {
 	int error;
-	BmfFont *bmf;
 	FT_Face face;
 	
 	if(!file) 
 		return NULL;
-		
-	for(bmf = fonts; bmf; bmf = bmf->next) {
-		if(bmf->name && !strcmp(bmf->name, file))
-			return bmf->font;
-	}
-	
-	bmf = malloc(sizeof *bmf);
 	
 	error = FT_New_Face(library, file, 0, &face);
 	if(error == FT_Err_Unknown_File_Format) {
-		free(bmf);
 		return NULL;
 	} else if(error) {
-		free(bmf);
 		return NULL;
 	}
-		
-	bmf->name = strdup(file);
-	bmf->font = make_bmf_font(face);
-	
-	bmf->next = fonts;
-	fonts = bmf;
-	
-	return bmf->font;
+	return make_bmft_font(face);
 }
 
 #ifdef USESDL
@@ -165,38 +137,18 @@ static FT_Face face_from_rwops(SDL_RWops *rw) {
 	}
 }
 
-BmFont *bmf_load_font_rw(SDL_RWops *rw, const char *name) {
-	BmfFont *bmf;
+BmFont *bmft_load_font_rw(SDL_RWops *rw, const char *name) {
 	FT_Face face;
-	if(name) {
-		for(bmf = fonts; bmf; bmf = bmf->next) {
-			if(bmf->name && !strcmp(bmf->name, name))
-				return bmf->font;
-		}
-	}
-	
-	bmf = malloc(sizeof *bmf);
 	
 	face = face_from_rwops(rw);
 	if(!face) {
-		free(bmf);
 		return NULL;
 	}
-		
-	if(name)
-		bmf->name = strdup(name);
-	else
-		bmf->name = NULL;
-		
-	bmf->font = make_bmf_font(face);
-	bmf->next = fonts;
-	fonts = bmf;
-	
-	return bmf->font;
+	return make_bmft_font(face);
 }
 #endif
 
-int bmf_set_size(BmFont *font, int px) {
+int bmft_set_size(BmFont *font, int px) {
 	FT_Face face;
 	int error;
 	
@@ -209,7 +161,6 @@ int bmf_set_size(BmFont *font, int px) {
 	/*error = FT_Set_Char_Size(face, 0, 16 * 64, 0, 0);*/
 	error = FT_Set_Pixel_Sizes(face, 0, px);
 	if(error) {
-		/*fprintf(stderr, "Error setting face sizes (%d).\n", error);*/
 		return 0;
 	}
 	return 1;
@@ -253,7 +204,7 @@ static void ft_draw_bitmap(Bitmap *bm, FT_Bitmap *fb, FT_Int x, FT_Int y) {
 	}
 }
 
-static int bmf_puts(Bitmap *bmp, int pen_x, int pen_y, const char *text) {	
+static int bmft_puts(Bitmap *bmp, int pen_x, int pen_y, const char *text) {	
 	FT_Face face;
 	BmFont *font = bmp->font;
 	FT_Int error, x_start = pen_x;

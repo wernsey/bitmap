@@ -15,27 +15,29 @@
  * License
  * -------
  *
- *     MIT License
- *     
- *     Copyright (c) 2017 Werner Stoop
- *     
- *     Permission is hereby granted, free of charge, to any person obtaining a copy
- *     of this software and associated documentation files (the "Software"), to deal
- *     in the Software without restriction, including without limitation the rights
- *     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *     copies of the Software, and to permit persons to whom the Software is
- *     furnished to do so, subject to the following conditions:
- *     
- *     The above copyright notice and this permission notice shall be included in all
- *     copies or substantial portions of the Software.
- *     
- *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *     SOFTWARE.
+ * ```
+ * MIT License
+ *
+ * Copyright (c) 2017 Werner Stoop
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * ```
  *
  * API
  * ---
@@ -650,6 +652,7 @@ void bm_fill(Bitmap *b, int x, int y);
  *   width (in pixels) of a single character in the font.
  * * `int (*height)(struct bitmap_font *font)` - Function that returns the
  *   height (in pixels) of a single character in the font.
+ * * `void (*dtor)(struct bitmap_font *font)` - Function that destroys
  * * `void *data` - Additonal data that may be required by the font.
  */
 typedef struct bitmap_font {
@@ -657,6 +660,7 @@ typedef struct bitmap_font {
     int (*puts)(Bitmap *b, int x, int y, const char *text);
     int (*width)(struct bitmap_font *font);
     int (*height)(struct bitmap_font *font);
+    void (*dtor)(struct bitmap_font *font);
     void *data;
 } BmFont;
 
@@ -702,6 +706,12 @@ int bm_puts(Bitmap *b, int x, int y, const char *text);
  */
 int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
 
+/** `void bm_free_font(BmFont *font)`  \
+ * Deallocates a font. It basically just calls the `dtor` member of the
+ * `font` structure.
+ */
+void bm_free_font(BmFont *font);
+
 /**
  * ### Raster Font Functions
  * `bmp.h` has support for drawing text using raster fonts from any of the
@@ -739,11 +749,6 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
  */
 BmFont *bm_make_ras_font(const char *file, int spacing);
 
-/** `void bm_free_ras_font(BmFont *font)`  \
- * Frees a raster font previously created with `bm_make_ras_font()`.
- */
-void bm_free_ras_font(BmFont *font);
-
 /**
  * ### XBM Font Functions
  * `bmp.h` has support for drawing text using XBM fonts built
@@ -757,11 +762,6 @@ void bm_free_ras_font(BmFont *font);
  * fonts in the `fonts/` directory.
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
-
-/** `void bm_free_xbm_font(BmFont *font)`  \
- * Frees an XBM font previously created with `bm_make_xbm_font()`.
- */
-void bm_free_xbm_font(BmFont *font);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 } /* extern "C" */

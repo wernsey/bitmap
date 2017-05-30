@@ -25,8 +25,6 @@ int main(int argc, char *argv[]) {
 	outfile = stderr;
 #endif
 
-	bfont_circuit = bm_make_xbm_font(circuit_bits, 7);
-
 	bm_set_color(bmp, bm_atoi("#6666FF"));
 	bm_clear(bmp);
 	bm_set_color(bmp, bm_atoi("#F58D31"));
@@ -35,18 +33,18 @@ int main(int argc, char *argv[]) {
 	bm_set_font(bmp, bfont_circuit);
 	bm_printf(bmp, 10, 20, "Another built-in font");
 
-	bmf_init();
+	bmft_init();
 	
-	/*font = bmf_load_font("lcarsfont/lcars.ttf");*/
+	/*font = bmft_load_font("lcarsfont/lcars.ttf");*/
 #ifdef USESDL
 	rw = SDL_RWFromFile("lcarsfont/lcars.ttf", "rb");
 	/*rw = SDL_RWFromFile("lcarsfont/lcars.ttf", "rb");*/
 	if(!rw){
 		fprintf(outfile, "Unable to open font file RW\n"); 
 	}
-	font = bmf_load_font_rw(rw, "lcars");
+	font = bmft_load_font_rw(rw, "lcars");
 #else
-	font = bmf_load_font("lcarsfont/lcars.ttf");
+	font = bmft_load_font("lcarsfont/lcars.ttf");
 #endif
 
 	if(!font) {
@@ -54,7 +52,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	
-	bmf_set_size(font, 20);
+	bmft_set_size(font, 20);
 	
 	bm_set_font(bmp, font);
 	
@@ -63,12 +61,17 @@ int main(int argc, char *argv[]) {
 	
 	bm_printf(bmp, x, 120, "%s", str);
 	
+	bmft_set_size(font, 30);	
+	bm_printf(bmp, x, 150, "Lorem Ipsum");
+	
 	bm_set_color(bmp, 1);
 	bm_save(bmp, "out.gif");
 
+	bm_free_font(bfont_circuit);
+	bm_free_font(font);
+	
 	bm_free(bmp);
 	
-	bmf_deinit();	
 #ifdef USESDL
 	fclose(outfile);
 #endif
