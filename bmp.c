@@ -3153,7 +3153,6 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
 
 void bm_smooth(Bitmap *b) {
     Bitmap *tmp = bm_create(b->w, b->h);
-    unsigned char *t = b->data;
     int x, y;
 
     /* http://prideout.net/archive/bloom/ */
@@ -3194,14 +3193,12 @@ void bm_smooth(Bitmap *b) {
             BM_SET_RGBA(tmp, x, y, R/c, G/c, B/c, A/c);
         }
 
-    b->data = tmp->data;
-    tmp->data = t;
+    memcpy(b->data, tmp->data, b->w * b->h * 4);
     bm_free(tmp);
 }
 
 void bm_apply_kernel(Bitmap *b, int dim, float kernel[]) {
     Bitmap *tmp = bm_create(b->w, b->h);
-    unsigned char *t = b->data;
     int x, y;
     int kf = dim >> 1;
 
@@ -3233,8 +3230,7 @@ void bm_apply_kernel(Bitmap *b, int dim, float kernel[]) {
         }
     }
 
-    b->data = tmp->data;
-    tmp->data = t;
+    memcpy(b->data, tmp->data, b->w * b->h * 4);
     bm_free(tmp);
 }
 
