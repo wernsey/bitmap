@@ -523,6 +523,21 @@ Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh);
  */
 Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh);
 
+/** `Bitmap *bm_resample_into(const Bitmap *in, Bitmap *out)`  \
+ * Resamples a bitmap `in` to fit into a bitmap `out` using nearest neighbour.
+ */
+Bitmap *bm_resample_into(const Bitmap *in, Bitmap *out);
+
+/** `Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out)`  \
+ * Resamples a bitmap `in` to fit into a bitmap `out` using bilinear interpolation.
+ */
+Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out);
+
+/** `Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out)`  \
+ * Resamples a bitmap `in` to fit into a bitmap `out` using bicubic interpolation.
+ */
+Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out);
+
 /** `void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest)`  \
  * Replaces all pixels of color `src` in bitmap `b` with the color `dest`.
  */

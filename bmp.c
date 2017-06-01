@@ -3257,9 +3257,9 @@ Bilinear Interpolation is better suited for making an image larger.
 Bicubic Interpolation is better suited for making an image smaller.
 http://blog.codinghorror.com/better-image-resizing/
 */
-Bitmap *bm_resample(const Bitmap *in, int nw, int nh) {
-    Bitmap *out = bm_create(nw, nh);
+Bitmap *bm_resample_into(const Bitmap *in, Bitmap *out) {
     int x, y;
+    int nw = out->w, nh = out->h;
     for(y = 0; y < nh; y++)
         for(x = 0; x < nw; x++) {
             int sx = x * in->w/nw;
@@ -3268,6 +3268,11 @@ Bitmap *bm_resample(const Bitmap *in, int nw, int nh) {
             BM_SET(out, x, y, BM_GET(in,sx,sy));
         }
     return out;
+}
+
+Bitmap *bm_resample(const Bitmap *in, int nw, int nh) {
+    Bitmap *out = bm_create(nw, nh);
+    return bm_resample_into(in, out);
 }
 
 /* http://rosettacode.org/wiki/Bilinear_interpolation */
@@ -3281,9 +3286,9 @@ static double blerp(double c00, double c10, double c01, double c11, double tx, d
         ty);
 }
 
-Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh) {
-    Bitmap *out = bm_create(nw, nh);
+Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out) {
     int x, y;
+    int nw = out->w, nh = out->h;
     for(y = 0; y < nh; y++)
         for(x = 0; x < nw; x++) {
             int C[4], c;
@@ -3307,6 +3312,11 @@ Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh) {
     return out;
 }
 
+Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh) {
+    Bitmap *out = bm_create(nw, nh);    
+    return out = bm_resample_blin_into(in, out);
+}
+
 /*
 http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
 except I ported the GLSL code to straight C
@@ -3321,9 +3331,9 @@ static double triangular_fun(double b) {
     return 0;
 }
 
-Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
-    Bitmap *out = bm_create(nw, nh);
+Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {    
     int x, y;
+    int nw = out->w, nh = out->h;
 
     for(y = 0; y < nh; y++)
     for(x = 0; x < nw; x++) {
@@ -3357,6 +3367,11 @@ Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
         BM_SET_RGBA(out, x, y, sum[0]/denom[0], sum[1]/denom[1], sum[2]/denom[2], sum[3]/denom[3]);
     }
     return out;
+}
+
+Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
+    Bitmap *out = bm_create(nw, nh);    
+    return bm_resample_bcub_into(in, out);
 }
 
 void bm_set_alpha(Bitmap *bm, int a) {
