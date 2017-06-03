@@ -480,6 +480,11 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
  * ### Filter Functions
  */
 
+/** `void bm_grayscale(Bitmap *b)`  \
+ * Converts an image to grascale.
+ */
+void bm_grayscale(Bitmap *b);
+ 
 /** `void bm_smooth(Bitmap *b)`  \
  * Smoothes the bitmap `b` by applying a 5&times;5 Gaussian filter.
  */

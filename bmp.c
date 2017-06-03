@@ -3151,6 +3151,19 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
     }
 }
 
+void bm_grayscale(Bitmap *b) {
+    /* https://en.wikipedia.org/wiki/Grayscale */
+    int x, y;
+    for(y = 0; y < b->h; y++)
+        for(x = 0; x < b->w; x++) {
+            unsigned int c =  BM_GET(b, x, y);
+            unsigned char R,G,B;
+            bm_get_rgb(c, &R, &G, &B);
+            c = (2126 * R + 7152 * G + 722 * B)/10000;
+            BM_SET(b, x, y, bm_rgb(c, c, c));
+        }
+}
+
 void bm_smooth(Bitmap *b) {
     Bitmap *tmp = bm_create(b->w, b->h);
     int x, y;

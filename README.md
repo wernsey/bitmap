@@ -92,6 +92,8 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
   * The `kmeans/` subdirectory contains a program that uses [K-means
     clustering](https://en.wikipedia.org/wiki/K-means_clustering) to identify
     the dominant colors in an image.
+  * `imgdup.c` is a program that scans directories for duplicate images using 
+    the _dHash_ algorithm.
 
 ## References
 
@@ -125,4 +127,5 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
   <http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337>
 * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
 * [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
+* [Grayscale](https://en.wikipedia.org/wiki/Grayscale) on Wikipedia
  
