@@ -3326,7 +3326,7 @@ Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out) {
 }
 
 Bitmap *bm_resample_blin(const Bitmap *in, int nw, int nh) {
-    Bitmap *out = bm_create(nw, nh);    
+    Bitmap *out = bm_create(nw, nh);
     return out = bm_resample_blin_into(in, out);
 }
 
@@ -3344,7 +3344,7 @@ static double triangular_fun(double b) {
     return 0;
 }
 
-Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {    
+Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {
     int x, y;
     int nw = out->w, nh = out->h;
 
@@ -3383,7 +3383,7 @@ Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {
 }
 
 Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
-    Bitmap *out = bm_create(nw, nh);    
+    Bitmap *out = bm_create(nw, nh);
     return bm_resample_bcub_into(in, out);
 }
 
@@ -4256,10 +4256,103 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
     bm_line(b, lx, ly, x2, y2);
 }
 
+void bm_poly(Bitmap *b, BmPoint points[], unsigned int n) {
+    unsigned int i;
+    if(n < 2) return;
+    for(i = 0; i < n - 1; i++) {
+        bm_line(b, points[i].x, points[i].y, points[i+1].x, points[i+1].y);
+    }
+    bm_line(b, points[0].x, points[0].y, points[i].x, points[i].y);
+}
+
+#define MAX_POLY_CORNERS 32
+
+void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n) {
+    /* http://alienryderflex.com/polygon_fill/
+    https://hackernoon.com/computer-graphics-scan-line-polygon-fill-algorithm-3cb47283df6
+
+    You might also be interested in this article:
+    http://nothings.org/gamedev/rasterize/
+    */
+    unsigned int i, j, c = bm_get_color(b);
+    int x, y;
+    if(n < 2)
+        return;
+    else if(n == 2) {
+        bm_line(b, points[0].x, points[0].y, points[1].x, points[1].y);
+        return;
+    }
+
+    int nodeX_static[MAX_POLY_CORNERS];
+    int nodes, *nodeX = nodeX_static;
+
+    if(n > MAX_POLY_CORNERS) {
+        nodeX = calloc(n, sizeof *nodeX);
+        if(!nodeX) return;
+    }
+
+    BmRect area = {b->w, b->h, 0, 0};
+    for(i = 0; i < n; i++) {
+        x = points[i].x;
+        y = points[i].y;
+        if(x < area.x0) area.x0 = x;
+        if(y < area.y0) area.y0 = y;
+        if(x > area.x1) area.x1 = x;
+        if(y > area.y1) area.y1 = y;
+    }
+    if(area.x0 < b->clip.x0) area.x0 = b->clip.x0;
+    if(area.y0 < b->clip.y0) area.y0 = b->clip.y0;
+    if(area.x1 >= b->clip.x1) area.x1 = b->clip.x1 - 1;
+    if(area.y1 >= b->clip.y1) area.y1 = b->clip.y1 - 1;
+
+    for(y = area.y0; y <= area.y1; y++) {
+        nodes = 0;
+        j = n - 1;
+
+        for(i = 0; i < n; i++) {
+            if((points[i].y < y && points[j].y >= y)
+                || (points[j].y < y && points[i].y >= y)) {
+                nodeX[nodes++] = points[i].x + (double)(y - points[i].y) * (points[j].x - points[i].x) / (points[j].y - points[i].y);
+            }
+            j = i;
+        }
+
+        assert(nodes < n);
+        if(nodes < 1) continue;
+
+        i = 0;
+        while(i < nodes - 1) {
+            if(nodeX[i] > nodeX[i+1]) {
+                int swap = nodeX[i];
+                nodeX[i] = nodeX[i + 1];
+                nodeX[i + 1] = swap;
+                if(i) i--;
+            } else {
+                i++;
+            }
+        }
+
+        for(i = 0; i < nodes; i += 2) {
+            if(nodeX[i] >= area.x1)
+                break;
+            if(nodeX[i + 1] > area.x0) {
+                if(nodeX[i] < area.x0)
+                    nodeX[i] = area.x0;
+                if(nodeX[i+1] > area.x1)
+                    nodeX[i+1] = area.x1;
+
+                for(x = nodeX[i]; x <= nodeX[i+1]; x++)
+                    BM_SET(b, x, y, c);
+            }
+        }
+    }
+
+    if(nodeX != nodeX_static)
+        free(nodeX);
+}
+
 void bm_fill(Bitmap *b, int x, int y) {
-    struct node {int x; int y;}
-        *queue,
-        n;
+    BmPoint *queue, n;
     int qs = 0, /* queue size */
         mqs = 128; /* Max queue size */
     unsigned int sc, dc; /* Source and Destination colors */
@@ -4282,7 +4375,7 @@ void bm_fill(Bitmap *b, int x, int y) {
     queue[qs++] = n;
 
     while(qs > 0) {
-        struct node w,e, nn;
+        BmPoint w,e, nn;
         int i;
 
         n = queue[--qs];
@@ -4384,7 +4477,7 @@ static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f
     BM_SET_RGBA(b, x, y, R, G, B, 0);
 }
 
-void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n) {
+void bm_reduce_palette(Bitmap *b, unsigned int palette[], unsigned int n) {
     /* Floyd-Steinberg (error-diffusion) dithering
         http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering */
     int x, y;
@@ -4469,11 +4562,11 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
     }
 }
 
-void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n) {
+void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], unsigned int n) {
     reduce_palette_bayer(b, palette, n, bayer4x4, 4, 17);
 }
 
-void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n) {
+void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n) {
     reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
 }
 
@@ -4586,12 +4679,12 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
     return 1;
 }
 
-static int rf_width(struct bitmap_font *font) {
+static int rf_width(BmFont *font) {
     assert(!strcmp(font->type, "RASTER_FONT"));
     RasterFontData *data = font->data;
     return data->width;
 }
-static int rf_height(struct bitmap_font *font) {
+static int rf_height(BmFont *font) {
     assert(!strcmp(font->type, "RASTER_FONT"));
     RasterFontData *data = font->data;
     return data->height;
