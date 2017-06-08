@@ -2,6 +2,22 @@
 
 A C library for manipulating bitmap graphics in memory and on disk.
 
+```
+#include <stdio.h>
+#include "bmp.h"
+
+int main(int argc, char *argv[]) {
+    Bitmap *b = bm_create(128,128);
+
+	bm_set_color(b, bm_atoi("white"));
+	bm_puts(b, 30, 60, "Hello World");
+
+    bm_save(b, "out.gif");
+	bm_free(b);
+    return 0;
+}
+```
+
 The code is licensed under the terms of the MIT License. See the file
 [LICENSE](LICENSE) for details.
 
@@ -92,7 +108,7 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
   * The `kmeans/` subdirectory contains a program that uses [K-means
     clustering](https://en.wikipedia.org/wiki/K-means_clustering) to identify
     the dominant colors in an image.
-  * `imgdup.c` is a program that scans directories for duplicate images using 
+  * `imgdup.c` is a program that scans directories for duplicate images using
     the _dHash_ algorithm.
 
 ## References
@@ -128,4 +144,4 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
 * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
 * [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
 * [Grayscale](https://en.wikipedia.org/wiki/Grayscale) on Wikipedia
- 
+
