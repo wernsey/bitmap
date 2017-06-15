@@ -122,8 +122,9 @@ typedef struct bitmap {
  *   width (in pixels) of a single character in the font.
  * * `int (*height)(struct bitmap_font *font)` - Function that returns the
  *   height (in pixels) of a single character in the font.
- * * `void (*dtor)(struct bitmap_font *font)` - Function that destroys
- * * `void *data` - Additonal data that may be required by the font.
+ * * `void (*dtor)(struct bitmap_font *font)` - Destructor function that
+ *   deallocates all memory allocated to the `BmFont` object.
+ * * `void *data` - Additional data that may be required by the font.
  */
 typedef struct bitmap_font {
     const char *type;
@@ -330,10 +331,12 @@ void bm_unbind(Bitmap *b);
  * be removed automatically when the calling function returns, and does not require
  * the overhead of `malloc()` and `free()` as the other Bitmap create/bind functions.
  *
- *    Bitmap b;
- *    unsigned char buffer[WIDTH * HEIGHT * 4];
- *    bm_bind_static(&b, buffer, WIDTH, HEIGHT);
- *    memcpy(b.data, orig->data, WIDTH * HEIGHT * 4);
+ * ```c
+ * Bitmap b;
+ * unsigned char buffer[WIDTH * HEIGHT * 4];
+ * bm_bind_static(&b, buffer, WIDTH, HEIGHT);
+ * memcpy(b.data, orig->data, WIDTH * HEIGHT * 4);
+ * ```
  */
 Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h);
 
@@ -615,10 +618,12 @@ void bm_smooth(Bitmap *b);
  *
  * Applies a `dim` &times; `dim` kernel to the image.
  *
- *     float smooth_kernel[] = { 0.0, 0.1, 0.0,
- *                               0.1, 0.6, 0.1,
- *                               0.0, 0.1, 0.0};
- *     bm_apply_kernel(screen, 3, smooth_kernel);
+ * ```c
+ * float smooth_kernel[] = { 0.0, 0.1, 0.0,
+ *                           0.1, 0.6, 0.1,
+ *                           0.0, 0.1, 0.0};
+ * bm_apply_kernel(screen, 3, smooth_kernel);
+ * ```
  */
 void bm_apply_kernel(Bitmap *b, int dim, float kernel[]);
 
@@ -958,7 +963,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  * TODO
  * ----
  * - [x] I should also go through the API and make the naming a bit more consistent.
- *     - Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.
+ *     - ~~Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.~~
  * - [ ] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
  *       function that takes a callback which iterates over all the pixels to simplify
  *       the API.  \
@@ -976,7 +981,8 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  * - [ ] In `bm_make_ras_font()`, because the top left corner is the space character, we
  *       can assume that the color of that pixel is the transparent color, rather than
  *       hardcoding it as black (0).
- * - [ ] For the documentation tool: Hide TOC entries above `<h3>`
+ * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
+ *       See <https://stackoverflow.com/a/8333464/115589>
  *
  * References
  * ----------

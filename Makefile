@@ -22,21 +22,24 @@ all: libbmp.a docs
 
 debug:
 	make BUILD=debug
-	
+
 libbmp.a: $(LIB_OBJECTS)
 	ar rs $@ $^
-	
+
 .c.o:
 	$(CC) $(CFLAGS) $< -o $@
 
 bmp.o: bmp.c bmp.h
 
-docs: bitmap.html
+docs: bitmap.html README.html
 
 bitmap.html: bmp.h d.awk
 	$(AWK) -f d.awk $< > $@
-	
-.PHONY : clean 
+
+README.html: README.md d.awk
+	$(AWK) -f d.awk -v Clean=1 $< > $@
+
+.PHONY : clean
 
 clean:
 	-rm -f *.o $(LIB)

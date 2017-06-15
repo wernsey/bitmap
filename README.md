@@ -1,19 +1,19 @@
-# bitmap
+# Bitmap API
 
 A C library for manipulating bitmap graphics in memory and on disk.
 
-```
+```c
 #include <stdio.h>
 #include "bmp.h"
 
 int main(int argc, char *argv[]) {
     Bitmap *b = bm_create(128,128);
 
-	bm_set_color(b, bm_atoi("white"));
-	bm_puts(b, 30, 60, "Hello World");
+    bm_set_color(b, bm_atoi("white"));
+    bm_puts(b, 30, 60, "Hello World");
 
     bm_save(b, "out.gif");
-	bm_free(b);
+    bm_free(b);
     return 0;
 }
 ```
@@ -27,13 +27,13 @@ Features:
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
   * JPEG through [libjpeg](http://www.ijg.org/)
-* Support fo SDL2' `SDL_RWops` file manipulation routines for loading images in
-  the supported formats.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/)
   surfaces, [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface)
   contexts. See the `bm_bind()` function. It can also serve as a back end for
   [Cairo graphics](https://cairographics.org)
-* Primitives: Lines, circles, elipses, bezier curves, etc.
+* Support for SDL2's `SDL_RWops` file manipulation routines for loading images
+  in the supported formats.
+* Primitives: Lines, circles, elipses, bezier curves, polygons, etc.
   * Clipping rectangles are obeyed.
 * Floodfill and filled primitives.
 * Image resizing: nearest neighbour, bilinear and bicubic.
