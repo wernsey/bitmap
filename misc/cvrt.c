@@ -1,12 +1,86 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "../bmp.h"
+
+void usage(const char *name) {
+	fprintf(stderr, "Usage: %s [options] infile outfile\n", name);
+	fprintf(stderr, "where options:\n");
+	fprintf(stderr, " -w width      : Width of output file\n");
+	fprintf(stderr, " -h height     : Height of output file\n");
+	fprintf(stderr, " -p percentage : Resize file by percentage%%\n");
+	fprintf(stderr, " -n            : Nearest neighbor resampling\n");
+}
 
 int main(int argc, char *argv[]) {
     Bitmap *b;
-    if(argc > 1) {
-        b = bm_load(argv[1]);
-        if(argc > 2) {
-            bm_save(b, argv[2]);
-        }
-        bm_free(b);
-    }
+	const char *infile, *outfile;
+	int opt, ow = -1, oh = -1, nn = 0;
+	double perc = -1.0;
+	while((opt = getopt(argc, argv, "w:h:p:n?")) != -1) {
+		switch(opt) {
+			case 'w' : {
+				ow = atoi(optarg);
+			} break;
+			case 'h' : {
+				oh = atoi(optarg);
+			} break;
+			case 'p' : {
+				perc = atof(optarg) / 100.0;
+			} break;
+			case 'n' : {
+				nn = 1;
+			} break;
+			case '?' : {
+				usage(argv[0]);
+				return 1;
+			}
+		}
+	}
+
+	if(optind > argc - 2) {
+		usage(argv[0]);
+		return 1;
+	}
+
+	infile = argv[optind++];
+	outfile = argv[optind++];
+
+    b = bm_load(infile);
+	if(!b) {
+		fprintf(stderr, "Unable to load %s\n", infile);
+		return 1;
+	}
+
+	if(perc > 0) {
+		ow = b->w * perc;
+		oh = b->h * perc;
+	}
+
+	if(ow > 0 || oh > 0) {
+		Bitmap *tmp;
+
+		/* Maintain aspect ratio if only new width/height specified */
+		if(ow <= 0) ow = b->w * oh / b->h;
+		if(oh <= 0) oh = b->h * ow / b->w;
+
+		if(nn) {
+			tmp = bm_resample(b, ow, oh);
+		} else {
+			if(ow > b->w || oh > b->h) {
+				/* Use bilinear filtering to make image larger */
+				tmp = bm_resample_blin(b, ow, oh);
+			} else {
+				/* Use bicubic filtering to make image smaller */
+				tmp = bm_resample_bcub(b, ow, oh);
+			}
+		}
+		bm_free(b);
+		b = tmp;
+	}
+
+	bm_save(b, outfile);
+
+	bm_free(b);
 }
