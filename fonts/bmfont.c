@@ -23,6 +23,7 @@ static void usage(const char *name) {
 	fprintf(stderr, " -s spacing      : Font spacing\n");
 	/* fprintf(stderr, " -f fgcolor      : Foreground color\n"); */
 	fprintf(stderr, " -b bgcolor      : Background color\n");
+	fprintf(stderr, " -X name         : Convert font to XBM\n");
 }
 
 int main(int argc, char *argv[]) {

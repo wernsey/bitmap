@@ -59,7 +59,7 @@ I basically drew the `font.xbm` files from the fonts at
 Apple ][ font turned out to be the nicest normal font. The bold font was
 inspired by Commodore 64. I later added some others for a bit of variety.
 
-The normal.xbm file actually contains the default font available through the
+The `normal.xbm` file actually contains the default font available through the
 `bm_reset_font()` function, but it is included here for completeness/if you
 want to build a font off of it.
 
@@ -73,6 +73,8 @@ Usage:
     #include "fonts/small.xbm"
     #include "fonts/smallinv.xbm"
     #include "fonts/thick.xbm"
+    #include "fonts/thinsans.xbm"
+    #include "fonts/infocom.xbm"
     
     /* Create the BmFont object from the XBM's bytes */
     BmFont *bfont_normal = bm_make_xbm_font(normal_bits, 6);
@@ -82,6 +84,8 @@ Usage:
     BmFont *bfont_small = bm_make_xbm_font(small_bits, 5);
     BmFont *bfont_smallinv = bm_make_xbm_font(smallinv_bits, 7);
     BmFont *bfont_thick = bm_make_xbm_font(thick_bits, 6);
+    BmFont *bfont_thinsans = bm_make_xbm_font(thinsans_bits, 6);
+    BmFont *bfont_infocom = bm_make_xbm_font(infocom_bits, 6);
     
     /* Then set the font on your Bitmap object */
     bm_set_font(b, bfont_circuit);
@@ -97,4 +101,13 @@ Usage:
     bm_free_font(bfont_small);
     bm_free_font(bfont_smallinv);
     bm_free_font(bfont_thick);
+    bm_free_font(bfont_thinsans);
+    bm_free_font(bfont_infocom);
 
+If you need to modify the fonts, the `dumpfonts` utility (in `dumpfonts.c`) will
+dump all the fonts to GIF files, where they can be edited in a paint program.
+
+To convert a file to an XBM font, use the `-X` option of the `bmfont` utility. 
+For example:
+
+    utils/bmfont -X newfont newfont.gif
