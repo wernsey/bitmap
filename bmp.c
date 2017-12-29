@@ -4699,6 +4699,7 @@ static void rf_free_font(BmFont *font) {
 }
 
 BmFont *bm_make_ras_font(const char *file, int spacing) {
+    unsigned int bg = 0;
     BmFont *font = malloc(sizeof *font);
     font->type = "RASTER_FONT";
     font->puts = rf_puts;
@@ -4712,7 +4713,10 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
         free(font);
         return NULL;
     }
-    bm_set_color(data->bmp, 0);
+    /* The top-left character is a space, so we can safely assume that that pixel
+       is the transparent color. */
+    bg = bm_get(data->bmp, 0, 0);
+    bm_set_color(data->bmp, bg);
     /* The width/height depends on the bitmap being laid out as prescribed */
     data->width = data->bmp->w / 16;
     data->height = data->bmp->h / 6;
