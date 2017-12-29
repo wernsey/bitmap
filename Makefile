@@ -8,7 +8,7 @@ LIB_SOURCES=bmp.c
 LIB_OBJECTS=$(LIB_SOURCES:.c=.o)
 LIB=libbmp.a
 
-DOCS=docs/bitmap.html docs/README.html docs/built-in-fonts.html
+DOCS=docs/bitmap.html docs/README.html docs/freetype-fonts.html docs/built-in-fonts.html
 
 ifeq ($(BUILD),debug)
 # Debug
@@ -44,10 +44,13 @@ docs/bitmap.html: bmp.h d.awk
 docs/README.html: README.md d.awk
 	$(AWK) -f d.awk -v Clean=1 $< > $@
 
+docs/freetype-fonts.html: ftypefont/ftfont.h d.awk
+	$(AWK) -f d.awk $< > $@
+
 docs/built-in-fonts.html: fonts/instructions.md d.awk
 	$(AWK) -f d.awk -v Clean=1 $< > $@
 
-utils: utilsdir utils/hello utils/bmfont utils/dumpfonts
+utils: utilsdir utils/hello utils/bmfont utils/dumpfonts utils/cvrt utils/imgdup
 
 utils/hello: hello.c libbmp.a
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -56,6 +59,12 @@ utils/bmfont: fonts/bmfont.c misc/to_xbm.c libbmp.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 utils/dumpfonts: fonts/dumpfonts.c misc/to_xbm.c libbmp.a
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+utils/cvrt: misc/cvrt.c libbmp.a
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+utils/imgdup: misc/imgdup.c libbmp.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 utilsdir:

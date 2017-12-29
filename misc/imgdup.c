@@ -76,7 +76,7 @@ typedef struct image_hash {
 
 image_hash *img_list = NULL;
 
-static int verbose = 0;
+static int verbose = 2;
 
 image_hash *add_image(const char *filename) {
     image_hash *ih;
@@ -87,7 +87,7 @@ image_hash *add_image(const char *filename) {
 
     Bitmap *b = bm_load(filename);
     if(!b) {
-        perror(filename);
+        fprintf(stderr, "error reading %s\n", filename);
         return NULL;
     }
 
