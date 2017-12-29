@@ -3320,7 +3320,11 @@ Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out) {
                 int p11 = BM_GETN(in,c,sx+dx,sy+dy);
                 C[c] = (int)blerp(p00, p10, p01, p11, gx-sx, gy-sy);
             }
+#if !ABGR
+            BM_SET_RGBA(out, x, y, C[2], C[1], C[0], C[3]);
+#else
             BM_SET_RGBA(out, x, y, C[0], C[1], C[2], C[3]);
+#endif
         }
     return out;
 }
@@ -3377,7 +3381,11 @@ Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {
             }
         }
 
+#if !ABGR
+        BM_SET_RGBA(out, x, y, sum[2]/denom[2], sum[1]/denom[1], sum[0]/denom[0], sum[3]/denom[3]);
+#else
         BM_SET_RGBA(out, x, y, sum[0]/denom[0], sum[1]/denom[1], sum[2]/denom[2], sum[3]/denom[3]);
+#endif
     }
     return out;
 }
