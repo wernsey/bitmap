@@ -14,6 +14,9 @@ out.*
 # I dumped some old proof of concept files in `ignore/`
 ignore/*
 
+# Output of the dumpfonts utility
+dump-*.gif
+
 fonts/*.gif
 fonts/*.pdn
 

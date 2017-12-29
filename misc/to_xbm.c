@@ -3,10 +3,8 @@
  *
  * $ gcc -o toxbm -DTO_XBM_MAIN to_xbm.c ../bmp.c
  */
-#ifdef TO_XBM_MAIN
 #include <stdio.h>
 #include "../bmp.h"
-#endif
 
 int bm_to_Xbm(Bitmap *b, const char *name) {
     int x, y, bit = 0, byte = 0;
