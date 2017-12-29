@@ -34,13 +34,16 @@ Usage:
     if(!font) {
         fprintf(stderr, "error: %s\n", "font.gif");
         return 1;
-    }	
+    }
     
     /* Then set the font on your Bitmap object */
     bm_set_font(b, font);
     
+    /* You can now use the font: */
+    bm_puts(b, 30, 60, "Hello World");
+    
     /* Then free the font when you're done with it */
-    bm_free_ras_font(font);
+    bm_free_font(font);
 
 XBM Fonts
 =========
@@ -51,7 +54,7 @@ so that you don't have to distribute any additonal files.
 You create a `BmFont` object with the `bm_make_xbm_font()` function, then use
 `bm_set_font()` to start using the font
 
-I basically drew the font.xbm files from the fonts at
+I basically drew the `font.xbm` files from the fonts at
 <http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>. The
 Apple ][ font turned out to be the nicest normal font. The bold font was
 inspired by Commodore 64. I later added some others for a bit of variety.
@@ -81,14 +84,17 @@ Usage:
     BmFont *bfont_thick = bm_make_xbm_font(thick_bits, 6);
     
     /* Then set the font on your Bitmap object */
-    bm_set_font(Bitmap *, BmFont *);
+    bm_set_font(b, bfont_circuit);
+    
+    /* You can now use the font: */
+    bm_puts(b, 30, 60, "Hello World");
     
     /* Then free the fonts when you're done with them */
-    bm_free_xbm_font(bfont_normal);
-    bm_free_xbm_font(bfont_bold);
-    bm_free_xbm_font(bfont_circuit);
-    bm_free_xbm_font(bfont_hand);
-    bm_free_xbm_font(bfont_small);
-    bm_free_xbm_font(bfont_smallinv);
-    bm_free_xbm_font(bfont_thick);
+    bm_free_font(bfont_normal);
+    bm_free_font(bfont_bold);
+    bm_free_font(bfont_circuit);
+    bm_free_font(bfont_hand);
+    bm_free_font(bfont_small);
+    bm_free_font(bfont_smallinv);
+    bm_free_font(bfont_thick);
 
