@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
+CFLAGS=-Wall -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
 LDFLAGS=`libpng-config --ldflags` -lz -ljpeg
 AWK=awk
 
@@ -29,7 +29,7 @@ libbmp.a: $(LIB_OBJECTS)
 	ar rs $@ $^
 
 .c.o:
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 bmp.o: bmp.c bmp.h
 
