@@ -107,7 +107,7 @@ image_hash *add_image(const char *filename) {
     return ih;
 }
 
-void scandir(const char *path) {
+void walkdir(const char *path) {
     DIR *dp = opendir(path);
     if(!dp) {
         perror(path);
@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
     }
 
     for(i = 1; i < argc; i++) {
-        scandir(argv[i]);
+        walkdir(argv[i]);
     }
 
 	printf("\n");
