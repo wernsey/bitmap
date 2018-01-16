@@ -22,7 +22,7 @@ the width and height of the bitmap by 16 and 6 respectively.
 
 `font.gif` is an example of an 8x8 font that can be used in this way:
 
-![sample font image](font.gif)
+![sample font image](../fonts/font.gif)
 
 The image is 128x48 pixels, so the individual characters are 8x8 pixels.
 (128/16=8 and 48/6=8)
@@ -54,9 +54,9 @@ so that you don't have to distribute any additonal files.
 You create a `BmFont` object with the `bm_make_xbm_font()` function, then use
 `bm_set_font()` to start using the font
 
-I basically drew the `font.xbm` files from the fonts at
-<http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts>. The
-Apple ][ font turned out to be the nicest normal font. The bold font was
+The font XBM files were mostly inspired by the analysis of 8-bit computer fonts at
+[Typography in 8 bits: System fonts](http://damieng.com/blog/2011/02/20/typography-in-8-bits-system-fonts). The
+Apple ][ font turned out to be the nicest default font. The bold font was
 inspired by Commodore 64. I later added some others for a bit of variety.
 
 The `normal.xbm` file actually contains the default font available through the
