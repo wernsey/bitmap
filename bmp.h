@@ -725,6 +725,21 @@ void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], unsigned int n);
 void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n);
 
 /**
+ * #### `unsigned int *bm_load_palette(const char * filename, unsigned int *npal)`
+ *
+ * Loads a palette from a file named `filename`. The file is a text file containing a
+ * colour on each line and semicolons for comments.
+ *
+ * The format of the file is similar to the Paint.NET [palette files](https://www.getpaint.net/doc/latest/WorkingWithPalettes.html)
+ * except that the colours can be specified in any format supported by `bm_atoi()`.
+ * A palette cannot contain more than 256 entries.
+ *
+ * It returns an array of colours, or `NULL` on error. The returned array must be `free()`ed
+ * after use. `npal` will contain the number of entries read in the palette file.
+ */
+unsigned int *bm_load_palette(const char * filename, unsigned int *npal);
+
+/**
  * ### Drawing Primitives
  * `bmp.h` provides these methods for drawing graphics primitives.
  */

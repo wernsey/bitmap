@@ -4589,6 +4589,59 @@ void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n) {
     reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
 }
 
+unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
+    unsigned int *pal, n = 0, an = 8;
+    FILE *f;
+    char buf[64];
+
+    if(!filename || !npal) return NULL;
+
+    *npal = 0;
+
+    f = fopen(filename, "r");
+    if(!f) return NULL;
+
+    pal = calloc(an, sizeof *pal);
+    if(!pal)
+        return NULL;
+
+    while(fgets(buf, sizeof buf, f) && n < 256) {
+        char *s, *e, *c = buf;
+        while(*c && isspace(*c)) c++;
+        s = c;
+        if(!*s) continue;
+        while(*c) {
+            if(*c == ';') {
+                *c = '\0';
+                break;
+            }
+            c++;
+        }
+        e = c - 1;
+        while(e > s && isspace(*e)) {
+            *e = '\0';
+            e--;
+        }
+        if(e <= s) continue;
+
+        pal[n++] = bm_atoi(s);
+        if(n == an) {
+            an <<= 1;
+            pal = realloc(pal, an * sizeof *pal);
+            if(!pal)
+                return NULL;
+        }
+    }
+    fclose(f);
+
+    if(n == 0) {
+        free(pal);
+        return NULL;
+    }
+    *npal = n;
+    return pal;
+}
+
 void bm_set_font(Bitmap *b, BmFont *font) {
     b->font = font;
 }
