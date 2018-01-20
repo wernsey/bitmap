@@ -29,7 +29,7 @@ libbmp.a: $(LIB_OBJECTS)
 	ar rs $@ $^
 
 .c.o:
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 bmp.o: bmp.c bmp.h
 

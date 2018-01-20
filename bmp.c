@@ -3095,23 +3095,31 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
     will be on the destination to get a bounding box for scanning */
     dx = -cosAngle * px * scale + sinAngle * py * scale + ox;
     dy = -sinAngle * px * scale - cosAngle * py * scale + oy;
-    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
-    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+    if(dx < minx) minx = dx;
+    if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy;
+    if(dy > maxy) maxy = dy;
 
     dx = cosAngle * (src->w - px) * scale + sinAngle * py * scale + ox;
     dy = sinAngle * (src->w - px) * scale - cosAngle * py * scale + oy;
-    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
-    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+    if(dx < minx) minx = dx;
+    if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy;
+    if(dy > maxy) maxy = dy;
 
     dx = cosAngle * (src->w - px) * scale - sinAngle * (src->h - py) * scale + ox;
     dy = sinAngle * (src->w - px) * scale + cosAngle * (src->h - py) * scale + oy;
-    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
-    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+    if(dx < minx) minx = dx;
+    if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy;
+    if(dy > maxy) maxy = dy;
 
     dx = -cosAngle * px * scale - sinAngle * (src->h - py) * scale + ox;
     dy = -sinAngle * px * scale + cosAngle * (src->h - py) * scale + oy;
-    if(dx < minx) minx = dx; if(dx > maxx) maxx = dx;
-    if(dy < miny) miny = dy; if(dy > maxy) maxy = dy;
+    if(dx < minx) minx = dx;
+    if(dx > maxx) maxx = dx;
+    if(dy < miny) miny = dy;
+    if(dy > maxy) maxy = dy;
 
     /* Clipping */
     if(minx < dst->clip.x0) minx = dst->clip.x0;
@@ -4558,11 +4566,14 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
             int f = (bayer[(y & af) * dim + (x & af)] - sub);
 
             R += R * f / fac;
-            if(R > 255) R = 255; if(R < 0) R = 0;
+            if(R > 255) R = 255;
+            else if(R < 0) R = 0;
             G += G * f / fac;
-            if(G > 255) G = 255; if(G < 0) G = 0;
+            if(G > 255) G = 255;
+            else if(G < 0) G = 0;
             B += B * f / fac;
-            if(B > 255) B = 255; if(B < 0) B = 0;
+            if(B > 255) B = 255;
+            else if(B < 0) B = 0;
             oldpixel = (R << 16) | (G << 8) | B;
             newpixel = closest_color(oldpixel, palette, n);
             BM_SET(b, x, y, newpixel);
