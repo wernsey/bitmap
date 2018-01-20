@@ -39,16 +39,16 @@ docsdir:
 	mkdir -p docs
 
 docs/bitmap.html: bmp.h d.awk
-	$(AWK) -f d.awk $< > $@
+	$(AWK) -v Title="API Documentation" -f d.awk $< > $@
 
 docs/README.html: README.md d.awk
-	$(AWK) -f d.awk -v Clean=1 $< > $@
+	$(AWK) -f d.awk -v Clean=1 -v Title="README" $< > $@
 
 docs/freetype-fonts.html: ftypefont/ftfont.h d.awk
-	$(AWK) -f d.awk $< > $@
+	$(AWK) -v Title="FreeType Font Support" -f d.awk $< > $@
 
 docs/built-in-fonts.html: fonts/instructions.md d.awk
-	$(AWK) -f d.awk -v Clean=1 $< > $@
+	$(AWK) -v Title="Raster Font Support" -f d.awk -v Clean=1 $< > $@
 
 utils: utilsdir utils/hello utils/bmfont utils/dumpfonts utils/cvrt utils/imgdup
 
