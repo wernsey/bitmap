@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
-LDFLAGS=`libpng-config --ldflags` -lz -ljpeg
+CFLAGS=-c -Wall -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
+LDFLAGS=`libpng-config --ldflags` -lz -ljpeg -lm
 AWK=awk
 
 # Add your source files here:
