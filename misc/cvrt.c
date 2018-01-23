@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     b = bm_load(infile);
     if(!b) {
-        fprintf(stderr, "Unable to load %s\n", infile);
+        fprintf(stderr, "Unable to load %s: %s\n", infile, bm_last_error);
         return 1;
     }
 

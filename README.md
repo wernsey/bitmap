@@ -27,6 +27,10 @@ Features:
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
   * JPEG through [libjpeg](http://www.ijg.org/)
+  * Alternatively, PNG and JPEG files can be loaded through the Sean Barrett's
+    [stb_image][] image loader library. [stb_image][] supports a couple of
+	additional formats, such as PSD, PIC and PNM binary formats. See
+	`bm_load_stb()` for more information.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/)
   surfaces, [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface)
   contexts. See the `bm_bind()` function. It can also serve as a back end for
@@ -51,6 +55,7 @@ The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 
 [freetype]: https://www.freetype.org/
 [emscripten]: http://kripken.github.io/emscripten-site/
+[stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
 
 ## Getting Started
 
@@ -69,6 +74,9 @@ your platform.
 Likewise, to enable JPEG support, you need [libjpeg][] installed and specify
 the `-DUSEJPG` command line option when compiling and add `-ljpeg` to your
 linker options.
+
+To use [stb_image][], put the `stb_image.h` file in the same directory as
+`bmp.c`, and add `-DUSESTB` to your compiler flags.
 
 Use `bm_create()` to create `Bitmap` objects and `bm_free()` to destroy them.
 

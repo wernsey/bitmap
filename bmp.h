@@ -285,6 +285,35 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len);
 Bitmap *bm_load_rw(SDL_RWops *file);
 #endif
 
+#ifdef USESTB
+/** #### `Bitmap *bm_load_stb(const char *filename)`
+ *
+ * Loads a `Bitmap` through the Sean Barrett's [stb_image][]
+ * image loader library (currently at v2.16).
+ *
+ * [stb_image][] provides support for loading JPEG and PNG files without
+ * relying on `libjpeg` and `libpng`. It also provides support for other
+ * file formats, such as PSD.
+ *
+ * To use this function, `stb_image.h` must be in the same directory
+ * as `bmp.c` and `-D USESTB` must be addeed to your compiler flags.
+ *
+ * [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
+ */
+Bitmap *bm_load_stb(const char *filename);
+
+/** #### `Bitmap *bm_from_stb(int w, int h, unsigned char *data)`
+ *
+ * Creates a `Bitmap` object from the data returned by one of the
+ * `stbi_load*` functions of [stb_image][].
+ *
+ * The `desired_channels` parameter of the `stbi_load*` function
+ * _must_ be set to 4 for this function to work correctly.
+ *
+ */
+Bitmap *bm_from_stb(int w, int h, unsigned char *data);
+#endif /* USESTB */
+
 /**
  * #### `int bm_save(Bitmap *b, const char *fname)`
  *

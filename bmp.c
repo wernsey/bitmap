@@ -184,6 +184,16 @@ Bitmap *bm_create(int w, int h) {
     return b;
 }
 
+#if USESTB
+#define STB_IMAGE_IMPLEMENTATION
+#ifdef __TINYC__
+/* Yes, it compiles with the Tiny C Compiler, but without SIMD */
+#  define STBI_NO_SIMD
+#endif
+#include "stb_image.h"
+#undef STB_IMAGE_IMPLEMENTATION
+#endif
+
 /* Wraps around the stdio functions, so I don't have to duplicate my code
     for SDL2's RWops support.
     It is unfortunately an abstraction over an abstraction in the case of
@@ -333,6 +343,14 @@ Bitmap *bm_load_fp(FILE *f) {
     if(isjpg) {
 #ifdef USEJPG
         return bm_load_jpg_fp(f);
+#elif USESTB
+		int x, y, n;
+		stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
+		if(!data) {
+			SET_ERROR(stbi_failure_reason());
+			return NULL;
+		}
+		return bm_from_stb(x, y, data);
 #else
         (void)isjpg;
         SET_ERROR("JPEG support is not enabled");
@@ -342,6 +360,14 @@ Bitmap *bm_load_fp(FILE *f) {
     if(ispng) {
 #ifdef USEPNG
         return bm_load_png_fp(f);
+#elif USESTB
+		int x, y, n;
+		stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
+		if(!data) {
+			SET_ERROR(stbi_failure_reason());
+			return NULL;
+		}
+		return bm_from_stb(x, y, data);
 #else
         (void)ispng;
         SET_ERROR("PNG support is not enabled");
@@ -399,24 +425,44 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     }
     rd.fseek(rd.data, 0, SEEK_SET);
 
-#ifdef USEJPG
     if(isjpg) {
+#ifdef USEJPG
         /* FIXME: JPG support */
         SET_ERROR("JPEG not supported by bm_load_mem()");
         return NULL;
-    }
+#elif USESTB
+		int x, y, n;
+		stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
+		if(!data) {
+			SET_ERROR(stbi_failure_reason());
+			return NULL;
+		}
+		return bm_from_stb(x, y, data);
 #else
-    (void)isjpg;
+		(void)isjpg;
+        SET_ERROR("JPEG support is not enabled");
+        return NULL;
 #endif
-#ifdef USEPNG
+    }
     if(ispng) {
+#ifdef USEPNG
         /* FIXME: PNG support */
         SET_ERROR("PNG not supported by bm_load_mem()");
         return NULL;
-    }
+#elif USESTB
+		int x, y, n;
+		stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
+		if(!data) {
+			SET_ERROR(stbi_failure_reason());
+			return NULL;
+		}
+		return bm_from_stb(x, y, data);
 #else
-    (void)ispng;
+		(void)ispng;
+        SET_ERROR("PNG support is not enabled");
+        return NULL;
 #endif
+    }
     if(isgif) {
         return bm_load_gif_rd(rd);
     }
@@ -2637,6 +2683,51 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
     fclose(f);
     return 1;
 }
+
+#if USESTB
+/*
+In the future, I can add support for stb_image_write.h as well.
+See https://github.com/nothings/stb/blob/master/stb_image_write.h
+*/
+Bitmap *bm_from_stb(int w, int h, unsigned char *data) {
+	Bitmap *b = malloc(sizeof *b);
+	int i;
+
+    b->w = w;
+    b->h = h;
+
+    b->clip.x0 = 0;
+    b->clip.y0 = 0;
+    b->clip.x1 = w;
+    b->clip.y1 = h;
+
+    b->font = NULL;
+    bm_reset_font(b);
+
+    bm_set_color(b, 0xFFFFFFFF);
+	b->data = data;
+
+#if !ABGR
+	/* Unfortunately, the R and B channels of stb_image are
+		swapped from the format I'd prefer them in. */
+	for(i = 0; i < w * h * 4; i += 4) {
+		unsigned char c = data[i];
+		data[i] = data[i+2];
+		data[i+2] = c;
+	}
+#endif
+
+	return b;
+}
+
+Bitmap *bm_load_stb(const char *filename) {
+	int w, h, n;
+	unsigned char *data = stbi_load(filename, &w, &h, &n, 4);
+	if(!data)
+		return NULL;
+	return bm_from_stb(w, h, data);
+}
+#endif /* USESTB */
 
 Bitmap *bm_copy(Bitmap *b) {
     Bitmap *out = bm_create(b->w, b->h);
