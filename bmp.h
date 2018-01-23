@@ -50,6 +50,24 @@
 extern "C" {
 #endif
 
+#ifndef BM_LAST_ERROR
+#  define BM_LAST_ERROR 1
+#endif
+
+/**
+ * ### Globals
+ */
+
+/**
+ * #### `extern const char *bm_last_error;`
+ * The last error of any `bm_*` function where available.
+ *
+ * It can be disabled in by defining `BM_LAST_ERROR` as 0.
+ */
+#if BM_LAST_ERROR
+extern const char *bm_last_error;
+#endif
+
 /**
  * ### Structures
  */

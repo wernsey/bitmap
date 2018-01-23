@@ -91,8 +91,6 @@ int main(int argc, char *argv[]) {
         b = tmp;
     }
 
-
-
     if(pal) {
         bm_reduce_palette(b, pal, npal);
         free(pal);
