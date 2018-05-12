@@ -8,7 +8,7 @@ LIB_SOURCES=bmp.c
 LIB_OBJECTS=$(LIB_SOURCES:.c=.o)
 LIB=libbmp.a
 
-DOCS=docs/bitmap.html docs/README.html docs/freetype-fonts.html docs/built-in-fonts.html
+DOCS=docs/bitmap.html docs/README.html docs/freetype-fonts.html docs/built-in-fonts.html docs/LICENSE
 
 ifeq ($(BUILD),debug)
 # Debug
@@ -40,6 +40,9 @@ docsdir:
 
 docs/bitmap.html: bmp.h d.awk
 	$(AWK) -v Title="API Documentation" -f d.awk $< > $@
+
+docs/LICENSE: LICENSE
+	cp $< $@
 
 docs/README.html: README.md d.awk
 	$(AWK) -f d.awk -v Clean=1 -v Title="README" $< > $@

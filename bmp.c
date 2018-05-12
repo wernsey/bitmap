@@ -344,13 +344,13 @@ Bitmap *bm_load_fp(FILE *f) {
 #ifdef USEJPG
         return bm_load_jpg_fp(f);
 #elif USESTB
-		int x, y, n;
-		stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
-		if(!data) {
-			SET_ERROR(stbi_failure_reason());
-			return NULL;
-		}
-		return bm_from_stb(x, y, data);
+        int x, y, n;
+        stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
+        if(!data) {
+            SET_ERROR(stbi_failure_reason());
+            return NULL;
+        }
+        return bm_from_stb(x, y, data);
 #else
         (void)isjpg;
         SET_ERROR("JPEG support is not enabled");
@@ -361,13 +361,13 @@ Bitmap *bm_load_fp(FILE *f) {
 #ifdef USEPNG
         return bm_load_png_fp(f);
 #elif USESTB
-		int x, y, n;
-		stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
-		if(!data) {
-			SET_ERROR(stbi_failure_reason());
-			return NULL;
-		}
-		return bm_from_stb(x, y, data);
+        int x, y, n;
+        stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
+        if(!data) {
+            SET_ERROR(stbi_failure_reason());
+            return NULL;
+        }
+        return bm_from_stb(x, y, data);
 #else
         (void)ispng;
         SET_ERROR("PNG support is not enabled");
@@ -431,15 +431,15 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
         SET_ERROR("JPEG not supported by bm_load_mem()");
         return NULL;
 #elif USESTB
-		int x, y, n;
-		stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
-		if(!data) {
-			SET_ERROR(stbi_failure_reason());
-			return NULL;
-		}
-		return bm_from_stb(x, y, data);
+        int x, y, n;
+        stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
+        if(!data) {
+            SET_ERROR(stbi_failure_reason());
+            return NULL;
+        }
+        return bm_from_stb(x, y, data);
 #else
-		(void)isjpg;
+        (void)isjpg;
         SET_ERROR("JPEG support is not enabled");
         return NULL;
 #endif
@@ -450,15 +450,15 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
         SET_ERROR("PNG not supported by bm_load_mem()");
         return NULL;
 #elif USESTB
-		int x, y, n;
-		stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
-		if(!data) {
-			SET_ERROR(stbi_failure_reason());
-			return NULL;
-		}
-		return bm_from_stb(x, y, data);
+        int x, y, n;
+        stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
+        if(!data) {
+            SET_ERROR(stbi_failure_reason());
+            return NULL;
+        }
+        return bm_from_stb(x, y, data);
 #else
-		(void)ispng;
+        (void)ispng;
         SET_ERROR("PNG support is not enabled");
         return NULL;
 #endif
@@ -755,6 +755,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     bpp = png_get_bit_depth(png, info);
     assert(bpp == 8);(void)bpp;
 
+    /* FIXME: I did encounter some PNGs in the wild that failed here... */
     if(ct != PNG_COLOR_TYPE_RGB && ct != PNG_COLOR_TYPE_RGBA) {
         SET_ERROR("unsupported PNG color type");
         goto error;
@@ -2690,8 +2691,8 @@ In the future, I can add support for stb_image_write.h as well.
 See https://github.com/nothings/stb/blob/master/stb_image_write.h
 */
 Bitmap *bm_from_stb(int w, int h, unsigned char *data) {
-	Bitmap *b = malloc(sizeof *b);
-	int i;
+    Bitmap *b = malloc(sizeof *b);
+    int i;
 
     b->w = w;
     b->h = h;
@@ -2705,27 +2706,27 @@ Bitmap *bm_from_stb(int w, int h, unsigned char *data) {
     bm_reset_font(b);
 
     bm_set_color(b, 0xFFFFFFFF);
-	b->data = data;
+    b->data = data;
 
 #if !ABGR
-	/* Unfortunately, the R and B channels of stb_image are
-		swapped from the format I'd prefer them in. */
-	for(i = 0; i < w * h * 4; i += 4) {
-		unsigned char c = data[i];
-		data[i] = data[i+2];
-		data[i+2] = c;
-	}
+    /* Unfortunately, the R and B channels of stb_image are
+        swapped from the format I'd prefer them in. */
+    for(i = 0; i < w * h * 4; i += 4) {
+        unsigned char c = data[i];
+        data[i] = data[i+2];
+        data[i+2] = c;
+    }
 #endif
 
-	return b;
+    return b;
 }
 
 Bitmap *bm_load_stb(const char *filename) {
-	int w, h, n;
-	unsigned char *data = stbi_load(filename, &w, &h, &n, 4);
-	if(!data)
-		return NULL;
-	return bm_from_stb(w, h, data);
+    int w, h, n;
+    unsigned char *data = stbi_load(filename, &w, &h, &n, 4);
+    if(!data)
+        return NULL;
+    return bm_from_stb(w, h, data);
 }
 #endif /* USESTB */
 
@@ -5009,6 +5010,151 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     data->spacing = spacing;
     font->data = data;
     return font;
+}
+
+/** SFont and GraFX2 Font Functions ********************************************/
+
+typedef struct {
+    Bitmap *bmp;
+    int offset[94];
+    int widths[94];
+    int num;
+    int width;
+    int height;
+} SFontData;
+
+static int sf_puts(Bitmap *b, int x, int y, const char *s) {
+    assert(!strcmp(b->font->type, "SFONT"));
+    SFontData *data = b->font->data;
+    int x0 = x;
+
+    int cw = 0, ch = data->bmp->h - 1;
+    if(data->num < 'Z' - 33) /* bad font */
+        return 0;
+
+    while(*s) {
+        if(*s == '\n') {
+            y += ch + 1;
+            x = x0;
+        } else if(*s == ' ') {
+            x += data->width;
+        } else if(*s == '\b') {
+            if(x > x0) x -= cw;
+        } else if(*s == '\r') {
+            x = x0;
+        } else if(*s == '\t') {
+            x += 4 * data->width;
+        } else {
+            int c = *s - 33;
+            if(c >= data->num) {
+                if(isalpha(*s))
+                    c = toupper(*s) - 33;
+                else
+                    c = '*' - 33;
+            }
+            assert(c < data->num);
+
+            int sx = data->offset[c];
+            int sy = 1;
+            cw = data->widths[c];
+            bm_maskedblit(b, x, y, data->bmp, sx, sy, cw, ch);
+            x += cw;
+        }
+        s++;
+    }
+    return 1;
+}
+static int sf_width(BmFont *font) {
+    assert(!strcmp(font->type, "SFONT"));
+    SFontData *data = font->data;
+    return data->width;
+}
+static int sf_height(BmFont *font) {
+    assert(!strcmp(font->type, "SFONT"));
+    SFontData *data = font->data;
+    return data->height;
+}
+static void sf_dtor(BmFont *font) {
+    if(!font || strcmp(font->type, "SFONT"))
+        return;
+    bm_free(((SFontData*)font->data)->bmp);
+    free(font->data);
+    free(font);
+}
+
+BmFont *bm_make_sfont(const char *file) {
+    unsigned int bg, mark, cnt = 0, x, w = 1, s = 0, mw = 0;
+    Bitmap *b = NULL;
+    SFontData *data = NULL;
+    BmFont *font = malloc(sizeof *font);
+    if(!font)
+        return NULL;
+    font->type = "SFONT";
+    font->puts = sf_puts;
+    font->width = sf_width;
+    font->height = sf_height;
+    font->dtor = sf_dtor;
+    data = malloc(sizeof *data);
+    if(!data)
+        goto error;
+    data->bmp = bm_load(file);
+    if(!data->bmp)
+        goto error;
+    b = data->bmp;
+    mark = bm_get(data->bmp, 0, 0);
+    for(x = 1; (bg = bm_get(b, x, 0)) == mark; x++) {
+        if(x >= b->w) /* invalid SFont */
+            goto error;
+    }
+
+    int state = 0;
+    for(x = 0; x < b->w; x++) {
+        unsigned int col = bm_get(b, x, 0);
+        if(cnt == 94)
+            break;
+        if(state == 0) {
+            if(col != mark) {
+                s = x;
+                state = 1;
+            }
+        } else {
+            if(col == mark) {
+                /* printf("'%c' x=%u; w=%u\n", cnt+33, s, w); */
+                data->offset[cnt] = s;
+                data->widths[cnt] = w;
+                if(w > mw) mw = w;
+                cnt++;
+                w = 1;
+                state = 0;
+            } else {
+                w++;
+            }
+        }
+    }
+    if(state) {
+        /* printf("'%c' x=%u; w=%u\n", cnt+33, s, w); */
+        data->offset[cnt] = s;
+        data->widths[cnt] = w;
+        if(w > mw) mw = w;
+        cnt++;
+    }
+
+    bm_set_color(b, bg);
+
+    /* Yes, `width` is the maximum width; It borks
+     * `bm_text_width()` if you don't a fixed width font.
+     */
+    data->width = mw;
+    data->height = b->h - 1;
+    data->num = cnt;
+
+    font->data = data;
+    return font;
+error:
+    if(data) free(data);
+    if(font) free(font);
+    if(b) bm_free(b);
+    return NULL;
 }
 
 /** XBM FONT FUNCTIONS *********************************************************/

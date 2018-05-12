@@ -43,7 +43,7 @@ Features:
 * Image resizing: nearest neighbour, bilinear and bicubic.
 * Blitting, blitting with color masks, scaled and rotated blitting.
 * Text rendering: [FreeType][freetype] support and built-in _8-bit_ style
-  raster fonts.
+  raster fonts, and support for [SFont][sfont] and [GrafX2-style][grafx2] fonts.
 * Filtering with kernels and smoothing.
 * [CSS-style](http://en.wikipedia.org/wiki/Web_colors) colors.
 * Loading images from [XBM](https://en.wikipedia.org/wiki/X_BitMap) and [X
@@ -56,6 +56,8 @@ The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 [freetype]: https://www.freetype.org/
 [emscripten]: http://kripken.github.io/emscripten-site/
 [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
+[sfont]: http://www.linux-games.com/sfont/
+[grafx2]: https://en.wikipedia.org/wiki/GrafX2
 
 ## Getting Started
 
@@ -152,4 +154,11 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
 * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
 * [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
 * [Grayscale](https://en.wikipedia.org/wiki/Grayscale) on Wikipedia
+* The `README` file in the [SFont][sfont] distribution discusses the details.
+* [This forum post](https://groups.google.com/forum/#!topic/grafx2/EQJCZDvFNfk) contains a discussion of the GrafX2 format
+* Here are some SFont/GrafX2 font resources:
+  * <https://opengameart.org/content/a-package-of-8-bit-fonts-for-grafx2-and-linux>
+  * <https://opengameart.org/content/new-original-grafx2-font-collection>
+  * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>
 
+[sfont]: http://www.linux-games.com/sfont/

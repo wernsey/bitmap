@@ -1011,6 +1011,24 @@ void bm_free_font(BmFont *font);
  */
 BmFont *bm_make_ras_font(const char *file, int spacing);
 
+/** #### `BmFont *bm_make_sfont(const char *file)`
+ *
+ * Creates a raster font from a SFont or a GrafX2 font.
+ *
+ * A [SFont][sfont] is a bitmap (in any supported file format) that contains all
+ * ASCII characters from 33 (`'!'`) to 127 in a single row. There is an additional
+ * row of pixels at the top that describes the width of each character using magenta
+ * (`#FF00FF`) pixels for the spacing. The height of the font is the height of the
+ * rest of the bitmap.
+ *
+ * [GrafX2][grafx2] is a pixel art paint program that uses a similar format, except
+ * the pixels in the first row don't have to use magenta.
+ *
+ * [sfont]: http://www.linux-games.com/sfont/
+ * [grafx2]: https://en.wikipedia.org/wiki/GrafX2
+ */
+BmFont *bm_make_sfont(const char *file);
+
 /** #### `BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing)`
  *
  * Creates a font from a XBM bitmap. The XBM bitmaps can be compiled directly into
@@ -1040,11 +1058,18 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  *       If I do this, I might have to do it for all blitting functions.
  * - [x] Maybe `bm_fill()` _should_ take the clipping rectangle into account.
  * - [ ] `bm_fillellipse()`, like `bm_ellipse()` but filled.
- * - [ ] In `bm_make_ras_font()`, because the top left corner is the space character, we
+ * - [x] In `bm_make_ras_font()`, because the top left corner is the space character, we
  *       can assume that the color of that pixel is the transparent color, rather than
  *       hardcoding it as black (0).
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
+ * - [ ] It only supports RGB and RGBA PNGs, but I encountered some other types of
+ *       PNGs in the wild, so support ought to be added.  \
+ *       The unsupported PNGs were in some of the SFont/GrafX2 fonts I cite at the
+ *       end of the README.
+ * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
+ *       actual character you want to draw, so `bm_text_width()` is broken if you
+ *       aren't using a fixed width font.
  *
  * References
  * ----------
