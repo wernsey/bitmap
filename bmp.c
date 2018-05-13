@@ -749,10 +749,9 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     unsigned char header[8];
     png_structp png = NULL;
     png_infop info = NULL;
-    int number_of_passes;
     png_bytep * rows = NULL;
 
-    int w, h, ct, bpp, x, y;
+    int w, h, ct, bpp, x, y, il;
 
     if((fread(header, 1, 8, f) != 8) || png_sig_cmp(header, 0, 8)) {
         SET_ERROR("fread on PNG header");
@@ -781,19 +780,36 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     w = png_get_image_width(png, info);
     h = png_get_image_height(png, info);
-    ct = png_get_color_type(png, info);
-
     bpp = png_get_bit_depth(png, info);
-    assert(bpp == 8);(void)bpp;
+    ct = png_get_color_type(png, info);
+    il = png_get_interlace_type(png, info);
 
-    /* FIXME: I did encounter some PNGs in the wild that failed here... */
-    if(ct != PNG_COLOR_TYPE_RGB && ct != PNG_COLOR_TYPE_RGBA) {
-        SET_ERROR("unsupported PNG color type");
-        goto error;
+    /* FIXME: I did encounter some 8-bit PNGs in the wild that failed here... */
+    if(bpp == 16) {
+#ifdef PNG_READ_SCALE_16_TO_8_SUPPORTED
+        png_set_scale_16(png);
+#else
+        png_set_strip_16(png);
+#endif
     }
 
-    number_of_passes = png_set_interlace_handling(png);
-    (void)number_of_passes;
+    if(ct == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png);
+    if (ct == PNG_COLOR_TYPE_GRAY && bpp < 8)
+        png_set_expand_gray_1_2_4_to_8(png);
+    if(ct == PNG_COLOR_TYPE_GRAY)
+        png_set_gray_to_rgb(png);
+
+    if(png_get_valid(png, info, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png);
+
+    if(ct == PNG_COLOR_TYPE_GRAY || ct == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png);
+
+    if(il)
+        png_set_interlace_handling(png);
+
+    png_read_update_info(png, info);
 
     bmp = bm_create(w,h);
 
@@ -802,7 +818,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
         goto error;
     }
 
-    rows = malloc(h * sizeof *rows);
+    rows = ALLOCA(h * sizeof *rows);
     for(y = 0; y < h; y++)
         rows[y] = malloc(png_get_rowbytes(png,info));
 
@@ -838,7 +854,7 @@ done:
         for(y = 0; y < h; y++) {
             free(rows[y]);
         }
-        free(rows);
+        FREEA(rows);
     }
     return bmp;
 }
@@ -849,10 +865,20 @@ static int bm_save_png(Bitmap *b, const char *fname) {
     png_infop info = NULL;
     int y, rv = 1;
 
-    FILE *f = fopen(fname, "wb");
-    if(!f) {
+#ifdef SAFE_C11
+    FILE *f;
+    errno_t err = fopen_s(&f, fname, "wb");
+    if (err != 0) {
+        SET_ERROR("error opening file for PNG output");
         return 0;
     }
+#else
+    FILE *f = fopen(fname, "wb");
+    if (!f) {
+        SET_ERROR("error opening file for PNG output");
+        return 0;
+    }
+#endif
 
     png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(!png) {
@@ -929,7 +955,8 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
     struct jpeg_decompress_struct cinfo;
     struct jpg_err_handler jerr;
     Bitmap *bmp = NULL;
-    int i, j, row_stride;
+    int i, row_stride;
+	unsigned int j;
     unsigned char *data;
     JSAMPROW row_pointer[1];
 
@@ -948,11 +975,12 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
 
     bmp = bm_create(cinfo.image_width, cinfo.image_height);
     if(!bmp) {
+        SET_ERROR("out of memory");
         return NULL;
     }
     row_stride = bmp->w * 3;
 
-    data = malloc(row_stride);
+    data = ALLOCA(row_stride);
     if(!data) {
         SET_ERROR("out of memory");
         return NULL;
@@ -969,7 +997,7 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
             BM_SET_RGBA(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
         }
     }
-    free(data);
+    FREEA(data);
     jpeg_finish_decompress(&cinfo);
     jpeg_destroy_decompress(&cinfo);
 
@@ -984,9 +1012,18 @@ static int bm_save_jpg(Bitmap *b, const char *fname) {
     int row_stride;
     unsigned char *data;
 
-    if(!(f = fopen(fname, "wb"))) {
+#ifdef SAFE_C11
+    errno_t err = fopen_s(&f, fname, "wb");
+    if (err != 0) {
+        SET_ERROR("couldn't open JPEG output file");
         return 0;
     }
+#else
+    if (!(f = fopen(fname, "wb"))) {
+        SET_ERROR("couldn't open JPEG output file");
+        return 0;
+    }
+#endif
 
     cinfo.err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = jpg_on_error;
@@ -1124,18 +1161,22 @@ static Bitmap *bm_load_png_rw(SDL_RWops *rw) {
     int w, h, ct, bpp, x, y;
 
     if((SDL_RWread(rw, header, 1, 8) != 8) || png_sig_cmp(header, 0, 8)) {
+        SET_ERROR("SDL_RWread on PNG header");
         goto error;
     }
 
     png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(!png) {
+        SET_ERROR("png_create_read_struct failed");
         goto error;
     }
     info = png_create_info_struct(png);
     if(!info) {
+        SET_ERROR("png_create_info_struct failed");
         goto error;
     }
     if(setjmp(png_jmpbuf(png))) {
+        SET_ERROR("png_read_info failed");
         goto error;
     }
 
@@ -1148,21 +1189,41 @@ static Bitmap *bm_load_png_rw(SDL_RWops *rw) {
 
     w = png_get_image_width(png, info);
     h = png_get_image_height(png, info);
-    ct = png_get_color_type(png, info);
-
     bpp = png_get_bit_depth(png, info);
-    assert(bpp == 8);(void)bpp;
+    ct = png_get_color_type(png, info);
+    il = png_get_interlace_type(png, info);
 
-    if(ct != PNG_COLOR_TYPE_RGB && ct != PNG_COLOR_TYPE_RGBA) {
-        goto error;
+    /* FIXME: I did encounter some 8-bit PNGs in the wild that failed here... */
+    if(bpp == 16) {
+#ifdef PNG_READ_SCALE_16_TO_8_SUPPORTED
+        png_set_scale_16(png);
+#else
+        png_set_strip_16(png);
+#endif
     }
 
-    number_of_passes = png_set_interlace_handling(png);
-    (void)number_of_passes;
+    if(ct == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png);
+    if (ct == PNG_COLOR_TYPE_GRAY && bpp < 8)
+        png_set_expand_gray_1_2_4_to_8(png);
+    if(ct == PNG_COLOR_TYPE_GRAY)
+        png_set_gray_to_rgb(png);
+
+    if(png_get_valid(png, info, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png);
+
+    if(ct == PNG_COLOR_TYPE_GRAY || ct == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png);
+
+    if(il)
+        png_set_interlace_handling(png);
+
+    png_read_update_info(png, info);
 
     bmp = bm_create(w,h);
 
     if(setjmp(png_jmpbuf(png))) {
+        SET_ERROR("png_read_image failed");
         goto error;
     }
 
@@ -1297,6 +1358,7 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw) {
     cinfo.err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = jpg_on_error;
     if(setjmp(jerr.jbuf)) {
+        SET_ERROR("JPEG loading failed");
         jpeg_destroy_decompress(&cinfo);
         return NULL;
     }
@@ -1310,11 +1372,12 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw) {
 
     bmp = bm_create(cinfo.image_width, cinfo.image_height);
     if(!bmp) {
+        SET_ERROR("out of memory");
         return NULL;
     }
     row_stride = bmp->w * 3;
 
-    data = malloc(row_stride);
+    data = ALLOCA(row_stride);
     if(!data) {
         SET_ERROR("out of memory");
         return NULL;
@@ -1331,7 +1394,7 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw) {
             BM_SET_RGBA(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
         }
     }
-    free(data);
+    FREEA(data);
     jpeg_finish_decompress(&cinfo);
     jpeg_destroy_decompress(&cinfo);
 
@@ -5128,6 +5191,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     font->dtor = rf_free_font;
     RasterFontData *data = malloc(sizeof *data);
     if (!data) {
+        SET_ERROR("out of memory");
         free(font);
         return NULL;
     }
@@ -5167,8 +5231,10 @@ static int sf_puts(Bitmap *b, int x, int y, const char *s) {
     int x0 = x;
 
     int cw = 0, ch = data->bmp->h - 1;
-    if(data->num < 'Z' - 33) /* bad font */
+    if(data->num < 'Z' - 33) {
+        /* bad font */
         return 0;
+    }
 
     while(*s) {
         if(*s == '\n') {
@@ -5185,6 +5251,7 @@ static int sf_puts(Bitmap *b, int x, int y, const char *s) {
         } else {
             int c = *s - 33;
             if(c >= data->num) {
+                /* Unsupported character */
                 if(isalpha(*s))
                     c = toupper(*s) - 33;
                 else
@@ -5221,30 +5288,41 @@ static void sf_dtor(BmFont *font) {
 }
 
 BmFont *bm_make_sfont(const char *file) {
-    unsigned int bg, mark, cnt = 0, x, w = 1, s = 0, mw = 0;
+    unsigned int bg, mark;
+    int cnt = 0, x, w = 1, s = 0, mw = 0;
     Bitmap *b = NULL;
     SFontData *data = NULL;
     BmFont *font = malloc(sizeof *font);
-    if(!font)
+    if(!font) {
+        SET_ERROR("out of memory");
         return NULL;
+    }
     font->type = "SFONT";
     font->puts = sf_puts;
     font->width = sf_width;
     font->height = sf_height;
     font->dtor = sf_dtor;
     data = malloc(sizeof *data);
-    if(!data)
+    if(!data) {
+        SET_ERROR("out of memory");
         goto error;
+    }
     data->bmp = bm_load(file);
     if(!data->bmp)
         goto error;
     b = data->bmp;
+
+    /* Find the marker color */
     mark = bm_get(data->bmp, 0, 0);
     for(x = 1; (bg = bm_get(b, x, 0)) == mark; x++) {
-        if(x >= b->w) /* invalid SFont */
+        if(x >= b->w) {
+            SET_ERROR("invalid SFont");
             goto error;
+        }
     }
 
+    /* Use a small state machine to extract all the
+    characters' offsets and widths */
     int state = 0;
     for(x = 0; x < b->w; x++) {
         unsigned int col = bm_get(b, x, 0);
@@ -5269,6 +5347,7 @@ BmFont *bm_make_sfont(const char *file) {
             }
         }
     }
+    /* The last character: */
     if(state) {
         /* printf("'%c' x=%u; w=%u\n", cnt+33, s, w); */
         data->offset[cnt] = s;

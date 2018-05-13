@@ -1002,7 +1002,8 @@ void bm_free_font(BmFont *font);
  * The image is 128x48 pixels, so the individual characters are 8x8 pixels.
  * (128/16=8 and 48/6=8)
  *
- * Black (`#000000`) is used to indicate transparent pixels.
+ * The color of the pixel in the top-left corner is taken to be the transparent
+ * color (since the character there is a space).
  *
  * The `spacing` parameter determines. If it is zero, the width of the
  * characters is used.
@@ -1013,7 +1014,8 @@ BmFont *bm_make_ras_font(const char *file, int spacing);
 
 /** #### `BmFont *bm_make_sfont(const char *file)`
  *
- * Creates a raster font from a SFont or a GrafX2 font.
+ * Creates a raster font from a SFont or a GrafX2-style font from any of
+ * the supported file types.
  *
  * A [SFont][sfont] is a bitmap (in any supported file format) that contains all
  * ASCII characters from 33 (`'!'`) to 127 in a single row. There is an additional
@@ -1023,6 +1025,8 @@ BmFont *bm_make_ras_font(const char *file, int spacing);
  *
  * [GrafX2][grafx2] is a pixel art paint program that uses a similar format, except
  * the pixels in the first row don't have to use magenta.
+ *
+ * The returned font's `type` will be set to `"SFONT"`
  *
  * [sfont]: http://www.linux-games.com/sfont/
  * [grafx2]: https://en.wikipedia.org/wiki/GrafX2
@@ -1063,10 +1067,8 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  *       hardcoding it as black (0).
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
- * - [ ] It only supports RGB and RGBA PNGs, but I encountered some other types of
- *       PNGs in the wild, so support ought to be added.  \
- *       The unsupported PNGs were in some of the SFont/GrafX2 fonts I cite at the
- *       end of the README.
+ * - [ ] It cannot load paletted 8-bit PNG files through libpng at the moment, and I
+ *       can't explain why.
  * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
  *       actual character you want to draw, so `bm_text_width()` is broken if you
  *       aren't using a fixed width font.

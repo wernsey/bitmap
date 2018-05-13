@@ -147,6 +147,7 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
 * <http://paulbourke.net/dataformats/tga/>
 * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
 * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) on Wikipedia
+* [A simple libpng example program](http://zarb.org/~gc/html/libpng.html)
 * <http://www.fileformat.info/format/xpm/egff.htm>
 * "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal,
   July 01, 2001  \
@@ -160,5 +161,7 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
   * <https://opengameart.org/content/a-package-of-8-bit-fonts-for-grafx2-and-linux>
   * <https://opengameart.org/content/new-original-grafx2-font-collection>
   * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>
+  * There is an outstanding bug where 8-bit PNGs cannot be read at the moment,
+    so it's best to convert these to some other format first.
 
 [sfont]: http://www.linux-games.com/sfont/
