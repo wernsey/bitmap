@@ -89,6 +89,7 @@ See __STDC_LIB_EXT1__
 */
 #if defined(WIN32) && defined(_MSC_VER)
 #  define SAFE_C11
+#  define strdup _strdup
 #endif
 
 #pragma pack(push, 1) /* Don't use any padding (Windows compilers) */
@@ -626,7 +627,7 @@ static int bm_save_jpg(Bitmap *b, const char *fname);
 int bm_save(Bitmap *b, const char *fname) {
     /* Chooses the file type to save as based on the
     extension in the filename */
-    char *lname = _strdup(fname), *c,
+    char *lname = strdup(fname), *c,
         jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0;
     for(c = lname; *c; c++)
         *c = tolower(*c);
@@ -4646,7 +4647,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
     } else {
       /* https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line */
       double denom = sqrt(dx * dx + dy * dy);
-      double dist = fabs((y2 - y0) * x1 - (x2 - x0) * y1 + x2 * y0 + y2 * x0)/denom;
+      double dist = fabs((double)((y2 - y0) * x1 - (x2 - x0) * y1 + x2 * y0 + y2 * x0))/denom;
       steps = (int)sqrt(dist);
       if(steps == 0) steps = 1;
     }
