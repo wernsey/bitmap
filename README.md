@@ -23,7 +23,7 @@ The code is licensed under the terms of the MIT License. See the file
 
 Features:
 * Supported formats:
-  * Windows BMP, GIF, PCX and TGA files can be loaded and saved without
+  * Windows BMP (8-bit and 24-bit), GIF, PCX and TGA files can be loaded and saved without
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
   * JPEG through [libjpeg](http://www.ijg.org/)
@@ -52,6 +52,9 @@ Features:
   Android and Web via [Emscripten][emscripten].
 
 The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
+
+_Caveat emptor_: only 8- and 24-bit BMP files are supported at the moment.
+`libpng` support for palettized images are also not complete. 
 
 [freetype]: https://www.freetype.org/
 [emscripten]: http://kripken.github.io/emscripten-site/
