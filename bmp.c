@@ -532,7 +532,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         return NULL;
     }
 
-    if((dib.bitspp != 8 && dib.bitspp != 24) || dib.compress_type != 0) {
+    if((dib.bitspp != 4 && dib.bitspp != 8 && dib.bitspp != 24) || dib.compress_type != 0) {
         /* Unsupported BMP type. TODO (maybe): support more types? */
         SET_ERROR("unsupported BMP type");
         return NULL;
@@ -586,16 +586,30 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
 
     if(dib.bitspp == 8) {
         for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
-                uint8_t p = data[(b->h - (j) - 1) * rs + i];
+                int byt = y * rs + i;
+                uint8_t p = data[byt];
+
+                assert(p < dib.ncolors);
+                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+            }
+        }
+    } else if(dib.bitspp == 4) {
+        for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                int byt = y * rs + (i >> 1);
+                uint8_t p = ( (i & 0x01) ? data[byt] : (data[byt] >> 4) ) & 0x0F;
                 assert(p < dib.ncolors);
                 BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
             }
         }
     } else {
         for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
-                int p = ((b->h - (j) - 1) * rs + (i)*3);
+                int p = y * rs + i * 3;
                 BM_SET_RGBA(b, i, j, data[p+2], data[p+1], data[p+0], 0xFF);
             }
         }
@@ -957,7 +971,7 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
     struct jpg_err_handler jerr;
     Bitmap *bmp = NULL;
     int i, row_stride;
-	unsigned int j;
+    unsigned int j;
     unsigned char *data;
     JSAMPROW row_pointer[1];
 

@@ -53,7 +53,7 @@ Features:
 
 The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 
-_Caveat emptor_: only 8- and 24-bit BMP files are supported at the moment.
+_Caveat emptor_: only 4-, 8- and 24-bit uncompressed BMP files are supported.
 `libpng` support for palettized images are also not complete. 
 
 [freetype]: https://www.freetype.org/
