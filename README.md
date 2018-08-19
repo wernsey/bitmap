@@ -23,7 +23,7 @@ The code is licensed under the terms of the MIT License. See the file
 
 Features:
 * Supported formats:
-  * Windows BMP: loads 4-, 8- and 24-bit uncompressed BMP files, saves as.
+  * Windows BMP: loads 4-, 8- and 24-bit uncompressed BMP files, saves as 24-bit.
   * GIF, PCX and TGA files can be loaded and saved without
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
