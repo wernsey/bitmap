@@ -23,9 +23,11 @@ The code is licensed under the terms of the MIT License. See the file
 
 Features:
 * Supported formats:
-  * Windows BMP (8-bit and 24-bit), GIF, PCX and TGA files can be loaded and saved without
+  * Windows BMP: loads 4-, 8- and 24-bit uncompressed BMP files, saves as.
+  * GIF, PCX and TGA files can be loaded and saved without
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
+    * support for palettized images is incomplete.
   * JPEG through [libjpeg](http://www.ijg.org/)
   * Alternatively, PNG and JPEG files can be loaded through the Sean Barrett's
     [stb_image][] image loader library. [stb_image][] supports a couple of
@@ -52,9 +54,6 @@ Features:
   Android and Web via [Emscripten][emscripten].
 
 The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
-
-_Caveat emptor_: only 4-, 8- and 24-bit uncompressed BMP files are supported.
-`libpng` support for palettized images are also not complete. 
 
 [freetype]: https://www.freetype.org/
 [emscripten]: http://kripken.github.io/emscripten-site/
