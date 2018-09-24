@@ -4300,15 +4300,17 @@ unsigned int bm_byte_order(unsigned int col) {
 #endif
 }
 
-unsigned int bm_get_color(Bitmap *bm) {
-    return bm->color;
+unsigned int bm_get_color(Bitmap *b) {
+	assert(b);
+    return b->color;
 }
 
-unsigned int bm_picker(Bitmap *bm, int x, int y) {
-    if(x < 0 || x >= bm->w || y < 0 || y >= bm->h)
+unsigned int bm_picker(Bitmap *b, int x, int y) {
+    assert(b);
+	if(x < 0 || x >= b->w || y < 0 || y >= b->h)
         return 0;
-    bm->color = bm_get(bm, x, y);
-    return bm->color;
+    b->color = bm_get(b, x, y);
+    return b->color;
 }
 
 unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
@@ -4330,15 +4332,18 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
 }
 
 int bm_width(Bitmap *b) {
+	assert(b);
     return b->w;
 }
 
 int bm_height(Bitmap *b) {
+	assert(b);
     return b->h;
 }
 
 void bm_clear(Bitmap *b) {
     int i, j;
+	assert(b);
     for(j = 0; j < b->h; j++)
         for(i = 0; i < b->w; i++) {
             BM_SET(b, i, j, b->color);
@@ -4346,7 +4351,8 @@ void bm_clear(Bitmap *b) {
 }
 
 void bm_putpixel(Bitmap *b, int x, int y) {
-    if(x < b->clip.x0 || x >= b->clip.x1 || y < b->clip.y0 || y >= b->clip.y1)
+    assert(b);
+	if(x < b->clip.x0 || x >= b->clip.x1 || y < b->clip.y0 || y >= b->clip.y1)
         return;
     BM_SET(b, x, y, b->color);
 }
@@ -4357,6 +4363,7 @@ void bm_line(Bitmap *b, int x0, int y0, int x1, int y1) {
     int sx, sy;
     int err, e2;
 
+	assert(b);
     if(dx < 0) dx = -dx;
     if(dy < 0) dy = -dy;
 
@@ -4392,6 +4399,7 @@ void bm_line(Bitmap *b, int x0, int y0, int x1, int y1) {
 }
 
 void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1) {
+	assert(b);
     bm_line(b, x0, y0, x1, y0);
     bm_line(b, x1, y0, x1, y1);
     bm_line(b, x1, y1, x0, y1);
@@ -4400,6 +4408,7 @@ void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1) {
 
 void bm_fillrect(Bitmap *b, int x0, int y0, int x1, int y1) {
     int x,y;
+	assert(b);
     if(x1 < x0) {
         x = x0;
         x0 = x1;
@@ -4420,6 +4429,7 @@ void bm_fillrect(Bitmap *b, int x0, int y0, int x1, int y1) {
 
 void bm_dithrect(Bitmap *b, int x0, int y0, int x1, int y1) {
     int x,y;
+	assert(b);
     if(x1 < x0) {
         x = x0;
         x0 = x1;
@@ -4443,6 +4453,7 @@ void bm_circle(Bitmap *b, int x0, int y0, int r) {
     int x = -r;
     int y = 0;
     int err = 2 - 2 * r;
+	assert(b);
     do {
         int xp, yp;
 
@@ -4482,6 +4493,7 @@ void bm_fillcircle(Bitmap *b, int x0, int y0, int r) {
     int x = -r;
     int y = 0;
     int err = 2 - 2 * r;
+	assert(b);
     do {
         int i;
         for(i = x0 + x; i <= x0 - x; i++) {
@@ -4511,7 +4523,8 @@ void bm_ellipse(Bitmap *b, int x0, int y0, int x1, int y1) {
     long dx = 4 * (1 - a) * b0 * b0,
         dy = 4*(b1 + 1) * a * a;
     long err = dx + dy + b1*a*a, e2;
-
+	
+	assert(b);
     if(x0 > x1) { x0 = x1; x1 += a; }
     if(y0 > y1) { y0 = y1; }
     y0 += (b0+1)/2;
@@ -4563,7 +4576,8 @@ void bm_roundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     int y = 0;
     int err = 2 - 2 * r;
     int rad = r;
-
+	
+	assert(b);
     bm_line(b, x0 + r, y0, x1 - r, y0);
     bm_line(b, x0, y0 + r, x0, y1 - r);
     bm_line(b, x0 + r, y1, x1 - r, y1);
@@ -4609,6 +4623,7 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     int y = 0;
     int err = 2 - 2 * r;
     int rad = r;
+	assert(b);
     do {
         int xp, xq, yp, i;
 
@@ -4656,6 +4671,8 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
      * a perfect system.
      */
     double dx = x2 - x0, dy = y2 - y0;
+	
+	assert(b);
     if(dx == 0 && dy == 0) {
       steps = 2;
     } else {
@@ -4682,6 +4699,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
 
 void bm_poly(Bitmap *b, BmPoint points[], unsigned int n) {
     unsigned int i;
+	assert(b);
     if(n < 2) return;
     for(i = 0; i < n - 1; i++) {
         bm_line(b, points[i].x, points[i].y, points[i+1].x, points[i+1].y);
@@ -4698,8 +4716,10 @@ void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n) {
     You might also be interested in this article:
     http://nothings.org/gamedev/rasterize/
     */
-    unsigned int i, j, c = bm_get_color(b);
+    unsigned int i, j, c; 
     int x, y;
+	assert(b);
+	c = bm_get_color(b);
     if(n < 2)
         return;
     else if(n == 2) {
@@ -4780,7 +4800,9 @@ void bm_fill(Bitmap *b, int x, int y) {
     int qs = 0, /* queue size */
         mqs = 128; /* Max queue size */
     unsigned int sc, dc; /* Source and Destination colors */
-
+	
+	assert(b);
+	
     dc = b->color;
     b->color = BM_GET(b, x, y);
     sc = b->color;
@@ -5067,17 +5089,20 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
 }
 
 void bm_set_font(Bitmap *b, BmFont *font) {
-    b->font = font;
+    assert(b);
+	b->font = font;
 }
 
 BmFont *bm_get_font(Bitmap *b) {
-    return b->font;
+    assert(b);
+	return b->font;
 }
 
 int bm_text_width(Bitmap *b, const char *s) {
     int len = 0, max_len = 0;
     int glyph_width;
 
+	assert(b);
     if(!b->font || !b->font->width)
         return 0;
 
@@ -5102,7 +5127,8 @@ int bm_text_width(Bitmap *b, const char *s) {
 int bm_text_height(Bitmap *b, const char *s) {
     int height = 1;
     int glyph_height;
-    if(!b->font || !b->font->height)
+    assert(b);
+	if(!b->font || !b->font->height)
         return 0;
     glyph_height = b->font->height(b->font);
     while(*s) {
@@ -5114,11 +5140,13 @@ int bm_text_height(Bitmap *b, const char *s) {
 
 int bm_putc(Bitmap *b, int x, int y, char c) {
     char text[2] = {c, 0};
-    return bm_puts(b, x, y, text);
+    assert(b);
+	return bm_puts(b, x, y, text);
 }
 
 int bm_puts(Bitmap *b, int x, int y, const char *text) {
-    if(!b->font || !b->font->puts)
+    assert(b);
+	if(!b->font || !b->font->puts)
         return 0;
     return b->font->puts(b, x, y, text);
 }
@@ -5126,7 +5154,8 @@ int bm_puts(Bitmap *b, int x, int y, const char *text) {
 int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
     char buffer[256];
     va_list arg;
-    if(!b->font || !b->font->puts) return 0;
+    assert(b);
+	if(!b->font || !b->font->puts) return 0;
     va_start(arg, fmt);
     vsnprintf(buffer, sizeof buffer, fmt, arg);
     va_end(arg);
