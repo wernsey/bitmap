@@ -1043,6 +1043,11 @@ BmFont *bm_make_sfont(const char *file);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
+/** #### `int bm_stricmp(const char *p, const char *q)`
+ * Compares strings `p` and `q` case-insensitively.
+ */
+int bm_stricmp(const char *p, const char *q);
+
 /**
  * TODO
  * ----

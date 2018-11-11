@@ -3017,14 +3017,22 @@ Bitmap *bm_from_Xbm(int w, int h, unsigned char *data) {
     return bmp;
 }
 
+/*
+See also https://www.fileformat.info/format/xpm/egff.htm
+*/
 Bitmap *bm_from_Xpm(char *xpm[]) {
 #define XPM_MAX_COLORS 256
-#define XPM_TRANS_COLOR 1
     Bitmap *b;
     int w, h, nc, cp;
     int i, j, r;
     unsigned int colors[XPM_MAX_COLORS];
     unsigned char chars[XPM_MAX_COLORS];
+
+    unsigned int tc = 0; /* transparent color */
+    int tci = XPM_MAX_COLORS;
+
+    /* FYI: It is possible for the first row to have 6 values, where
+    the last two will be the hot-spot */
 
 #ifdef SAFE_C11
     r = sscanf_s(xpm[0], "%d %d %d %d", &w, &h, &nc, &cp);
@@ -3053,14 +3061,31 @@ Bitmap *bm_from_Xpm(char *xpm[]) {
         assert(r == 2);(void)r;
         assert(k == 'c'); /* other keys not supported */
         assert(col[sizeof col - 1] == 0);
-        colors[i] = bm_atoi(col);
 
-#ifdef XPM_TRANS_COLOR
-        for(j=0;col[j];j++){col[j]=tolower(col[j]);}
-        if(!strcmp(col,"none")){colors[i]=XPM_TRANS_COLOR;}
-#endif
+        /* TODO: If col starts with % it is a HSV value */
+
+        if(!bm_stricmp(col,"none"))
+            tci = i;
+        else
+            colors[i] = bm_atoi(col);
     }
 
+    /* Set `tc` to a color that is not in the palette. */
+    int found = 0;
+    do {
+        tc++;
+        found = 0;
+        for(j = 0; j < nc; j++)
+            if(colors[j] == tc) {
+                found = 1;
+                break;
+            }
+    } while(found);
+
+    if(tci < XPM_MAX_COLORS)
+        colors[tci] = tc;
+
+    /* Get the actual pixel data */
     for(j = 0; j < h; j++) {
         char *row = xpm[1 + nc + j];
         for(i = 0; i < w; i++) {
@@ -3074,11 +3099,10 @@ Bitmap *bm_from_Xpm(char *xpm[]) {
             bm_putpixel(b, i, j);
         }
     }
-#ifdef XPM_TRANS_COLOR
-    bm_set_color(b, XPM_TRANS_COLOR);
-#else
-    bm_set_color(b,1);/* arb color for transparency when saving to GIF */
-#endif
+
+    /* Now set the color of the bitmap to `tc` to preserve its transparency */
+    bm_set_color(b, tc);
+
     return b;
 }
 
@@ -3183,6 +3207,8 @@ void bm_blit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, in
         h -= delta;
     }
 
+    assert(dst->clip.x1 <= dst->w);
+    assert(dst->clip.y1 <= dst->h);
     assert(dx >= 0 && dx + w <= dst->clip.x1);
     assert(dy >= 0 && dy + h <= dst->clip.y1);
     assert(sx >= 0 && sx + w <= src->w);
@@ -3272,6 +3298,8 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
         h -= delta;
     }
 
+    assert(dst->clip.x1 <= dst->w);
+    assert(dst->clip.y1 <= dst->h);
     assert(dx >= 0 && dx + w <= dst->clip.x1);
     assert(dy >= 0 && dy + h <= dst->clip.y1);
     assert(sx >= 0 && sx + w <= src->w);
@@ -4301,13 +4329,13 @@ unsigned int bm_byte_order(unsigned int col) {
 }
 
 unsigned int bm_get_color(Bitmap *b) {
-	assert(b);
+    assert(b);
     return b->color;
 }
 
 unsigned int bm_picker(Bitmap *b, int x, int y) {
     assert(b);
-	if(x < 0 || x >= b->w || y < 0 || y >= b->h)
+    if(x < 0 || x >= b->w || y < 0 || y >= b->h)
         return 0;
     b->color = bm_get(b, x, y);
     return b->color;
@@ -4332,18 +4360,18 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
 }
 
 int bm_width(Bitmap *b) {
-	assert(b);
+    assert(b);
     return b->w;
 }
 
 int bm_height(Bitmap *b) {
-	assert(b);
+    assert(b);
     return b->h;
 }
 
 void bm_clear(Bitmap *b) {
     int i, j;
-	assert(b);
+    assert(b);
     for(j = 0; j < b->h; j++)
         for(i = 0; i < b->w; i++) {
             BM_SET(b, i, j, b->color);
@@ -4352,7 +4380,7 @@ void bm_clear(Bitmap *b) {
 
 void bm_putpixel(Bitmap *b, int x, int y) {
     assert(b);
-	if(x < b->clip.x0 || x >= b->clip.x1 || y < b->clip.y0 || y >= b->clip.y1)
+    if(x < b->clip.x0 || x >= b->clip.x1 || y < b->clip.y0 || y >= b->clip.y1)
         return;
     BM_SET(b, x, y, b->color);
 }
@@ -4363,7 +4391,7 @@ void bm_line(Bitmap *b, int x0, int y0, int x1, int y1) {
     int sx, sy;
     int err, e2;
 
-	assert(b);
+    assert(b);
     if(dx < 0) dx = -dx;
     if(dy < 0) dy = -dy;
 
@@ -4399,7 +4427,7 @@ void bm_line(Bitmap *b, int x0, int y0, int x1, int y1) {
 }
 
 void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1) {
-	assert(b);
+    assert(b);
     bm_line(b, x0, y0, x1, y0);
     bm_line(b, x1, y0, x1, y1);
     bm_line(b, x1, y1, x0, y1);
@@ -4408,7 +4436,7 @@ void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1) {
 
 void bm_fillrect(Bitmap *b, int x0, int y0, int x1, int y1) {
     int x,y;
-	assert(b);
+    assert(b);
     if(x1 < x0) {
         x = x0;
         x0 = x1;
@@ -4429,7 +4457,7 @@ void bm_fillrect(Bitmap *b, int x0, int y0, int x1, int y1) {
 
 void bm_dithrect(Bitmap *b, int x0, int y0, int x1, int y1) {
     int x,y;
-	assert(b);
+    assert(b);
     if(x1 < x0) {
         x = x0;
         x0 = x1;
@@ -4453,7 +4481,7 @@ void bm_circle(Bitmap *b, int x0, int y0, int r) {
     int x = -r;
     int y = 0;
     int err = 2 - 2 * r;
-	assert(b);
+    assert(b);
     do {
         int xp, yp;
 
@@ -4493,7 +4521,7 @@ void bm_fillcircle(Bitmap *b, int x0, int y0, int r) {
     int x = -r;
     int y = 0;
     int err = 2 - 2 * r;
-	assert(b);
+    assert(b);
     do {
         int i;
         for(i = x0 + x; i <= x0 - x; i++) {
@@ -4523,8 +4551,8 @@ void bm_ellipse(Bitmap *b, int x0, int y0, int x1, int y1) {
     long dx = 4 * (1 - a) * b0 * b0,
         dy = 4*(b1 + 1) * a * a;
     long err = dx + dy + b1*a*a, e2;
-	
-	assert(b);
+
+    assert(b);
     if(x0 > x1) { x0 = x1; x1 += a; }
     if(y0 > y1) { y0 = y1; }
     y0 += (b0+1)/2;
@@ -4576,8 +4604,8 @@ void bm_roundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     int y = 0;
     int err = 2 - 2 * r;
     int rad = r;
-	
-	assert(b);
+
+    assert(b);
     bm_line(b, x0 + r, y0, x1 - r, y0);
     bm_line(b, x0, y0 + r, x0, y1 - r);
     bm_line(b, x0 + r, y1, x1 - r, y1);
@@ -4623,7 +4651,7 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     int y = 0;
     int err = 2 - 2 * r;
     int rad = r;
-	assert(b);
+    assert(b);
     do {
         int xp, xq, yp, i;
 
@@ -4671,8 +4699,8 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
      * a perfect system.
      */
     double dx = x2 - x0, dy = y2 - y0;
-	
-	assert(b);
+
+    assert(b);
     if(dx == 0 && dy == 0) {
       steps = 2;
     } else {
@@ -4699,7 +4727,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
 
 void bm_poly(Bitmap *b, BmPoint points[], unsigned int n) {
     unsigned int i;
-	assert(b);
+    assert(b);
     if(n < 2) return;
     for(i = 0; i < n - 1; i++) {
         bm_line(b, points[i].x, points[i].y, points[i+1].x, points[i+1].y);
@@ -4716,10 +4744,10 @@ void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n) {
     You might also be interested in this article:
     http://nothings.org/gamedev/rasterize/
     */
-    unsigned int i, j, c; 
+    unsigned int i, j, c;
     int x, y;
-	assert(b);
-	c = bm_get_color(b);
+    assert(b);
+    c = bm_get_color(b);
     if(n < 2)
         return;
     else if(n == 2) {
@@ -4800,9 +4828,9 @@ void bm_fill(Bitmap *b, int x, int y) {
     int qs = 0, /* queue size */
         mqs = 128; /* Max queue size */
     unsigned int sc, dc; /* Source and Destination colors */
-	
-	assert(b);
-	
+
+    assert(b);
+
     dc = b->color;
     b->color = BM_GET(b, x, y);
     sc = b->color;
@@ -5088,21 +5116,26 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
     return pal;
 }
 
+int bm_stricmp(const char *p, const char *q) {
+    for(;*p && tolower(*p) == tolower(*q); p++, q++);
+    return tolower(*p) - tolower(*q);
+}
+
 void bm_set_font(Bitmap *b, BmFont *font) {
     assert(b);
-	b->font = font;
+    b->font = font;
 }
 
 BmFont *bm_get_font(Bitmap *b) {
     assert(b);
-	return b->font;
+    return b->font;
 }
 
 int bm_text_width(Bitmap *b, const char *s) {
     int len = 0, max_len = 0;
     int glyph_width;
 
-	assert(b);
+    assert(b);
     if(!b->font || !b->font->width)
         return 0;
 
@@ -5128,7 +5161,7 @@ int bm_text_height(Bitmap *b, const char *s) {
     int height = 1;
     int glyph_height;
     assert(b);
-	if(!b->font || !b->font->height)
+    if(!b->font || !b->font->height)
         return 0;
     glyph_height = b->font->height(b->font);
     while(*s) {
@@ -5141,12 +5174,12 @@ int bm_text_height(Bitmap *b, const char *s) {
 int bm_putc(Bitmap *b, int x, int y, char c) {
     char text[2] = {c, 0};
     assert(b);
-	return bm_puts(b, x, y, text);
+    return bm_puts(b, x, y, text);
 }
 
 int bm_puts(Bitmap *b, int x, int y, const char *text) {
     assert(b);
-	if(!b->font || !b->font->puts)
+    if(!b->font || !b->font->puts)
         return 0;
     return b->font->puts(b, x, y, text);
 }
@@ -5155,7 +5188,7 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
     char buffer[256];
     va_list arg;
     assert(b);
-	if(!b->font || !b->font->puts) return 0;
+    if(!b->font || !b->font->puts) return 0;
     va_start(arg, fmt);
     vsnprintf(buffer, sizeof buffer, fmt, arg);
     va_end(arg);
