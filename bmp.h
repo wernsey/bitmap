@@ -415,13 +415,13 @@ void bm_unclip(Bitmap *b);
 int bm_inclip(Bitmap *b, int x, int y);
 
 /**
- * ### `BmRect bm_get_clip(Bitmap *b)`
+ * #### `BmRect bm_get_clip(Bitmap *b)`
  *
  * Retrieves bitmap `b`'s clipping rectangle.
  */
 BmRect bm_get_clip(Bitmap *b);
 /**
- * ### `void bm_set_clip(Bitmap *b, const BmRect rect)`
+ * #### `void bm_set_clip(Bitmap *b, const BmRect rect)`
  *
  * Sets bitmap `b`'s clipping rectangle to `rect`.
  */
@@ -635,7 +635,7 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
 void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, int mask);
 
 /**
- * #### void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun)
+ * #### `void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun)`
  *
  * Blits a source bitmap to a destination similar to `bm_blit_ex()`, except
  * that it calls a callback function for every pixel
@@ -654,11 +654,28 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
  *
  * It will set the clipping region on `src` to the area defined by `sx,sy,sw,sh`
  * before calling the callback, so that the callback can rely on it (The
- * clipping region will berestored afterwards).
+ * clipping region will be restored afterwards).
  */
 typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
 
 void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun);
+
+/**
+ * Some built-in sampling functions for use with `bm_blit_callback()`:
+ *
+ * - `bm_smp_outline` - Highlights the outline of the `src` bitmap using
+ *    the `dst->color`.
+ * - `bm_smp_border` - Highlights the border of the `src` bitmap using
+ *    the `dst->color`.
+ * - `bm_smp_binary` - If the pixel on `src` matches `src->color`, set the
+ *    pixel on `dst` to `dst->color`, otherwise leave it blank.
+ * - `bm_smp_blend50` - Uses a bit shift trick to do a 50/50 blend between
+ *    the source and destination pixels
+ */
+unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
+unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
+unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
+unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
 
 /**
  * #### `void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`

@@ -3443,8 +3443,12 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
     int xnum = 0;
     BmRect save_clip;
 
+    assert(src && dst);
     if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
+
+    save_clip = bm_get_clip(src);
+    bm_clip(src, sx, sy, sx + sw, sy + sh);
 
     /* Clip on the Y */
     for(y = dy; y < dst->clip.y0 || sy < 0; y++) {
@@ -3464,9 +3468,6 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
 
     if(dx >= dst->clip.x1 || dx + dw < dst->clip.x0)
         return;
-
-    save_clip = bm_get_clip(src);
-    bm_clip(src, sx, sy, sx + sw, sy + sh);
 
     ssx = sx; /* Save sx for the next row */
     for(; y < dy + dh; y++){
@@ -3500,6 +3501,84 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
     }
 
     bm_set_clip(src, save_clip);
+}
+
+unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+
+    if(bm_colcmp(src->color, bm_get(src, sx, sy))) {
+        if(sx > src->clip.x0) {
+            if(!bm_colcmp(src->color, bm_get(src, sx-1, sy)))
+                return dst->color;
+        }
+        if(sx < src->clip.x1-1) {
+            if(!bm_colcmp(src->color, bm_get(src, sx+1, sy)))
+                return dst->color;
+        }
+        if(sy > src->clip.y0) {
+            if(!bm_colcmp(src->color, bm_get(src, sx, sy-1)))
+                return dst->color;
+        }
+        if(sy < src->clip.y1-1) {
+            if(!bm_colcmp(src->color, bm_get(src, sx, sy+1)))
+                return dst->color;
+        }
+    } else {
+        if(sx == src->clip.x0 || sx == src->clip.x1 - 1)
+            return dst->color;
+        if(sy == src->clip.y0 || sy == src->clip.y1 - 1)
+            return dst->color;
+    }
+    return dest_color;
+}
+
+unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+
+    if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
+
+        if(sx > src->clip.x0) {
+            if(bm_colcmp(src->color, bm_get(src, sx-1, sy)))
+                return dst->color;
+        } else
+            return dst->color;
+
+        if(sx < src->clip.x1-1) {
+            if(bm_colcmp(src->color, bm_get(src, sx+1, sy)))
+                return dst->color;
+        } else
+            return dst->color;
+
+        if(sy > src->clip.y0) {
+            if(bm_colcmp(src->color, bm_get(src, sx, sy-1)))
+                return dst->color;
+        } else
+            return dst->color;
+
+        if(sy < src->clip.y1-1) {
+            if(bm_colcmp(src->color, bm_get(src, sx, sy+1)))
+                return dst->color;
+        } else
+            return dst->color;
+    }
+
+    return dest_color;
+}
+
+unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+    if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
+        return dst->color;
+    }
+    return dest_color;
+}
+
+unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+    unsigned int c = bm_get(src, sx, sy);
+    if(bm_colcmp(src->color, c))
+        return dest_color;
+
+    dest_color = (dest_color >> 1) & 0x7F7F7F;
+    c = (c >> 1) & 0x7F7F7F;
+
+    return dest_color + c;
 }
 
 void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale) {
