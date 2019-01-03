@@ -407,6 +407,27 @@ void bm_clip(Bitmap *b, int x0, int y0, int x1, int y1);
 void bm_unclip(Bitmap *b);
 
 /**
+ * #### `int bm_inclip(Bitmap *b, int x, int y)`
+ *
+ * Tests whether the point `x,y` is in the bitmap `b`'s
+ * clipping region. Returns non-zero if it is, zero if it isn't.
+ */
+int bm_inclip(Bitmap *b, int x, int y);
+
+/**
+ * ### `BmRect bm_get_clip(Bitmap *b)`
+ *
+ * Retrieves bitmap `b`'s clipping rectangle.
+ */
+BmRect bm_get_clip(Bitmap *b);
+/**
+ * ### `void bm_set_clip(Bitmap *b, const BmRect rect)`
+ *
+ * Sets bitmap `b`'s clipping rectangle to `rect`.
+ */
+void bm_set_clip(Bitmap *b, const BmRect rect);
+
+/**
  * #### `void bm_flip_vertical(Bitmap *b)`
  *
  * Flips the bitmap vertically.
@@ -501,6 +522,17 @@ unsigned int bm_atoi(const char *text);
  * Builds a color from the specified `(R,G,B)` values
  */
 unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
+
+/**
+ * #### `int bm_colcmp(unsigned int c1, unsigned int c2)`
+ *
+ * Compares the RGB values of two colors, ignoring the alphas values
+ * (If the alpha values are important you can just use `==`).
+ *
+ * Returns non-zero if the RGB values of `c1` and `c2` are the same,
+ * zero otherwise.
+ */
+int bm_colcmp(unsigned int c1, unsigned int c2);
 
 /**
  * #### `unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`
@@ -598,39 +630,35 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
  * `dx,dy` on the `dst` bitmap into an area of `dw` &times; `dh` pixels, stretching or shrinking the blitted area as neccessary.
  *
  * If `mask` is non-zero, pixels on the `src` bitmap that matches the `src` bitmap color are not blitted.
- * Whether the alpha value of the pixels is taken into account depends on whether IGNORE_ALPHA is enabled.
+ * Whether the alpha value of the pixels is taken into account depends on whether `IGNORE_ALPHA` is enabled.
  */
 void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, int mask);
 
 /**
- * #### `typedef int (*bm_blit_fun)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, void *data);`
+ * #### void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun)
  *
- * Prototype for the callback function to be passed to `bm_blit_ex_fun()`.
+ * Blits a source bitmap to a destination similar to `bm_blit_ex()`, except
+ * that it calls a callback function for every pixel
  *
- * `dst` is the destination bitmap and `dx,dy` is where the pixel is too be plotted.
+ * The callback function takes this form:
  *
- * `src` is the source bitmap and `sx,sy` is where the color of the pixel is to be obtained from.
+ *     typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color)
  *
- * `mask` is the mask color of the source bitmap. The function can decide whether or not to blit the pixel based on this.
+ * Where
  *
- * It should return 1 on success. If it returns 0 `bm_blit_ex_fun()` will terminate immediately.
+ * * `dst` is the destination bitmap.
+ * * `dx`,`dy` is the pixel coordinates on the destination being blitted to.
+ * * `src` is the source bitmap being sampled from.
+ * * `sx`,`sy` is the coordinates of pixel on the source bitmap being sampled
+ * * `dest_color` is the current color of `dx`,`dy` on the destination, useful for blending.
+ *
+ * It will set the clipping region on `src` to the area defined by `sx,sy,sw,sh`
+ * before calling the callback, so that the callback can rely on it (The
+ * clipping region will berestored afterwards).
  */
-typedef int (*bm_blit_fun)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int mask, void *data);
+typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
 
-/**
- * #### `void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_blit_fun fun, void *data);`
- *
- * Blits a scaled bitmap from `src` to `dst`, but calls a callback function `fun`
- * for each pixel to handle the plotting instead of plotting the pixel directly.
- *
- * This can be used for some specific post-processing after the position of a pixel is determined
- * on the source and destination, but before the pixel is actually plotted.
- *
- * `data` is passed straight through to the callback function.
- *
- * The other parameters are the same as for `bm_blit_ex()`.
- */
-void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_blit_fun fun, void *data);
+void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun);
 
 /**
  * #### `void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`

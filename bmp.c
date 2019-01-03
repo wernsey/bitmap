@@ -2985,6 +2985,7 @@ void bm_flip_vertical(Bitmap *b) {
 
 unsigned int bm_get(Bitmap *b, int x, int y) {
     unsigned int *p;
+    assert(b);
     assert(x >= 0 && x < b->w && y >= 0 && y < b->h);
     p = (unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP);
     return *p;
@@ -2992,6 +2993,7 @@ unsigned int bm_get(Bitmap *b, int x, int y) {
 
 void bm_set(Bitmap *b, int x, int y, unsigned int c) {
     unsigned int *p;
+    assert(b);
     assert(x >= 0 && x < b->w && y >= 0 && y < b->h);
     p = (unsigned int*)(b->data + y * BM_ROW_SIZE(b) + x * BM_BPP);
     *p = c;
@@ -3107,6 +3109,7 @@ Bitmap *bm_from_Xpm(char *xpm[]) {
 }
 
 void bm_clip(Bitmap *b, int x0, int y0, int x1, int y1) {
+    assert(b);
     if(x0 > x1) {
         int t = x1;
         x1 = x0;
@@ -3129,10 +3132,30 @@ void bm_clip(Bitmap *b, int x0, int y0, int x1, int y1) {
 }
 
 void bm_unclip(Bitmap *b) {
+    assert(b);
     b->clip.x0 = 0;
     b->clip.y0 = 0;
     b->clip.x1 = b->w;
     b->clip.y1 = b->h;
+}
+
+
+BmRect bm_get_clip(Bitmap *b) {
+    assert(b);
+    return b->clip;
+}
+
+void bm_set_clip(Bitmap *b, const BmRect rect) {
+    assert(b);
+    b->clip = rect;
+}
+
+int bm_inclip(Bitmap *b, int x, int y) {
+    assert(b);
+    assert(b->clip.x1 > b->clip.x0 && b->clip.x0 >= 0 && b->clip.x1 < b->w);
+    assert(b->clip.y1 > b->clip.y0 && b->clip.y0 >= 0 && b->clip.y1 < b->h);
+    return x >= b->clip.x0 && y >= b->clip.y0 &&
+        x < b->clip.x1 && y < b->clip.y1;
 }
 
 void bm_blit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int w, int h) {
@@ -3357,31 +3380,19 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
         return;
 
     /* Clip on the Y */
-    y = dy;
-    while(y < dst->clip.y0 || sy < 0) {
-        ynum += sh;
-        while(ynum > dh) {
+    for(y = dy; y < dst->clip.y0 || sy < 0; y++) {
+        for(ynum += sh; ynum > dh; sy++)
             ynum -= dh;
-            sy++;
-        }
-        y++;
     }
 
     if(dy >= dst->clip.y1 || dy + dh < dst->clip.y0)
         return;
 
     /* Clip on the X */
-    x = dx;
-    while(x < dst->clip.x0 || sx < 0) {
-        xnum += sw;
-        while(xnum > dw) {
+    for(x = dx; x < dst->clip.x0 || sx < 0; x++, dw--) {
+        for(xnum += sw; xnum > dw; sx++, sw--)
             xnum -= dw;
-            sx++;
-            sw--;
-        }
-        x++;
     }
-    dw -= (x - dx);
     dx = x;
 
     if(dx >= dst->clip.x1 || dx + dw < dst->clip.x0)
@@ -3424,47 +3435,38 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
 
 /*
 Works the same as bm_blit_ex(), but calls the callback for each pixel
-typedef int (*bm_blit_fun)(Bitmap *dst, int dx, int dy, int sx, int sy, void *data);
+typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
 */
-void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_blit_fun fun, void *data){
+void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function sampler) {
     int x, y, ssx;
     int ynum = 0;
     int xnum = 0;
-    unsigned int maskc = bm_get_color(src) & 0xFFFFFF;
+    BmRect save_clip;
 
-    if(!fun || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return;
 
     /* Clip on the Y */
-    y = dy;
-    while(y < dst->clip.y0 || sy < 0) {
-        ynum += sh;
-        while(ynum > dh) {
+    for(y = dy; y < dst->clip.y0 || sy < 0; y++) {
+        for(ynum += sh; ynum > dh; sy++)
             ynum -= dh;
-            sy++;
-        }
-        y++;
     }
 
     if(dy >= dst->clip.y1 || dy + dh < dst->clip.y0)
         return;
 
     /* Clip on the X */
-    x = dx;
-    while(x < dst->clip.x0 || sx < 0) {
-        xnum += sw;
-        while(xnum > dw) {
+    for(x = dx; x < dst->clip.x0 || sx < 0; x++, dw--) {
+        for(xnum += sw; xnum > dw; sx++, sw--)
             xnum -= dw;
-            sx++;
-            sw--;
-        }
-        x++;
     }
-    dw -= (x - dx);
     dx = x;
 
     if(dx >= dst->clip.x1 || dx + dw < dst->clip.x0)
         return;
+
+    save_clip = bm_get_clip(src);
+    bm_clip(src, sx, sy, sx + sw, sy + sh);
 
     ssx = sx; /* Save sx for the next row */
     for(; y < dy + dh; y++){
@@ -3475,10 +3477,15 @@ void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, in
 
         assert(y >= dst->clip.y0 && sy >= 0);
         for(x = dx; x < dx + dw; x++) {
+            unsigned int c;
             if(sx >= src->w || x >= dst->clip.x1)
                 break;
-            if(!fun(dst, x, y, src, sx, sy, maskc, data))
-                return;
+            assert(x >= dst->clip.x0 && sx >= 0);
+
+            c = BM_GET(dst, x, y);
+            c = sampler(dst, x, y, src, sx, sy, c);
+            BM_SET(dst, x, y, c);
+
             xnum += sw;
             while(xnum > dw) {
                 xnum -= dw;
@@ -3491,6 +3498,8 @@ void bm_blit_ex_fun(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, in
             sy++;
         }
     }
+
+    bm_set_clip(src, save_clip);
 }
 
 void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale) {
@@ -4218,6 +4227,11 @@ unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B) {
     return 0xFF000000 | ((B) << 16) | ((G) << 8) | (R);
 #endif
 }
+
+int bm_colcmp(unsigned int c1, unsigned int c2) {
+    return (c1 & 0xFFFFFF) == (c2 & 0xFFFFFF);
+}
+
 unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A) {
 #if !ABGR
     return ((A) << 24) | ((R) << 16) | ((G) << 8) | (B);
