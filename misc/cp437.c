@@ -13,28 +13,10 @@
 #include <assert.h>
 
 #include "../bmp.h"
+#include "cp437.h"
 #include "cp437.xbm"
 
 static void draw_tile(Bitmap *b, int x, int y, unsigned short c);
-
-typedef enum {
-    BLACK = 0,
-    DARK_BLUE,
-    DARK_GREEN,
-    DARK_CYAN,
-    DARK_RED,
-    DARK_MAGENTA,
-    BROWN,
-    LIGHT_GRAY,
-    GRAY,
-    BLUE,
-    GREEN,
-    CYAN,
-    RED,
-    MAGENTA,
-    YELLOW,
-    WHITE
-} COLOR;
 
 static unsigned int cga_colors[] = {
     /* actually based on https://en.wikipedia.org/wiki/Web_colors#HTML_color_names */
@@ -55,12 +37,6 @@ static unsigned int cga_colors[] = {
     0xFFFF00, // 14 (yellow)
     0xFFFFFF, // 15 (white)
 };
-
-typedef struct {
-    int r, c;
-    COLOR fg, bg;
-    unsigned short *data;
-} Grid;
 
 Grid *gr_create(int cols, int rows) {
     Grid *g = malloc(sizeof *g);
