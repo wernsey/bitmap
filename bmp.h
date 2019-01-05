@@ -858,6 +858,14 @@ void bm_putpixel(Bitmap *b, int x, int y);
 void bm_line(Bitmap *b, int x0, int y0, int x1, int y1);
 
 /**
+ * #### `void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1)`
+ *
+ * Draws a line from <x0,y0> to <x1,y1> using the pen color that is
+ * anti-aliased using [Xiaolin Wu's line algorithm](https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm)
+ */
+void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1);
+
+/**
  * #### `void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1)`
  *
  * Draws a rectangle from <x0,y0> to <x1,y1> using the pen color.

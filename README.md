@@ -157,6 +157,8 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
 * <http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm>
 * [Image Filtering](http://lodev.org/cgtutor/filtering.html) in _Lode's Computer Graphics Tutorial_
 * [Grayscale](https://en.wikipedia.org/wiki/Grayscale) on Wikipedia
+* [Xiaolin Wu's line algorithm](https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm) on Wikipedia.
+* Michael Abrash's article in the June 1992 issue of Dr Dobbs' Journal.
 * The `README` file in the [SFont][sfont] distribution discusses the details.
 * [This forum post](https://groups.google.com/forum/#!topic/grafx2/EQJCZDvFNfk) contains a discussion of the GrafX2 format
 * Here are some SFont/GrafX2 font resources:

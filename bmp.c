@@ -74,6 +74,8 @@ const char *bm_last_error = "";
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+#define SWAPINT(a, b) do {int t = a; a = b; b = t;} while(0)
+
 #if !defined(WIN32) && 0
 /* TODO: Use `alloca()` if it is available */
 #define ALLOCA(x) alloca(x)
@@ -3110,16 +3112,10 @@ Bitmap *bm_from_Xpm(char *xpm[]) {
 
 void bm_clip(Bitmap *b, int x0, int y0, int x1, int y1) {
     assert(b);
-    if(x0 > x1) {
-        int t = x1;
-        x1 = x0;
-        x0 = t;
-    }
-    if(y0 > y1) {
-        int t = y1;
-        y1 = y0;
-        y0 = t;
-    }
+    if(x0 > x1)
+        SWAPINT(x0, x1);
+    if(y0 > y1)
+        SWAPINT(y0, y1);
     if(x0 < 0) x0 = 0;
     if(x1 > b->w) x1 = b->w;
     if(y0 < 0) y0 = 0;
@@ -4445,9 +4441,9 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
     r1 = (color1 >> 16) & 0xFF; g1 = (color1 >> 8) & 0xFF; b1 = (color1 >> 0) & 0xFF;
     r2 = (color2 >> 16) & 0xFF; g2 = (color2 >> 8) & 0xFF; b2 = (color2 >> 0) & 0xFF;
 
-    r3 = (int)((r2 - r1) * t + r1);
-    g3 = (int)((g2 - g1) * t + g1);
-    b3 = (int)((b2 - b1) * t + b1);
+    r3 = r1 + t * (r2 - r1);
+    g3 = g1 + t * (g2 - g1);
+    b3 = b1 + t * (b2 - b1);
 
     return (r3 << 16) | (g3 << 8) | (b3 << 0);
 }
@@ -4515,6 +4511,152 @@ void bm_line(Bitmap *b, int x0, int y0, int x1, int y1) {
         if(e2 < dx) {
             err += dx;
             y0 += sy;
+        }
+    }
+}
+
+/*
+Xiaolin Wu's line algorithm.
+This code is pretty much based on the [Wikipedia](https://en.wikipedia.org/wiki/Xiaolin_Wu%27s_line_algorithm)
+version, though I did read Michael Abrash's article in the June 1992 issue of Dr Dobbs'.
+See also <https://www.geeksforgeeks.org/anti-aliased-line-xiaolin-wus-algorithm/>, though their
+implementation looks like a straight C port of the Wikipedia code
+*/
+void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1) {
+#define FPART(x) ((x) - (int)(x))
+    int x, y, dx, dy;
+    unsigned int c0, c1 = bm_get_color(b);
+    double gradient, intery;
+
+    int steep = abs(y1 - y0) > abs(x1 - x0);
+    if(steep) {
+        SWAPINT(x0, y0);
+        SWAPINT(x1, y1);
+    }
+    if(x0 > x1) {
+        SWAPINT(x0, x1);
+        SWAPINT(y0, y1);
+    }
+
+    dx = x1 - x0;
+    dy = y1 - y0;
+
+    /* Clipping */
+    if(steep) {
+        if(x0 >= b->clip.y1 || x1 < b->clip.y0)
+            return;
+        if(y0 < y1) {
+            if(y0 >= b->clip.x1 || y1 < b->clip.x0)
+                return;
+        } else {
+            if(y1 >= b->clip.x1 || y0 < b->clip.x0)
+                return;
+        }
+    } else {
+        if(x0 >= b->clip.x1 || x1 < b->clip.x0)
+            return;
+        if(y0 < y1) {
+            if(y0 >= b->clip.y1 || y1 < b->clip.y0)
+                return;
+        } else {
+            if(y1 >= b->clip.y1 || y0 < b->clip.y0)
+                return;
+        }
+    }
+
+    /* Special cases */
+    if(dy == 0) {
+
+        if(steep) {
+            if(y0 < b->clip.x0 || y0 >= b->clip.x1)
+                return;
+            for(x = x0; x <= x1; x++) {
+                if(x < b->clip.y0)
+                    continue;
+                else if(x >= b->clip.y1)
+                    break;
+                bm_set(b, y0, x, c1);
+            }
+        } else {
+            if(y0 < b->clip.y0 || y0 >= b->clip.y1)
+                return;
+            for(x = x0; x <= x1; x++) {
+                if(x < b->clip.x0)
+                    continue;
+                else if(x >= b->clip.x1)
+                    break;
+                bm_set(b, x, y0, c1);
+            }
+        }
+
+        return;
+    /* } else if(dx == 0) { -- doesn't matter because of the earlier X/Y swap */
+    } else if(dx == dy) {
+        dy = y0 < y1 ? 1 : -1;
+        for(x = x0, y = y0; x <= x1; x++, y += dy) {
+            if(x < b->clip.x0)
+                continue;
+            else if(x >= b->clip.x1)
+                break;
+            if(y < b->clip.y0 || y >= b->clip.y1)
+                continue;
+
+            bm_set(b, x, y, c1);
+        }
+        return;
+    }
+
+    /* I omit the Wikipedia's part about the endpoints
+    because x0,y0 and x1,y1 are integers.
+    TODO: Perhaps they should not be integers.
+    */
+
+    gradient = (double)dy / dx;
+    intery = y0;
+
+    if(steep) {
+        for(x = x0; x <= x1; x++, intery += gradient) {
+
+            if(x < b->clip.y0)
+                continue;
+            else if(x >= b->clip.y1)
+                break;
+
+            y = (int)intery;
+
+            if(y < b->clip.x0 || y >= b->clip.x1)
+                continue;
+
+            c0 = bm_get(b, y, x);
+            bm_set(b, y, x, bm_lerp(c0, c1, 1.0 - FPART(intery)));
+
+            y++;
+
+            if(y < b->clip.x0 || y >= b->clip.x1)
+                continue;
+
+            c0 = bm_get(b, y, x);
+            bm_set(b, y, x, bm_lerp(c0, c1, FPART(intery)));
+        }
+    } else {
+        for(x = x0; x <= x1; x++, intery += gradient) {
+
+            if(x < b->clip.x0)
+                continue;
+            else if(x >= b->clip.x1)
+                break;
+
+            y = (int)intery;
+            if(y < b->clip.y0 || y >= b->clip.y1)
+                continue;
+            c0 = bm_get(b, x, y);
+            bm_set(b, x, y, bm_lerp(c0, c1, 1.0 - FPART(intery)));
+
+            y++;
+            if(y < b->clip.y0 || y >= b->clip.y1)
+                continue;
+            c0 = bm_get(b, x, y);
+            bm_set(b, x, y, bm_lerp(c0, c1, FPART(intery)));
         }
     }
 }
@@ -4888,9 +5030,7 @@ void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n) {
         i = 0;
         while(i < nodes - 1) {
             if(nodeX[i] > nodeX[i+1]) {
-                int swap = nodeX[i];
-                nodeX[i] = nodeX[i + 1];
-                nodeX[i + 1] = swap;
+                SWAPINT(nodeX[i], nodeX[i + 1]);
                 if(i) i--;
             } else {
                 i++;
