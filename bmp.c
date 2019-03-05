@@ -5287,8 +5287,8 @@ void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n) {
 }
 
 unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
-    unsigned int *pal, n = 0, an = 8;
-    FILE *f;
+    unsigned int *pal = NULL, n = 0, an = 8;
+    FILE *f = NULL;
     char buf[64];
 
     if(!filename || !npal) return NULL;
@@ -5303,11 +5303,36 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
     if(!f) return NULL;
 #endif
 
-    pal = calloc(an, sizeof *pal);
-    if (!pal) {
+    fgets(buf, sizeof buf, f);
+    if(!strncmp(buf, "JASC-PAL", 8)) {
+        /* Paintshop Pro palette http://www.cryer.co.uk/file-types/p/pal.htm */
+        int version;
+        if(fscanf(f, "%d", &version) != 1)
+            goto error;
+        (void)version;
+        if(fscanf(f, "%u", &an) != 1)
+            goto error;
+        pal = calloc(an, sizeof *pal);
+        if(!pal)
+            goto error;
+        for(n = 0; n < an; n++) {
+            unsigned int r,g,b;
+            if(fscanf(f, "%u %u %u", &r, &g, &b) != 3)
+                goto error;
+            pal[n] = (r << 16) | (g << 8) | b;
+        }
+        *npal = an;
         fclose(f);
-        return NULL;
-    }
+        return pal;
+    } else
+        rewind(f);
+
+    /* TODO: Here's a spec for the Microsoft PAL format
+    https://worms2d.info/Palette_file */
+
+    pal = calloc(an, sizeof *pal);
+    if (!pal)
+        goto error;
     while(fgets(buf, sizeof buf, f) && n < 256) {
         char *s, *e, *c = buf;
         while(*c && isspace(*c)) c++;
@@ -5331,22 +5356,43 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
         if(n == an) {
             an <<= 1;
             void *tmp = realloc(pal, an * sizeof *pal);
-            if (!tmp) {
-                free(pal);
-                fclose(f);
-                return NULL;
-            }
+            if (!tmp)
+                goto error;
             pal = tmp;
         }
     }
-    fclose(f);
+    if(n == 0)
+        goto error;
 
-    if(n == 0) {
-        free(pal);
-        return NULL;
-    }
+    fclose(f);
     *npal = n;
     return pal;
+
+error:
+    fclose(f);
+    if(pal)
+        free(pal);
+    return NULL;
+}
+
+int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal) {
+    int i;
+    FILE *f;
+    if(!filename)
+        return 0;
+    f = fopen(filename, "w");
+    if(!f)
+        return 0;
+    fputs("JASC-PAL\n", f);
+    fputs("0100\n", f);
+    fprintf(f, "%u\n", npal);
+    for(i = 0; i < npal; i++) {
+        unsigned char R, G, B;
+        bm_get_rgb(pal[i], &R, &G, &B);
+        fprintf(f, "%u %u %u\n", R, G, B);
+    }
+    fclose(f);
+    return 1;
 }
 
 int bm_stricmp(const char *p, const char *q) {
