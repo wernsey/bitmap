@@ -234,13 +234,13 @@ static BmReader make_file_reader(FILE *fp) {
     return rd;
 }
 
-struct BmMemReader {
-    const unsigned char *buffer;
+typedef struct {
+    const char *buffer;
     unsigned int len;
     unsigned int pos;
-};
+} BmMemReader;
 
-static size_t memread(void *ptr, size_t size, size_t nobj, struct BmMemReader *mem) {
+static size_t memread(void *ptr, size_t size, size_t nobj, BmMemReader *mem) {
     size = size * nobj;
     if(mem->pos + size > mem->len) {
         return 0;
@@ -249,10 +249,10 @@ static size_t memread(void *ptr, size_t size, size_t nobj, struct BmMemReader *m
     mem->pos += size;
     return nobj;
 }
-static long memtell(struct BmMemReader *mem) {
+static long memtell(BmMemReader *mem) {
     return mem->pos;
 }
-static int memseek(struct BmMemReader *mem, long offset, int origin) {
+static int memseek(BmMemReader *mem, long offset, int origin) {
     switch(origin) {
     case SEEK_SET: mem->pos = offset; break;
     case SEEK_CUR: mem->pos += offset; break;
@@ -265,7 +265,7 @@ static int memseek(struct BmMemReader *mem, long offset, int origin) {
     return 0;
 }
 
-static BmReader make_mem_reader(struct BmMemReader *mem) {
+static BmReader make_mem_reader(BmMemReader *mem) {
     BmReader rd;
     rd.data = mem;
     mem->pos = 0;
@@ -416,12 +416,12 @@ Bitmap *bm_load_fp(FILE *f) {
     return NULL;
 }
 
-Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
-    unsigned char magic[4];
+Bitmap *bm_load_mem(const char *buffer, long len) {
+    char magic[4];
 
     long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
 
-    struct BmMemReader memr;
+    BmMemReader memr;
     memr.buffer = buffer;
     memr.len = len;
 
@@ -503,6 +503,64 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     }
     SET_ERROR("unsupported file type"); /* should not happen */
     return NULL;
+}
+
+Bitmap *bm_load_base64(const char *base64) {
+    /* It would've been cool to read the Base64 data
+    in place with a custom BmReader object, but I
+    found that decoding first makes it easier to deal with
+    whitespace in the input data */
+    if(!base64)
+        return NULL;
+    long len = strlen(base64);
+    char *p, *buffer;
+    const char *q;
+
+    unsigned octet = 0, sextet, bits = 0;
+
+    buffer = malloc(len + 1);
+    if(!buffer) {
+        SET_ERROR("out of memory");
+        return NULL;
+    }
+
+    for(p = buffer, q = base64; *q; q++) {
+        if(isspace(*q))
+            continue;
+        else if(isupper(*q))
+            sextet = *q - 'A';
+        else if(islower(*q))
+            sextet = *q - 'a' + 26;
+        else if(isdigit(*q))
+            sextet = *q - '0' + 52;
+        else if(*q == '+')
+            sextet = 62;
+        else if(*q == '/')
+            sextet = 63;
+        else if(*q == '=')
+            break;
+        else {
+            SET_ERROR("invalid character in Base64 data");
+            free(buffer);
+            return NULL;
+        }
+
+        octet = (octet << 6) | sextet;
+        bits += 6;
+        if(bits > 8) {
+            *p++ = (octet >> (bits - 8)) & 0xFF;
+            bits -= 8;
+        }
+    }
+    if(bits == 8)
+        *p++ = octet & 0xFF;
+    assert((p - buffer) < len);
+
+    Bitmap *b = bm_load_mem(buffer, p - buffer);
+
+    free(buffer);
+
+    return b;
 }
 
 static Bitmap *bm_load_bmp_rd(BmReader rd) {

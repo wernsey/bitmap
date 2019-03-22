@@ -254,18 +254,30 @@ Bitmap *bm_load_fp(FILE *f);
 #endif
 
 /**
- * #### `Bitmap *bm_load_mem(const unsigned char *buffer, long len)`
+ * #### `Bitmap *bm_load_mem(const char *buffer, long len)`
  *
  * Loads a bitmap file from an array of bytes `buffer` of size `len`.
  *
  * It tries to detect the file type from the first bytes in the file.
  *
  * Only supports BMP, GIF, PCX and TGA at the moment.
- * _Don't use it with user input._
+ * _Don't use it with untrusted input._
  *
  * Returns `NULL` if the file could not be loaded.
  */
-Bitmap *bm_load_mem(const unsigned char *buffer, long len);
+Bitmap *bm_load_mem(const char *buffer, long len);
+
+/**
+ * #### `Bitmap *bm_load_base64(const char *base64)`
+ *
+ * Loads a bitmap file from a [Base64][] encoded string. It uses
+ * `bm_load_mem()` internally, so the same caveats apply.
+ *
+ * Returns `NULL` if the bitmap could not be loaded.
+ *
+ * [Base64]: https://en.wikipedia.org/wiki/Base64
+ */
+Bitmap *bm_load_base64(const char *base64);
 
 #if defined(USESDL) && defined(_SDL_H)
 /**
