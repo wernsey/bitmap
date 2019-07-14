@@ -1152,6 +1152,7 @@ int bm_stricmp(const char *p, const char *q);
  *   by Darel Rex Finley.
  * * [Computer Graphics: Scan Line Polygon Fill Algorithm](https://hackernoon.com/computer-graphics-scan-line-polygon-fill-algorithm-3cb47283df6)
  *   by Alberto Scicali
+ * * [Count the consecutive zero bits (trailing) on the right in parallel](https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightParallel)
  */
 
 #if defined(__cplusplus) || defined(c_plusplus)

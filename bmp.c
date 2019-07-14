@@ -64,6 +64,14 @@ Still, it is here if you need it
 #  define SAVE_GIF_TRANSPARENT 0
 #endif
 
+/* For bitmaps with biCompression=BI_BITFIELDS other formats than 
+* R8G8B8, like R11G11B10 are valid (but rare). We can only represent
+* 8bit per channel internally. The best we can do is to map the value
+* to our range. But most bitmaps use 8bit per channel anyways so we 
+* could get away with just truncating, trading speed vs. compatibility.
+*/
+#define TRUNCATE_DONT_MAP 0
+
 #if BM_LAST_ERROR
 const char *bm_last_error = "";
 #  define SET_ERROR(e) bm_last_error = e
@@ -320,6 +328,9 @@ Bitmap *bm_load(const char *filename) {
 
 static int is_tga_file(BmReader rd);
 
+static uint32_t count_trailing_zeroes(uint32_t v);
+static int map_to_range(int val, int min, int max, int out_min, int out_max);
+
 static Bitmap *bm_load_bmp_rd(BmReader rd);
 static Bitmap *bm_load_gif_rd(BmReader rd);
 static Bitmap *bm_load_pcx_rd(BmReader rd);
@@ -532,11 +543,23 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         return NULL;
     }
 
-    if((dib.bitspp != 4 && dib.bitspp != 8 && dib.bitspp != 24) || dib.compress_type != 0) {
-        /* Unsupported BMP type. TODO (maybe): support more types? */
+
+    if (dib.bitspp != 1 && 
+        dib.bitspp != 4 && 
+        dib.bitspp != 8 && 
+        dib.bitspp != 24 && 
+        dib.bitspp != 32) {
+        /* Unsupported BMP type. Only 16bpp is missing now */
         SET_ERROR("unsupported BMP type");
         return NULL;
     }
+
+    if(dib.compress_type != 0 && dib.compress_type != 3) {
+        /* Unsupported compression type. Only uncompressed BI_RGB & BI_BITFIELDS are ok */
+        SET_ERROR("unsupported compression type");
+        return NULL;
+    }
+
 
     b = bm_create(dib.width, dib.height);
     if(!b) {
@@ -557,6 +580,40 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             goto error;
         }
     }
+
+    /* standard bitmasks for 16 and 32 bpp when biCompression = BI_RGB */
+    uint32_t rgbmask[3] = { 0 };
+    uint32_t rgbshift[3] = { 0 };
+    uint32_t rgbmaxval[3] = { 0 };
+
+    if (dib.bitspp == 32) {
+        rgbmask[0] = 0x00FF0000;
+        rgbmask[1] = 0x0000FF00;
+        rgbmask[2] = 0x000000FF;
+    } else if (dib.bitspp == 16) {
+        rgbmask[0] = 0x00007C00;
+        rgbmask[1] = 0x000003E0;
+        rgbmask[2] = 0x0000001F;
+    }
+
+    /* biCompression = BI_BITFIELDS, so read the bitmask */
+    if (dib.compress_type == 3) {
+        if (rd.fread(rgbmask, 1, 12, rd.data) != 12) {
+            SET_ERROR("fread on bitfields");
+            goto error;
+        }
+    }
+
+    /* calculate how many bits we have to shift after masking*/
+    rgbshift[0] = count_trailing_zeroes(rgbmask[0]);
+    rgbshift[1] = count_trailing_zeroes(rgbmask[1]);
+    rgbshift[2] = count_trailing_zeroes(rgbmask[2]);
+
+    /* calculate the bit depth of the color channels */
+    rgbmaxval[0] = rgbmask[0] >> rgbshift[0];
+    rgbmaxval[1] = rgbmask[1] >> rgbshift[1];
+    rgbmaxval[2] = rgbmask[2] >> rgbshift[2];
+
 
     if(rd.fseek(rd.data, hdr.bmp_offset + start_offset, SEEK_SET) != 0) {
         SET_ERROR("out of memory");
@@ -603,6 +660,42 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 uint8_t p = ( (i & 0x01) ? data[byt] : (data[byt] >> 4) ) & 0x0F;
                 assert(p < dib.ncolors);
                 BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+            }
+        }
+    } else if (dib.bitspp == 1) {
+        for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                int byt = y * rs + (i >> 3);
+                int bit = 7 - (i % 8);
+                uint8_t p = (data[byt] & (1 << bit)) >> bit;
+
+                assert(p < dib.ncolors);
+                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+            }
+        }
+    } else if (dib.bitspp == 32) {
+        for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                int p = y * rs + i * 4;
+
+                uint32_t* pixel = (uint32_t*)(data + p);
+                uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
+                uint32_t g_unc = (*pixel & rgbmask[1]) >> rgbshift[1];
+                uint32_t b_unc = (*pixel & rgbmask[2]) >> rgbshift[2];
+
+#if TRUNCATE_DONT_MAP
+                BM_SET_RGBA(b, i, j,
+                    ((uint8_t)r_unc),
+                    ((uint8_t)g_unc),
+                    ((uint8_t)b_unc), 0xFF);
+#else
+                BM_SET_RGBA(b, i, j,
+                    map_to_range(r_unc, 0, rgbmaxval[0], 0, 255),
+                    map_to_range(g_unc, 0, rgbmaxval[1], 0, 255),
+                    map_to_range(b_unc, 0, rgbmaxval[2], 0, 255), 0xFF);
+#endif
             }
         }
     } else {
@@ -5028,6 +5121,24 @@ static unsigned int closest_color(unsigned int c, unsigned int palette[], size_t
         }
     }
     return palette[m];
+}
+
+static uint32_t count_trailing_zeroes(uint32_t v) {
+    /* Count the consecutive zero bits (trailing) on the right in parallel 
+       https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightParallel */
+    uint32_t c = 32;
+    v &= -(int32_t)(v);
+    if (v) c--;
+    if (v & 0x0000FFFF) c -= 16;
+    if (v & 0x00FF00FF) c -= 8;
+    if (v & 0x0F0F0F0F) c -= 4;
+    if (v & 0x33333333) c -= 2;
+    if (v & 0x55555555) c -= 1;
+    return c;
+}
+
+static int map_to_range(int val, int min, int max, int out_min, int out_max) {
+    return out_min + (val - min) * (out_max - out_min) / (max - min);
 }
 
 static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f) {
