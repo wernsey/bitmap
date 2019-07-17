@@ -64,14 +64,6 @@ Still, it is here if you need it
 #  define SAVE_GIF_TRANSPARENT 0
 #endif
 
-/* For bitmaps with biCompression=BI_BITFIELDS other formats than 
-* R8G8B8, like R11G11B10 are valid (but rare). We can only represent
-* 8bit per channel internally. The best we can do is to map the value
-* to our range. But most bitmaps use 8bit per channel anyways so we 
-* could get away with just truncating, trading speed vs. compatibility.
-*/
-#define TRUNCATE_DONT_MAP 0
-
 #if BM_LAST_ERROR
 const char *bm_last_error = "";
 #  define SET_ERROR(e) bm_last_error = e
@@ -329,7 +321,6 @@ Bitmap *bm_load(const char *filename) {
 static int is_tga_file(BmReader rd);
 
 static uint32_t count_trailing_zeroes(uint32_t v);
-static int map_to_range(int val, int min, int max, int out_min, int out_max);
 
 static Bitmap *bm_load_bmp_rd(BmReader rd);
 static Bitmap *bm_load_gif_rd(BmReader rd);
@@ -581,11 +572,11 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         }
     }
 
-    /* standard bitmasks for 16 and 32 bpp when biCompression = BI_RGB */
-    uint32_t rgbmask[3] = { 0 };
-    uint32_t rgbshift[3] = { 0 };
-    uint32_t rgbmaxval[3] = { 0 };
+    uint32_t rgbmask[3] = { 0, 0, 0 };
+    uint32_t rgbshift[3] = { 0, 0, 0 };
+    float rgbcorr[3] = { 0.0f, 0.0f, 0.0f };
 
+    /* standard bitmasks for 16 & 32 bpp, required when biCompression = BI_RGB */
     if (dib.bitspp == 32) {
         rgbmask[0] = 0x00FF0000;
         rgbmask[1] = 0x0000FF00;
@@ -604,15 +595,14 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         }
     }
 
-    /* calculate how many bits we have to shift after masking*/
-    rgbshift[0] = count_trailing_zeroes(rgbmask[0]);
-    rgbshift[1] = count_trailing_zeroes(rgbmask[1]);
-    rgbshift[2] = count_trailing_zeroes(rgbmask[2]);
-
-    /* calculate the bit depth of the color channels */
-    rgbmaxval[0] = rgbmask[0] >> rgbshift[0];
-    rgbmaxval[1] = rgbmask[1] >> rgbshift[1];
-    rgbmaxval[2] = rgbmask[2] >> rgbshift[2];
+    /* 1. calculate how many bits we have to shift after masking */
+    /* 2. calculate the bit depth of the input channels */
+    /* 3. calculate the factor that maps the channel to 0-255 */
+    for (int i = 0; i < 3; ++i) {
+        rgbshift[i] = count_trailing_zeroes(rgbmask[i]);
+        uint32_t chdepth = rgbmask[i] >> rgbshift[i];
+        rgbcorr[i] = chdepth ? 255.0f / chdepth : 0.0f;
+    }
 
 
     if(rd.fseek(rd.data, hdr.bmp_offset + start_offset, SEEK_SET) != 0) {
@@ -685,17 +675,10 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 uint32_t g_unc = (*pixel & rgbmask[1]) >> rgbshift[1];
                 uint32_t b_unc = (*pixel & rgbmask[2]) >> rgbshift[2];
 
-#if TRUNCATE_DONT_MAP
                 BM_SET_RGBA(b, i, j,
-                    ((uint8_t)r_unc),
-                    ((uint8_t)g_unc),
-                    ((uint8_t)b_unc), 0xFF);
-#else
-                BM_SET_RGBA(b, i, j,
-                    map_to_range(r_unc, 0, rgbmaxval[0], 0, 255),
-                    map_to_range(g_unc, 0, rgbmaxval[1], 0, 255),
-                    map_to_range(b_unc, 0, rgbmaxval[2], 0, 255), 0xFF);
-#endif
+                    (r_unc * rgbcorr[0]),
+                    (g_unc * rgbcorr[1]),
+                    (b_unc * rgbcorr[2]), 0xFF);
             }
         }
     } else {
@@ -5135,10 +5118,6 @@ static uint32_t count_trailing_zeroes(uint32_t v) {
     if (v & 0x33333333) c -= 2;
     if (v & 0x55555555) c -= 1;
     return c;
-}
-
-static int map_to_range(int val, int min, int max, int out_min, int out_max) {
-    return out_min + (val - min) * (out_max - out_min) / (max - min);
 }
 
 static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f) {
