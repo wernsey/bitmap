@@ -853,14 +853,15 @@ static int gif_save_fp(GIF *g, FILE *f) {
     unsigned int palette[256], q;
     if(g->palette) {
         nc = g->palette_size;
+        assert(nc > 0); /* You must have at least some colors in your palette */
         bg = b->color & 0x00FFFFFF;
         for(q = 0; q < nc; q++) {
             bm_get_rgb(g->palette[q], &gct[q].r, &gct[q].g, &gct[q].b);
         }
 		qsort(gct, nc, sizeof gct[0], comp_rgb);
-            for(q = 0; q < nc; q++) {
-                palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
-            }
+        for(q = 0; q < nc; q++) {
+            palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
+        }
     } else {
         nc = count_colors_build_palette(b, gct);
         if(nc < 0) {
@@ -876,10 +877,10 @@ static int gif_save_fp(GIF *g, FILE *f) {
                 gct[nc].g = (c >> 8) & 0xFF;
                 gct[nc].b = (c >> 0) & 0xFF;
             }
-            qsort(gct, nc, sizeof gct[0], comp_rgb);
-            for(q = 0; q < nc; q++) {
-                palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
-            }
+        }
+        qsort(gct, nc, sizeof gct[0], comp_rgb);
+        for(q = 0; q < nc; q++) {
+            palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
         }
     }
 
@@ -1061,6 +1062,10 @@ GIF *gif_create(int w, int h) {
     gif->n = 0;
     gif->frames = calloc(gif->a, sizeof *gif->frames);
     gif->default_delay = 2;
+
+    gif->palette = 0;
+    gif->palette_size = 0;
+
     return gif;
 }
 
