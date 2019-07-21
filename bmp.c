@@ -322,6 +322,8 @@ Bitmap *bm_load(const char *filename) {
 
 static int is_tga_file(BmReader rd);
 
+static uint32_t count_trailing_zeroes(uint32_t v);
+
 static Bitmap *bm_load_bmp_rd(BmReader rd);
 static Bitmap *bm_load_gif_rd(BmReader rd);
 static Bitmap *bm_load_pcx_rd(BmReader rd);
@@ -592,11 +594,23 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         return NULL;
     }
 
-    if((dib.bitspp != 4 && dib.bitspp != 8 && dib.bitspp != 24) || dib.compress_type != 0) {
-        /* Unsupported BMP type. TODO (maybe): support more types? */
+
+    if (dib.bitspp != 1 && 
+        dib.bitspp != 4 && 
+        dib.bitspp != 8 && 
+        dib.bitspp != 24 && 
+        dib.bitspp != 32) {
+        /* Unsupported BMP type. Only 16bpp is missing now */
         SET_ERROR("unsupported BMP type");
         return NULL;
     }
+
+    if(dib.compress_type != 0 && dib.compress_type != 3) {
+        /* Unsupported compression type. Only uncompressed BI_RGB & BI_BITFIELDS are ok */
+        SET_ERROR("unsupported compression type");
+        return NULL;
+    }
+
 
     b = bm_create(dib.width, dib.height);
     if(!b) {
@@ -617,6 +631,39 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             goto error;
         }
     }
+
+    uint32_t rgbmask[3] = { 0, 0, 0 };
+    uint32_t rgbshift[3] = { 0, 0, 0 };
+    float rgbcorr[3] = { 0.0f, 0.0f, 0.0f };
+
+    /* standard bitmasks for 16 & 32 bpp, required when biCompression = BI_RGB */
+    if (dib.bitspp == 32) {
+        rgbmask[0] = 0x00FF0000;
+        rgbmask[1] = 0x0000FF00;
+        rgbmask[2] = 0x000000FF;
+    } else if (dib.bitspp == 16) {
+        rgbmask[0] = 0x00007C00;
+        rgbmask[1] = 0x000003E0;
+        rgbmask[2] = 0x0000001F;
+    }
+
+    /* biCompression = BI_BITFIELDS, so read the bitmask */
+    if (dib.compress_type == 3) {
+        if (rd.fread(rgbmask, 1, 12, rd.data) != 12) {
+            SET_ERROR("fread on bitfields");
+            goto error;
+        }
+    }
+
+    /* 1. calculate how many bits we have to shift after masking */
+    /* 2. calculate the bit depth of the input channels */
+    /* 3. calculate the factor that maps the channel to 0-255 */
+    for (int i = 0; i < 3; ++i) {
+        rgbshift[i] = count_trailing_zeroes(rgbmask[i]);
+        uint32_t chdepth = rgbmask[i] >> rgbshift[i];
+        rgbcorr[i] = chdepth ? 255.0f / chdepth : 0.0f;
+    }
+
 
     if(rd.fseek(rd.data, hdr.bmp_offset + start_offset, SEEK_SET) != 0) {
         SET_ERROR("out of memory");
@@ -663,6 +710,35 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 uint8_t p = ( (i & 0x01) ? data[byt] : (data[byt] >> 4) ) & 0x0F;
                 assert(p < dib.ncolors);
                 BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+            }
+        }
+    } else if (dib.bitspp == 1) {
+        for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                int byt = y * rs + (i >> 3);
+                int bit = 7 - (i % 8);
+                uint8_t p = (data[byt] & (1 << bit)) >> bit;
+
+                assert(p < dib.ncolors);
+                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+            }
+        }
+    } else if (dib.bitspp == 32) {
+        for(j = 0; j < b->h; j++) {
+            int y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                int p = y * rs + i * 4;
+
+                uint32_t* pixel = (uint32_t*)(data + p);
+                uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
+                uint32_t g_unc = (*pixel & rgbmask[1]) >> rgbshift[1];
+                uint32_t b_unc = (*pixel & rgbmask[2]) >> rgbshift[2];
+
+                BM_SET_RGBA(b, i, j,
+                    (r_unc * rgbcorr[0]),
+                    (g_unc * rgbcorr[1]),
+                    (b_unc * rgbcorr[2]), 0xFF);
             }
         }
     } else {
@@ -5226,6 +5302,20 @@ static unsigned int closest_color(unsigned int c, unsigned int palette[], size_t
         }
     }
     return palette[m];
+}
+
+static uint32_t count_trailing_zeroes(uint32_t v) {
+    /* Count the consecutive zero bits (trailing) on the right in parallel 
+       https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightParallel */
+    uint32_t c = 32;
+    v &= -(int32_t)(v);
+    if (v) c--;
+    if (v & 0x0000FFFF) c -= 16;
+    if (v & 0x00FF00FF) c -= 8;
+    if (v & 0x0F0F0F0F) c -= 4;
+    if (v & 0x33333333) c -= 2;
+    if (v & 0x55555555) c -= 1;
+    return c;
 }
 
 static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f) {
