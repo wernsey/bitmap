@@ -98,6 +98,8 @@ void gif_free(GIF *gif);
  * Sets a custom `palette` of the specified `palette_size` for the GIF.
  * If a palette is not specified, one is created from the first frame in the GIF when
  * the file is saved.
+ *
+ * The colours in `palette` should be in the `0xAARRGGBB` format.
  */
 void gif_set_palette(GIF *gif, unsigned int *palette, unsigned int palette_size);
 
