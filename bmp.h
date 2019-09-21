@@ -5,6 +5,8 @@
  *
  * Low-level routines to manipulate bitmap graphic objects in memory and files on disk.
  *
+ * Official repository: <https://github.com/wernsey/bitmap>
+ *
  * * It supports BMP, GIF, PCX and TGA files without any third party dependencies.
  * * PNG support is optional through [libpng][]. Use `-DUSEPNG` when compiling.
  * * JPG support is optional through [libjpeg][]. Use `-DUSEJPG` when compiling.

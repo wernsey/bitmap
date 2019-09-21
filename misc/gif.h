@@ -25,7 +25,7 @@
  * * `unsigned char delay` - the time to display the frame, in 100th's of a second
  *   (i.e. 50 means 500ms)
  * * `trans` - Set to true if the frame should have a transparent component. The
- *   `image`'s color (see `bm_set_color()` will determine the transparent color.
+ *   `image`'s color (see `bm_set_color()`) will determine the transparent color.
  */
 typedef struct GIF_FRAME {
     Bitmap *image;
