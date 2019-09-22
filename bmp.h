@@ -962,9 +962,17 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r);
 /**
  * #### `void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2)`
  *
- * Draws a Bezier curve with 3 control points `<x0,y0>`, `<x1,y1>` and `<x2,y2>`.
+ * Draws a Quadratic Bezier curve with 3 control points `<x0,y0>`, `<x1,y1>` and `<x2,y2>`.
  */
+
 void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2);
+/**
+ * #### `void bm_bezier4(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3)`
+ *
+ * Draws a Cubic Bezier curve with 3 control points `<x0,y0>`, `<x1,y1>`, `<x2,y2>`
+ * and `<x3,y3>`.
+ */
+void bm_bezier4(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3);
 
 /**
  * #### `void bm_poly(Bitmap *b, BmPoint points[], unsigned int n)`

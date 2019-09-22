@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <ctype.h>
 #include <float.h>
@@ -595,10 +596,10 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     }
 
 
-    if (dib.bitspp != 1 && 
-        dib.bitspp != 4 && 
-        dib.bitspp != 8 && 
-        dib.bitspp != 24 && 
+    if (dib.bitspp != 1 &&
+        dib.bitspp != 4 &&
+        dib.bitspp != 8 &&
+        dib.bitspp != 24 &&
         dib.bitspp != 32) {
         /* Unsupported BMP type. Only 16bpp is missing now */
         SET_ERROR("unsupported BMP type");
@@ -5054,44 +5055,99 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     }
 }
 
-/* Bezier curve with 3 control points.
- * See http://devmag.org.za/2011/04/05/bzier-curves-a-tutorial/
- * I tried the more optimized version at
- * http://members.chello.at/~easyfilter/bresenham.html
- * but that one had some caveats.
+/* The problem with drawing bezier functions is finding a suitable value for
+ * incrementing the `t` parameter with. My implementation takes a guess from
+ * the distance between the control points, and adjusts the guess if new pixels
+ * on the curve are too close or too far from the last pixel drawn. It seemed
+ * to work pretty well for my test cases.
+ *
+ * [bez][] describes an alternative that subdivides the curve with different
+ * values of `t` until a certain quality threshold is met and then draws lines
+ * between those points.
+ *
+ * [bez]: http://devmag.org.za/2011/04/05/bzier-curves-a-tutorial/
  */
 void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
-    int lx = x0, ly = y0, steps;
-
-    /* Compute how far the point x1,y1 deviates from the line from x0,y0 to x2,y2.
-     * I make the number of steps proportional to that deviation, but it is not
-     * a perfect system.
-     */
-    double dx = x2 - x0, dy = y2 - y0;
+    // Quadratic Bezier curve
+    int x, y, lx = x0, ly = y0;
 
     assert(b);
-    if(dx == 0 && dy == 0) {
-      steps = 2;
-    } else {
-      /* https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line */
-      double denom = sqrt(dx * dx + dy * dy);
-      double dist = fabs((double)((y2 - y0) * x1 - (x2 - x0) * y1 + x2 * y0 + y2 * x0))/denom;
-      steps = (int)sqrt(dist);
-      if(steps == 0) steps = 1;
-    }
 
-    double inc = 1.0/steps;
-    double t = inc;
+    bm_putpixel(b, x0, y0);
 
+    // Take a guess as to how many pixels need to be drawn
+    // using the Manhattan distance between the control points
+    int steps = abs(x1 - x0) + abs(y1 - y0) + abs(x2 - x1) + abs(y2 - y1) + abs(x2 - x1) + abs(y2 - y1);
+    if(steps == 0)
+        return;
+    double  t = 0, inc = 1.0/steps;
     do {
-        dx = (1-t)*(1-t)*x0 + 2*(1-t)*t*x1 + t*t*x2;
-        dy = (1-t)*(1-t)*y0 + 2*(1-t)*t*y1 + t*t*y2;
-        bm_line(b, lx, ly, (int)dx, (int)dy);
-        lx = (int)dx;
-        ly = (int)dy;
-        t += inc;
+        double dt = t + inc, nt = 1.0 - dt;
+        double dbx = nt*nt*x0 + 2.0*nt*dt*x1 + dt*dt*x2 + 0.5;
+        double dby = nt*nt*y0 + 2.0*nt*dt*y1 + dt*dt*y2 + 0.5;
+        x = dbx, y = dby;
+
+        int dx = abs(x - lx), dy = abs(y - ly);
+
+        if(dx > 1 || dy > 1) {
+            // the new point is too far from the last point, so
+            // decrease `inc` and try again.
+            inc *= 0.75;
+        } else if(dx == 0 && dy == 0) {
+            // The new pixel is on top of the last pixel, so
+            // increase `inc` and try again.
+            inc *= 1.5;
+        } else {
+            if(x >= b->clip.x0 && x < b->clip.x1 && y >= b->clip.y0 && y < b->clip.y1)
+                BM_SET(b, x, y, b->color);
+
+            t += inc;
+
+            // This has the effect of smoothing out the curve:
+            inc *= 1.05;
+
+            // Remember the last pixel drawn
+            lx = x;
+            ly = y;
+        }
     } while(t < 1.0);
-    bm_line(b, lx, ly, x2, y2);
+    bm_putpixel(b, x2, y2);
+}
+
+void bm_bezier4(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) {
+    // Cubic Bezier curve
+    int x, y, lx = x0, ly = y0;
+
+    assert(b);
+
+    bm_putpixel(b, x0, y0);
+
+    int steps = abs(x1 - x0) + abs(y1 - y0) + abs(x2 - x1) + abs(y2 - y1) + abs(x3 - x2) + abs(y3 - y2);
+    if(steps == 0)
+        return;
+    double t = 0, inc = 1.0/steps;
+    do {
+        double dt = t + inc, nt = 1.0 - dt;
+        double dbx = nt*nt*nt*x0 + 3.0*nt*nt*dt*x1 + 3*nt*dt*dt*x2 + dt*dt*dt*x3 + 0.5;
+        double dby = nt*nt*nt*y0 + 3.0*nt*nt*dt*y1 + 3*nt*dt*dt*y2 + dt*dt*dt*y3 + 0.5;
+
+        x = dbx, y = dby;
+
+        int dx = abs(x - lx), dy = abs(y - ly);
+
+        if(dx > 1 || dy > 1) {
+            inc *= 0.75;
+        } else if(dx == 0 && dy == 0) {
+            inc *= 1.5;
+        } else {
+            if(x >= b->clip.x0 && x < b->clip.x1 && y >= b->clip.y0 && y < b->clip.y1)
+                BM_SET(b, x, y, b->color);
+            t += inc;
+            lx = x;
+            ly = y;
+        }
+    } while(t < 1.0);
+    bm_putpixel(b, x3, y3);
 }
 
 void bm_poly(Bitmap *b, BmPoint points[], unsigned int n) {
@@ -5305,7 +5361,7 @@ static unsigned int closest_color(unsigned int c, unsigned int palette[], size_t
 }
 
 static uint32_t count_trailing_zeroes(uint32_t v) {
-    /* Count the consecutive zero bits (trailing) on the right in parallel 
+    /* Count the consecutive zero bits (trailing) on the right in parallel
        https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightParallel */
     uint32_t c = 32;
     v &= -(int32_t)(v);
