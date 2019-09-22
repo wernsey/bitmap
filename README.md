@@ -31,8 +31,9 @@ Features:
   * JPEG through [libjpeg](http://www.ijg.org/)
   * Alternatively, PNG and JPEG files can be loaded through the Sean Barrett's
     [stb_image][] image loader library. [stb_image][] supports a couple of
-	additional formats, such as PSD, PIC and PNM binary formats. See
-	`bm_load_stb()` for more information.
+    additional formats, such as PSD, PIC and PNM binary formats. See
+    `bm_load_stb()` for more information.
+    A copy of `stb_image.h` has been placed in </3rd-party/stb_image.h>.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/)
   surfaces, [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface)
   contexts. See the `bm_bind()` function. It can also serve as a back end for
@@ -122,6 +123,10 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
     the dominant colors in an image.
   * `imgdup.c` is a program that scans directories for duplicate images using
     the _dHash_ algorithm.
+  * `nanosvg.c` is an example of how to use the library with Mikko Mononen's [NanoSVG][]
+    library to load SVG files.
+
+[NanoSVG]: https://github.com/memononen/nanosvg
 
 ## References
 
