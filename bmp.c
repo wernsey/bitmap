@@ -66,10 +66,10 @@ Still, it is here if you need it
 #endif
 
 #if BM_LAST_ERROR
-const char *bm_last_error = "";
+static const char *bm_last_error = "no error";
 #  define SET_ERROR(e) bm_last_error = e
 #else
-#  define SET_ERROR(e)
+#  define SET_ERROR(e) (void)e
 #endif
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -172,6 +172,7 @@ struct rgb_triplet {
 #define BM_GETN(B,N,X,Y) (B->data[((Y) * BM_ROW_SIZE(B) + (X) * BM_BPP) + (N)])
 
 Bitmap *bm_create(int w, int h) {
+    SET_ERROR("no error");
     Bitmap *b = malloc(sizeof *b);
     if(!b) {
         SET_ERROR("out of memory");
@@ -304,6 +305,8 @@ static BmReader make_rwops_reader(SDL_RWops *rw) {
 #endif
 
 Bitmap *bm_load(const char *filename) {
+    SET_ERROR("no error");
+
     Bitmap *bmp;
 #ifdef SAFE_C11
     FILE *f;
@@ -337,6 +340,7 @@ static Bitmap *bm_load_jpg_fp(FILE *f);
 #endif
 
 Bitmap *bm_load_fp(FILE *f) {
+    SET_ERROR("no error");
     unsigned char magic[4];
 
     long start, isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
@@ -420,6 +424,8 @@ Bitmap *bm_load_fp(FILE *f) {
 }
 
 Bitmap *bm_load_mem(const char *buffer, long len) {
+    SET_ERROR("no error");
+
     char magic[4];
 
     long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
@@ -509,6 +515,7 @@ Bitmap *bm_load_mem(const char *buffer, long len) {
 }
 
 Bitmap *bm_load_base64(const char *base64) {
+    SET_ERROR("no error");
     /* It would've been cool to read the Base64 data
     in place with a custom BmReader object, but I
     found that decoding first makes it easier to deal with
@@ -611,7 +618,6 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         SET_ERROR("unsupported compression type");
         return NULL;
     }
-
 
     b = bm_create(dib.width, dib.height);
     if(!b) {
@@ -776,6 +782,7 @@ static int bm_save_jpg(Bitmap *b, const char *fname);
 #endif
 
 int bm_save(Bitmap *b, const char *fname) {
+    SET_ERROR("no error");
     /* Chooses the file type to save as based on the
     extension in the filename */
     char *lname = strdup(fname), *c,
@@ -811,7 +818,7 @@ int bm_save(Bitmap *b, const char *fname) {
 }
 
 static int bm_save_bmp(Bitmap *b, const char *fname) {
-
+    SET_ERROR("no error");
     /* TODO: Now that I have a function to count colors, maybe
         I should choose to save a bitmap as 8-bit if there
         are <= 256 colors in the image? */
@@ -1238,6 +1245,7 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw);
 #  endif
 
 Bitmap *bm_load_rw(SDL_RWops *rw) {
+    SET_ERROR("no error");
     unsigned char magic[3];
     long start = SDL_RWtell(rw);
     long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0;
@@ -3068,6 +3076,7 @@ void bm_free(Bitmap *b) {
 }
 
 Bitmap *bm_bind(int w, int h, unsigned char *data) {
+    SET_ERROR("no error");
     Bitmap *b = malloc(sizeof *b);
     if(!b) {
         SET_ERROR("out of memory");
@@ -5599,6 +5608,16 @@ int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal)
     return 1;
 }
 
+Bitmap *bm_swap_rb(Bitmap *b) {
+    int i;
+    for(i = 0; i < b->w * b->h; i++) {
+        unsigned int *pixp = ((unsigned int *)b->data) + i;
+        unsigned int c = *pixp;
+        *pixp = (c & 0xFF00FF00) | ((c & 0xFF) << 16) | ((c >> 16) & 0xFF);
+    }
+    return b;
+}
+
 int bm_stricmp(const char *p, const char *q) {
     for(;*p && tolower(*p) == tolower(*q); p++, q++);
     return tolower(*p) - tolower(*q);
@@ -5848,6 +5867,7 @@ static void sf_dtor(BmFont *font) {
 }
 
 BmFont *bm_make_sfont(const char *file) {
+    SET_ERROR("no error");
     unsigned int bg, mark;
     int cnt = 0, x, w = 1, s = 0, mw = 0;
     Bitmap *b = NULL;
@@ -6099,6 +6119,7 @@ static void xbmf_free(BmFont *font) {
 }
 
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
+    SET_ERROR("no error");
     BmFont *font;
     XbmFontInfo *info;
     font = malloc(sizeof *font);
@@ -6129,4 +6150,18 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
 void bm_reset_font(Bitmap *b) {
     static BmFont font = {"XBM",xbmf_puts,xbmf_width,xbmf_height,NULL,NULL};
     bm_set_font(b, &font);
+}
+
+const char *bm_get_error() {
+#if BM_LAST_ERROR
+    return bm_last_error;
+#else
+    return "";
+#endif
+}
+
+void bm_set_error(const char *e) {
+#if BM_LAST_ERROR
+    bm_last_error = e;
+#endif
 }
