@@ -8,7 +8,7 @@ LIB_SOURCES=bmp.c
 LIB_OBJECTS=$(LIB_SOURCES:.c=.o)
 LIB=libbmp.a
 
-DOCS=docs/bitmap.html docs/README.html docs/freetype-fonts.html docs/built-in-fonts.html docs/LICENSE
+DOCS=doc/bitmap.html doc/README.html doc/freetype-fonts.html doc/built-in-fonts.html doc/LICENSE
 
 ifeq ($(BUILD),debug)
 # Debug
@@ -33,24 +33,24 @@ libbmp.a: $(LIB_OBJECTS)
 
 bmp.o: bmp.c bmp.h
 
-docs: docsdir $(DOCS)
+docs: doc $(DOCS)
 
-docsdir:
-	mkdir -p docs
+doc:
+	mkdir -p doc
 
-docs/bitmap.html: bmp.h d.awk
+doc/bitmap.html: bmp.h d.awk | doc
 	$(AWK) -v Title="API Documentation" -f d.awk $< > $@
 
-docs/LICENSE: LICENSE
+doc/LICENSE: LICENSE | doc
 	cp $< $@
 
-docs/README.html: README.md d.awk
+doc/README.html: README.md d.awk | doc
 	$(AWK) -f d.awk -v Clean=1 -v Title="README" $< > $@
 
-docs/freetype-fonts.html: ftypefont/ftfont.h d.awk
+doc/freetype-fonts.html: ftypefont/ftfont.h d.awk | doc
 	$(AWK) -v Title="FreeType Font Support" -f d.awk $< > $@
 
-docs/built-in-fonts.html: fonts/instructions.md d.awk
+doc/built-in-fonts.html: fonts/instructions.md d.awk | doc
 	$(AWK) -v Title="Raster Font Support" -f d.awk -v Clean=1 $< > $@
 
 # Single header file library
@@ -81,25 +81,25 @@ bmph.h: bmp.c bmp.h
 	@cat bmp.c >> $@
 	@echo '#endif /* BMPH_IMPLEMENTATION */' >> $@
 
-utils: utilsdir utils/hello utils/bmfont utils/dumpfonts utils/cvrt utils/imgdup
+utils: util/hello util/bmfont util/dumpfonts util/cvrt util/imgdup
 
-utils/hello: hello.c libbmp.a
+util/hello: hello.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-utils/bmfont: fonts/bmfont.c misc/to_xbm.c libbmp.a
+util/bmfont: fonts/bmfont.c misc/to_xbm.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-utils/dumpfonts: fonts/dumpfonts.c misc/to_xbm.c libbmp.a
+util/dumpfonts: fonts/dumpfonts.c misc/to_xbm.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-utils/cvrt: misc/cvrt.c libbmp.a
+util/cvrt: misc/cvrt.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-utils/imgdup: misc/imgdup.c libbmp.a
+util/imgdup: misc/imgdup.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-utilsdir:
-	mkdir -p utils
+util:
+	mkdir -p util
 
 .PHONY : clean
 
@@ -107,6 +107,6 @@ clean:
 	-rm -f *.o $(LIB) bmph.h
 	-rm -f hello *.exe test/*.exe
 	-rm -rf $(DOCS)
-	-rm -rf utils docs
+	-rm -rf util doc
 
 # The .exe above is for MinGW, btw.

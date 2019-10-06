@@ -6,8 +6,8 @@
 *.patch
 
 # Generated documentation and utilities
-docs
-utils
+doc
+util
 
 # The stb-style single header is auto-generated from
 # bmp.c and bmp.h and should not be versioned.
