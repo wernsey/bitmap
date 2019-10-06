@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
+CFLAGS=-c -Wall -Wextra -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
 LDFLAGS=`libpng-config --ldflags` -lz -ljpeg -lm
 AWK=awk
 

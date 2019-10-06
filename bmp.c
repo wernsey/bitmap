@@ -260,7 +260,7 @@ static int memseek(BmMemReader *mem, long offset, int origin) {
     case SEEK_CUR: mem->pos += offset; break;
     case SEEK_END: mem->pos = mem->len - offset; break;
     }
-    if(mem->pos < 0 || mem->pos >= mem->len) {
+    if(mem->pos >= mem->len) {
         mem->pos = 0;
         return -1;
     }
@@ -426,7 +426,7 @@ Bitmap *bm_load_fp(FILE *f) {
 Bitmap *bm_load_mem(const char *buffer, long len) {
     SET_ERROR("no error");
 
-    char magic[4];
+    unsigned char magic[4];
 
     long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
 
@@ -581,7 +581,8 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
 
     Bitmap *b = NULL;
 
-    int rs, i, j;
+    int i, j;
+    unsigned rs;
     char *data = NULL;
 
     long start_offset = rd.ftell(rd.data);
@@ -1022,7 +1023,7 @@ static int bm_save_png(Bitmap *b, const char *fname) {
 
     png_structp png = NULL;
     png_infop info = NULL;
-    int y, rv = 1;
+    int y, rv;
 
 #ifdef SAFE_C11
     FILE *f;
@@ -1088,6 +1089,7 @@ static int bm_save_png(Bitmap *b, const char *fname) {
         goto error;
     }
 
+    rv = 1;
     goto done;
 error:
     rv = 0;
@@ -1709,7 +1711,7 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
     GIF gif;
 
     /* From the packed fields in the logical screen descriptor */
-    int gct, sgct;
+    unsigned gct, sgct;
 
     struct rgb_triplet *palette = NULL;
 
@@ -1851,7 +1853,7 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
     int rv = 1;
 
     /* Packed fields in the Image Descriptor */
-    int lct, slct;
+    unsigned int lct, slct;
 
     memset(&gce, 0, sizeof gce);
 
@@ -2433,7 +2435,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 
     if(fwrite(&gif.header, sizeof gif.header, 1, f) != 1 ||
         fwrite(&gif.lsd, sizeof gif.lsd, 1, f) != 1 ||
-        fwrite(gct, sizeof *gct, sgct, f) != sgct) {
+        fwrite(gct, sizeof *gct, sgct, f) != (unsigned)sgct) {
 
         SET_ERROR("couldn't write GIF header");
         fclose(f);
@@ -3473,7 +3475,7 @@ void bm_maskedblit(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, int
         i = sx;
         for(x = dx; x < dx + w; x++) {
 #if IGNORE_ALPHA
-            int c = BM_GET(src, i, j) & 0x00FFFFFF;
+            unsigned int c = BM_GET(src, i, j) & 0x00FFFFFF;
             if(c != (src->color & 0x00FFFFFF))
                 BM_SET(dst, x, y, c);
 #else
@@ -3547,7 +3549,7 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
 
         assert(y >= dst->clip.y0 && sy >= 0);
         for(x = dx; x < dx + dw; x++) {
-            int c;
+            unsigned int c;
             if(sx >= src->w || x >= dst->clip.x1)
                 break;
             assert(x >= dst->clip.x0 && sx >= 0);
@@ -3644,7 +3646,7 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
 }
 
 unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
-
+    (void)dx;(void)dy;    
     if(bm_colcmp(src->color, bm_get(src, sx, sy))) {
         if(sx > src->clip.x0) {
             if(!bm_colcmp(src->color, bm_get(src, sx-1, sy)))
@@ -3672,7 +3674,7 @@ unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, in
 }
 
 unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
-
+    (void)dx;(void)dy;    
     if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
 
         if(sx > src->clip.x0) {
@@ -3704,6 +3706,7 @@ unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int
 }
 
 unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+    (void)dx;(void)dy;
     if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
         return dst->color;
     }
@@ -3711,6 +3714,7 @@ unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int
 }
 
 unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
+    (void)dst;(void)dx;(void)dy;
     unsigned int c = bm_get(src, sx, sy);
     if(bm_colcmp(src->color, c))
         return dest_color;
@@ -5476,14 +5480,14 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
             int f = (bayer[(y & af) * dim + (x & af)] - sub);
 
             R += R * f / fac;
-            if(R > 255) R = 255;
-            else if(R < 0) R = 0;
+            if(R > 255) 
+                R = 255;
             G += G * f / fac;
-            if(G > 255) G = 255;
-            else if(G < 0) G = 0;
+            if(G > 255) 
+                G = 255;
             B += B * f / fac;
-            if(B > 255) B = 255;
-            else if(B < 0) B = 0;
+            if(B > 255) 
+                B = 255;
             oldpixel = (R << 16) | (G << 8) | B;
             newpixel = closest_color(oldpixel, palette, n);
             BM_SET(b, x, y, newpixel);
@@ -5589,7 +5593,7 @@ error:
 }
 
 int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal) {
-    int i;
+    unsigned i;
     FILE *f;
     if(!filename)
         return 0;
@@ -6037,7 +6041,7 @@ static void xbmf_putc(Bitmap *b, const unsigned char *xbm_bits, int x, int y, un
     int frow, fcol, byte;
     int i, j;
 
-    if(c < 32 || c > 127)
+    if(c < 32)
         return;
 
     c -= 32;
@@ -6108,6 +6112,7 @@ static int xbmf_width(BmFont *font) {
     return info->spacing;
 }
 static int xbmf_height(BmFont *font) {
+    (void)font;
     return 8;
 }
 
