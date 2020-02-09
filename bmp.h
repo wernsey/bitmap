@@ -243,7 +243,7 @@ Bitmap *bm_load_fp(FILE *f);
 #endif
 
 /**
- * #### `Bitmap *bm_load_mem(const char *buffer, long len)`
+ * #### `Bitmap *bm_load_mem(const unsigned char *buffer, long len)`
  *
  * Loads a bitmap file from an array of bytes `buffer` of size `len`.
  *
@@ -254,7 +254,7 @@ Bitmap *bm_load_fp(FILE *f);
  *
  * Returns `NULL` if the file could not be loaded.
  */
-Bitmap *bm_load_mem(const char *buffer, long len);
+Bitmap *bm_load_mem(const unsigned char *buffer, long len);
 
 /**
  * #### `Bitmap *bm_load_base64(const char *base64)`

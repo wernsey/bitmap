@@ -37,7 +37,9 @@ you may not want to import a bunch of third party libraries.
 #   include <setjmp.h>
 #endif
 
-#include "bmp.h"
+#ifndef BMP_H
+#  include "bmp.h"
+#endif
 
 /* Ignore the alpha byte when comparing colors?
 FIXME: Not all functions that should respect IGNORE_ALPHA does so.
@@ -206,14 +208,16 @@ Bitmap *bm_create(int w, int h) {
     return b;
 }
 
-#if USESTB
-#define STB_IMAGE_IMPLEMENTATION
-#ifdef __TINYC__
+#if defined(USESTB)
+#  define STB_IMAGE_IMPLEMENTATION
+#  ifdef __TINYC__
 /* Yes, it compiles with the Tiny C Compiler, but without SIMD */
-#  define STBI_NO_SIMD
-#endif
-#include "stb_image.h"
-#undef STB_IMAGE_IMPLEMENTATION
+#    define STBI_NO_SIMD
+#  endif
+#  ifndef STBI_INCLUDE_STB_IMAGE_H
+#    include "stb_image.h"
+#    undef STB_IMAGE_IMPLEMENTATION
+#  endif
 #endif
 
 /* Wraps around the stdio functions, so I don't have to duplicate my code
@@ -237,7 +241,7 @@ static BmReader make_file_reader(FILE *fp) {
 }
 
 typedef struct {
-    const char *buffer;
+    const unsigned char *buffer;
     unsigned int len;
     unsigned int pos;
 } BmMemReader;
@@ -376,7 +380,7 @@ Bitmap *bm_load_fp(FILE *f) {
     if(isjpg) {
 #ifdef USEJPG
         return bm_load_jpg_fp(f);
-#elif USESTB
+#elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
         if(!data) {
@@ -393,7 +397,7 @@ Bitmap *bm_load_fp(FILE *f) {
     if(ispng) {
 #ifdef USEPNG
         return bm_load_png_fp(f);
-#elif USESTB
+#elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_file(f, &x, &y, &n, 4);
         if(!data) {
@@ -423,7 +427,7 @@ Bitmap *bm_load_fp(FILE *f) {
     return NULL;
 }
 
-Bitmap *bm_load_mem(const char *buffer, long len) {
+Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     SET_ERROR("no error");
 
     unsigned char magic[4];
@@ -465,7 +469,7 @@ Bitmap *bm_load_mem(const char *buffer, long len) {
         /* FIXME: JPG support */
         SET_ERROR("JPEG not supported by bm_load_mem()");
         return NULL;
-#elif USESTB
+#elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
         if(!data) {
@@ -484,7 +488,7 @@ Bitmap *bm_load_mem(const char *buffer, long len) {
         /* FIXME: PNG support */
         SET_ERROR("PNG not supported by bm_load_mem()");
         return NULL;
-#elif USESTB
+#elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
         if(!data) {
@@ -523,7 +527,7 @@ Bitmap *bm_load_base64(const char *base64) {
     if(!base64)
         return NULL;
     long len = strlen(base64);
-    char *p, *buffer;
+    unsigned char *p, *buffer;
     const char *q;
 
     unsigned octet = 0, sextet, bits = 0;
@@ -909,27 +913,29 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     unsigned char header[8];
     png_structp png = NULL;
     png_infop info = NULL;
-    png_bytep * rows = NULL;
+    png_bytep *rows = NULL;
 
     int w, h, ct, bpp, x, y, il;
+	
+	const char *error_message = "";
 
     if((fread(header, 1, 8, f) != 8) || png_sig_cmp(header, 0, 8)) {
-        SET_ERROR("fread on PNG header");
+        error_message = "fread on PNG header";
         goto error;
     }
 
     png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(!png) {
-        SET_ERROR("png_create_read_struct failed");
+        error_message = "png_create_read_struct failed";
         goto error;
     }
     info = png_create_info_struct(png);
     if(!info) {
-        SET_ERROR("png_create_info_struct failed");
+        error_message = "png_create_info_struct failed";
         goto error;
     }
     if(setjmp(png_jmpbuf(png))) {
-        SET_ERROR("png_read_info failed");
+        error_message = "png_read_info failed";
         goto error;
     }
 
@@ -973,10 +979,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     bmp = bm_create(w,h);
 
-    if(setjmp(png_jmpbuf(png))) {
-        SET_ERROR("png_read_image failed");
-        goto error;
-    }
+	error_message = "png_read_image failed";
 
     rows = ALLOCA(h * sizeof *rows);
     for(y = 0; y < h; y++)
@@ -1005,6 +1008,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     goto done;
 error:
+	SET_ERROR(error_message);
     if(bmp) bm_free(bmp);
     bmp = NULL;
 done:
@@ -2820,7 +2824,8 @@ static int tga_decode_pixel(Bitmap *bmp, int x, int y, uint8_t bytes[], struct t
             int index = bytes[0];
             bpp = head->map_spec.size;
             bytes = &color_map[index * bpp / 8 - head->map_spec.index];
-        } /* intensional drop through */
+        } 
+		// fall through
         case 2: {
             switch(bpp) {
             case 15:
@@ -3007,7 +3012,7 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
     return 1;
 }
 
-#if USESTB
+#if defined(USESTB)
 /*
 In the future, I can add support for stb_image_write.h as well.
 See https://github.com/nothings/stb/blob/master/stb_image_write.h
