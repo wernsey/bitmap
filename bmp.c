@@ -2123,6 +2123,8 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
         if(code > di) {
             /* Shouldn't happen, unless file corrupted */
             free(out);
+            free(dict);
+            free(stack);
             return NULL;
         }
 
@@ -2317,6 +2319,8 @@ reread:
     tlen = (pos >> 3);
     if(pos & 0x07) tlen++;
     *out_len = tlen;
+
+    free(dict);
 
     return buffer;
 }
