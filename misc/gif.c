@@ -642,6 +642,8 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
         if(code > di) {
             /* Shouldn't happen, unless file corrupted */
             output(stderr, "error: code (%02Xh) is outside dictionary (%02Xh); code size: %d\n", code, di, code_size);
+            free(dict);
+            free(stack);
             free(out);
             return NULL;
         }
@@ -811,6 +813,8 @@ reread:
     int tlen = (pos >> 3);
     if(pos & 0x07) tlen++;
     *out_len = tlen;
+
+    free(dict);
 
     return buffer;
 }
