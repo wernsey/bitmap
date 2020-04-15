@@ -913,6 +913,9 @@ static int gif_save_fp(GIF *g, FILE *f) {
         code_size = 3;
     }
 
+    /* zero unused colors to avoid writing uninitialized values */
+    memset(&gct[nc], 0, (sgct - nc) * sizeof(*gct));
+
     /* See if we can find the background color in the palette */
     bg = b->color & 0x00FFFFFF;
     q = bsrch_palette_lookup(gct, bg, 0, nc - 1);
