@@ -2353,6 +2353,8 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     }
 #endif
 
+    memset(gct, 0, sizeof(gct));
+
     memcpy(gif.header.signature, "GIF", 3);
     memcpy(gif.header.version, "89a", 3);
     gif.version = gif_89a;
