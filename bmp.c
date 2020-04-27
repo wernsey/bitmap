@@ -915,9 +915,9 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     png_infop info = NULL;
     png_bytep *rows = NULL;
 
-    int w, h, ct, bpp, x, y, il;
-	
-	const char *error_message = "";
+    int w, h, ct, bpp, x, y, il, has_alpha = 0;
+
+    const char *error_message = "";
 
     if((fread(header, 1, 8, f) != 8) || png_sig_cmp(header, 0, 8)) {
         error_message = "fread on PNG header";
@@ -950,7 +950,6 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     ct = png_get_color_type(png, info);
     il = png_get_interlace_type(png, info);
 
-    /* FIXME: I did encounter some 8-bit PNGs in the wild that failed here... */
     if(bpp == 16) {
 #ifdef PNG_READ_SCALE_16_TO_8_SUPPORTED
         png_set_scale_16(png);
@@ -959,18 +958,20 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 #endif
     }
 
-    if(ct == PNG_COLOR_TYPE_PALETTE)
+    if(ct == PNG_COLOR_TYPE_PALETTE) {
         png_set_palette_to_rgb(png);
-    if (ct == PNG_COLOR_TYPE_GRAY && bpp < 8)
+    } else if (ct == PNG_COLOR_TYPE_GRAY && bpp < 8) {
         png_set_expand_gray_1_2_4_to_8(png);
-    if(ct == PNG_COLOR_TYPE_GRAY)
+    } else if(ct == PNG_COLOR_TYPE_RGBA)
+        has_alpha = 1;
+
+    if(ct == PNG_COLOR_TYPE_GRAY || ct == PNG_COLOR_TYPE_GRAY_ALPHA) {
         png_set_gray_to_rgb(png);
+        has_alpha = (ct == PNG_COLOR_TYPE_GRAY_ALPHA);
+    }
 
     if(png_get_valid(png, info, PNG_INFO_tRNS))
         png_set_tRNS_to_alpha(png);
-
-    if(ct == PNG_COLOR_TYPE_GRAY || ct == PNG_COLOR_TYPE_GRAY_ALPHA)
-        png_set_gray_to_rgb(png);
 
     if(il)
         png_set_interlace_handling(png);
@@ -979,7 +980,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     bmp = bm_create(w,h);
 
-	error_message = "png_read_image failed";
+    error_message = "png_read_image failed";
 
     rows = ALLOCA(h * sizeof *rows);
     for(y = 0; y < h; y++)
@@ -988,7 +989,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
     png_read_image(png, rows);
 
     /* Convert to my internal representation */
-    if(ct == PNG_COLOR_TYPE_RGBA) {
+    if(has_alpha) {
         for(y = 0; y < h; y++) {
             png_byte *row = rows[y];
             for(x = 0; x < w; x++) {
@@ -996,7 +997,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
                 BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
             }
         }
-    } else if(ct == PNG_COLOR_TYPE_RGB) {
+    } else {
         for(y = 0; y < h; y++) {
             png_byte *row = rows[y];
             for(x = 0; x < w; x++) {
@@ -1008,7 +1009,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     goto done;
 error:
-	SET_ERROR(error_message);
+    SET_ERROR(error_message);
     if(bmp) bm_free(bmp);
     bmp = NULL;
 done:
@@ -2830,8 +2831,8 @@ static int tga_decode_pixel(Bitmap *bmp, int x, int y, uint8_t bytes[], struct t
             int index = bytes[0];
             bpp = head->map_spec.size;
             bytes = &color_map[index * bpp / 8 - head->map_spec.index];
-        } 
-		// fall through
+        }
+        // fall through
         case 2: {
             switch(bpp) {
             case 15:
@@ -3657,7 +3658,7 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
 }
 
 unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
-    (void)dx;(void)dy;    
+    (void)dx;(void)dy;
     if(bm_colcmp(src->color, bm_get(src, sx, sy))) {
         if(sx > src->clip.x0) {
             if(!bm_colcmp(src->color, bm_get(src, sx-1, sy)))
@@ -3685,7 +3686,7 @@ unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, in
 }
 
 unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
-    (void)dx;(void)dy;    
+    (void)dx;(void)dy;
     if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
 
         if(sx > src->clip.x0) {
@@ -5491,13 +5492,13 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
             int f = (bayer[(y & af) * dim + (x & af)] - sub);
 
             R += R * f / fac;
-            if(R > 255) 
+            if(R > 255)
                 R = 255;
             G += G * f / fac;
-            if(G > 255) 
+            if(G > 255)
                 G = 255;
             B += B * f / fac;
-            if(B > 255) 
+            if(B > 255)
                 B = 255;
             oldpixel = (R << 16) | (G << 8) | B;
             newpixel = closest_color(oldpixel, palette, n);
