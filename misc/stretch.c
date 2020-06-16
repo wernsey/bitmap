@@ -1,4 +1,5 @@
 #include <math.h>
+#include <assert.h>
 
 #include "bmp.h"
 
@@ -6,67 +7,87 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 /* http://www.codeproject.com/Articles/36145/Free-Image-Transformation
+ *
  * See also
  *  - https://math.stackexchange.com/a/104595
+ *  - http://www.reedbeta.com/blog/quadrilateral-interpolation-part-1/
  *  - https://www.codeproject.com/Articles/247214/Quadrilateral-Distortion
  *  - http://www.vbforums.com/showthread.php?700187-Code-for-a-four-point-transformation-of-an-image
  */
-typedef struct {
-    double x,y;
-} Vector2;
-static Vector2 vec2(double x, double y) {
-    Vector2 v = {x, y};
+static BmPoint vec2_sub(BmPoint v1, BmPoint v2) {
+    BmPoint v = {v1.x - v2.x, v1.y - v2.y};
     return v;
 }
-static Vector2 vec2_sub(Vector2 v1, Vector2 v2) {
-    return vec2(v1.x - v2.x, v1.y - v2.y);
-}
-static double vec2_cross(Vector2 v1, Vector2 v2) {
+static int vec2_cross(BmPoint v1, BmPoint v2) {
     return v1.x * v2.y - v1.y * v2.x;
 }
-static int vec2_isCCW(Vector2 v1, Vector2 v2, Vector2 v3) {
-    return vec2_cross(vec2_sub(v1, v2), vec2_sub(v3, v2)) > 0;
-}
-static int on_plane(Vector2 v, Vector2 A, Vector2 B, Vector2 C, Vector2 D) {
-    return !vec2_isCCW(v, A, B) && !vec2_isCCW(v, B, C) && !vec2_isCCW(v, C, D) && !vec2_isCCW(v, D, A);
-}
 
-/* Vertices in dx are in clockwise order */
-void bm_transform_image(Bitmap *dst, Bitmap *src, BmPoint dx[4]) {
-    int x, y;
-    int minx = MIN(MIN(dx[0].x, dx[1].x),MIN(dx[2].x, dx[3].x));
-    int maxx = MAX(MAX(dx[0].x, dx[1].x),MAX(dx[2].x, dx[3].x));
-    int miny = MIN(MIN(dx[0].y, dx[1].y),MIN(dx[2].y, dx[3].y));
-    int maxy = MAX(MAX(dx[0].y, dx[1].y),MAX(dx[2].y, dx[3].y));
+/* Vertices in `P` are in clockwise order */
+void bm_transform_image(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
+    int i;
+    int minx = P[0].x, maxx = P[0].x;
+    int miny = P[0].y, maxy = P[0].y;
+    for(i = 1; i < 4; i++)
+    {
+        if(P[i].x < minx) minx = P[i].x;
+        if(P[i].x > maxx) maxx = P[i].x;
+        if(P[i].y < miny) miny = P[i].y;
+        if(P[i].y > maxy) maxy = P[i].y;
+    }
 
-    Vector2 points[4];
-    for(x = 0; x < 4; x++)
-        points[x] = vec2(dx[x].x, dx[x].y);
+    BmPoint AB = vec2_sub(P[1], P[0]);
+    BmPoint BC = vec2_sub(P[2], P[1]);
+    BmPoint CD = vec2_sub(P[3], P[2]);
+    BmPoint DA = vec2_sub(P[0], P[3]);
 
-    Vector2 AB = vec2_sub(points[1], points[0]);
-    Vector2 BC = vec2_sub(points[2], points[1]);
-    Vector2 CD = vec2_sub(points[3], points[2]);
-    Vector2 DA = vec2_sub(points[0], points[3]);
+    if(minx < dst->clip.x0)
+        minx = dst->clip.x0;
+    if(maxx > dst->clip.x1)
+        maxx = dst->clip.x1;
+    if(miny < dst->clip.y0)
+        miny = dst->clip.y0;
+    if(maxy > dst->clip.y1)
+        maxy = dst->clip.y1;
 
-    for(y = miny; y < maxy; y++) {
-        for(x = minx; x < maxx; x++) {
-            Vector2 p = {x,y};
-            if(on_plane(p, points[0], points[1], points[2], points[3])) {
-                double dab = fabs(vec2_cross(vec2_sub(p, points[0]), AB));
-                double dbc = fabs(vec2_cross(vec2_sub(p, points[1]), BC));
-                double dcd = fabs(vec2_cross(vec2_sub(p, points[2]), CD));
-                double dda = fabs(vec2_cross(vec2_sub(p, points[3]), DA));
-                double spx = (double)(src->clip.x1 - src->clip.x0) * (dda / (dda + dbc));
-                double spy = (double)(src->clip.y1 - src->clip.y0) * (dab / (dab + dcd));
-                int u = (int)spx + src->clip.x0;
-                int v = (int)spy + src->clip.y0;
+    BmPoint q;
+    for(q.y = miny; q.y < maxy; q.y++) {
+        for(q.x = minx; q.x < maxx; q.x++) {
+
+            double nab = vec2_cross(vec2_sub(q, P[0]), AB);
+            double nbc = vec2_cross(vec2_sub(q, P[1]), BC);
+            double ncd = vec2_cross(vec2_sub(q, P[2]), CD);
+            double nda = vec2_cross(vec2_sub(q, P[3]), DA);
+
+            if(nab <= 0 && nbc <= 0 && ncd <= 0 && nda <= 0) {
+                double u = (double)(src->clip.x1 - src->clip.x0) * (nda / (nda + nbc)) + src->clip.x0;
+                double v = (double)(src->clip.y1 - src->clip.y0) * (nab / (nab + ncd)) + src->clip.y0;
 
                 if(u >= 0 && u < src->w && v >= 0 && v < src->h) {
-                    int c = bm_get(src, u, v);
-                    bm_set_color(dst, c);
-                    bm_putpixel(dst, x, y);
+                    unsigned int c = bm_get(src, u, v);
+                    bm_set(dst, q.x, q.y, c);
                 }
             }
         }
     }
 }
+
+#ifdef TEST
+// $ gcc -Wall -DTEST -I.. stretch.c ../bmp.c 
+int main(int argc, char *argv[]) {
+    Bitmap *b = bm_load("../tile.gif"),
+            *out = bm_create(100, 100);
+
+    BmPoint dx[] = {{90, 80},{20, 90},{10, 10},{80, 20}, };
+    //BmPoint dx[] = {{20, 90},{10, 10},{80, 20},{90, 80}};
+
+    //bm_clip(b, 2, 2, 9, 9);
+    //bm_clip(out, 20, 20, 50, 50);
+
+    bm_transform_image(out, b, dx);
+
+    bm_save(out, "out.gif");
+
+    bm_free(b);
+    bm_free(out);
+}
+#endif
