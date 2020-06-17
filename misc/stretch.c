@@ -3,9 +3,6 @@
 
 #include "bmp.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 /* http://www.codeproject.com/Articles/36145/Free-Image-Transformation
  *
  * See also
@@ -21,6 +18,11 @@ static BmPoint vec2_sub(BmPoint v1, BmPoint v2) {
 static int vec2_cross(BmPoint v1, BmPoint v2) {
     // Fun fact about "2D cross product" https://stackoverflow.com/a/243984/115589
     return v1.x * v2.y - v1.y * v2.x;
+}
+
+static BmPoint vec2_interp(BmPoint P, BmPoint D, double t) {
+    BmPoint v = {P.x + t * D.x, P.y + t * D.y};
+    return v;
 }
 
 /* Vertices in `P` are in clockwise order */
@@ -72,15 +74,7 @@ void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
     }
 }
 
-static BmPoint vec2_interp(BmPoint P, BmPoint D, double t) {
-    BmPoint v;
-    v.x = (int)((double)P.x + t * (double)D.x);
-    v.y = (int)((double)P.y + t * (double)D.y);
-    return v;
-}
-
 void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
-
     int x, y, w, h;
 
     w = dst->clip.x1 - dst->clip.x0;
@@ -89,19 +83,17 @@ void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
     BmPoint AB = vec2_sub(P[1],P[0]);
     BmPoint DC = vec2_sub(P[2],P[3]);
 
-    for(y = dst->clip.y0; y < dst->clip.y1; y++) {        
-        double ty = (double)(y - dst->clip.y0) / h;
-        for(x = dst->clip.x0; x < dst->clip.x1; x++) {
+    double ty = 0.0, dty = 1.0 / h;
+    double tx = 0.0, dtx = 1.0 / w;
 
-            double tx = (double)(x - dst->clip.x0) / w;
-
+    for(y = dst->clip.y0; y < dst->clip.y1; y++, ty += dty) {
+        for(tx = 0.0, x = dst->clip.x0; x < dst->clip.x1; x++, tx += dtx) {
             BmPoint x0 = vec2_interp(P[0], AB, tx);
             BmPoint x1 = vec2_interp(P[3], DC, tx);
 
-            BmPoint V = vec2_sub(x1, x0);
-            BmPoint uv = vec2_interp(x0, V, ty);
+            BmPoint uv = vec2_interp(x0, vec2_sub(x1, x0), ty);
 
-            if(uv.x < src->clip.x0 || uv.x >= src->clip.x1 || uv.y < src->clip.y0 || uv.y >= src->clip.y1) 
+            if(uv.x < src->clip.x0 || uv.x >= src->clip.x1 || uv.y < src->clip.y0 || uv.y >= src->clip.y1)
                 continue;
 
             unsigned int c = bm_get(src, uv.x, uv.y);
@@ -111,14 +103,14 @@ void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
 }
 
 #ifdef TEST
-// $ gcc -Wall -DTEST -I.. stretch.c ../bmp.c 
+// $ gcc -Wall -DTEST -I.. stretch.c ../bmp.c
 int main(int argc, char *argv[]) {
     Bitmap *b = bm_load("../tile.gif"),
             *out1 = bm_create(100, 100),
             *out2 = bm_create(100, 100);
 
     BmPoint P[] = {{90, 80},{20, 90},{10, 10},{80, 20}, };
-    //BmPoint dx[] = {{20, 90},{10, 10},{80, 20},{90, 80}};
+    //BmPoint P[] = {{20, 90},{10, 10},{80, 20},{90, 80}};
 
     //bm_clip(b, 2, 2, 9, 9);
     //bm_clip(out, 20, 20, 50, 50);
