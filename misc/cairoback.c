@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     cairo_surface_destroy (surface);
 
     /* Done with our Bitmap... */
-    bm_save(b, "cairobe.bmp");
+    bm_save(b, "out-cairo.bmp");
     bm_free(b);
 
     return 0;

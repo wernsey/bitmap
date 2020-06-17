@@ -1226,7 +1226,7 @@ int main(int argc, char *argv[]) {
             bm_save(gif->frames[i].image, buffer);
         }
         printf("Saving GIF output...\n");
-        if(!gif_save(gif, "gifout.gif")) {
+        if(!gif_save(gif, "outgif.gif")) {
             fprintf(stderr, "error: Unable to save GIF\n");
             return 1;
         }

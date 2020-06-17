@@ -211,7 +211,7 @@ void draw_legend(const char *outfile) {
 #define GRID_H 16
 int main(int argc, char *argv[]) {
 
-    draw_legend("legend.gif");
+    draw_legend("out-legend.gif");
 
     int x, y, a = 0;
     Bitmap *b = bm_create(GRID_W * 8, GRID_H * 8);
