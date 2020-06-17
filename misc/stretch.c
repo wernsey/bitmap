@@ -19,11 +19,12 @@ static BmPoint vec2_sub(BmPoint v1, BmPoint v2) {
     return v;
 }
 static int vec2_cross(BmPoint v1, BmPoint v2) {
+    // Fun fact about "2D cross product" https://stackoverflow.com/a/243984/115589
     return v1.x * v2.y - v1.y * v2.x;
 }
 
 /* Vertices in `P` are in clockwise order */
-void bm_transform_image(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
+void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
     int i;
     int minx = P[0].x, maxx = P[0].x;
     int miny = P[0].y, maxy = P[0].y;
@@ -71,23 +72,67 @@ void bm_transform_image(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
     }
 }
 
+static BmPoint vec2_interp(BmPoint P, BmPoint D, double t) {
+    BmPoint v;
+    v.x = (int)((double)P.x + t * (double)D.x);
+    v.y = (int)((double)P.y + t * (double)D.y);
+    return v;
+}
+
+void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
+
+    int x, y, w, h;
+
+    w = dst->clip.x1 - dst->clip.x0;
+    h = dst->clip.y1 - dst->clip.y0;
+
+    BmPoint AB = vec2_sub(P[1],P[0]);
+    BmPoint DC = vec2_sub(P[2],P[3]);
+
+    for(y = dst->clip.y0; y < dst->clip.y1; y++) {        
+        double ty = (double)(y - dst->clip.y0) / h;
+        for(x = dst->clip.x0; x < dst->clip.x1; x++) {
+
+            double tx = (double)(x - dst->clip.x0) / w;
+
+            BmPoint x0 = vec2_interp(P[0], AB, tx);
+            BmPoint x1 = vec2_interp(P[3], DC, tx);
+
+            BmPoint V = vec2_sub(x1, x0);
+            BmPoint uv = vec2_interp(x0, V, ty);
+
+            if(uv.x < src->clip.x0 || uv.x >= src->clip.x1 || uv.y < src->clip.y0 || uv.y >= src->clip.y1) 
+                continue;
+
+            unsigned int c = bm_get(src, uv.x, uv.y);
+            bm_set(dst,x,y,c);
+        }
+    }
+}
+
 #ifdef TEST
 // $ gcc -Wall -DTEST -I.. stretch.c ../bmp.c 
 int main(int argc, char *argv[]) {
     Bitmap *b = bm_load("../tile.gif"),
-            *out = bm_create(100, 100);
+            *out1 = bm_create(100, 100),
+            *out2 = bm_create(100, 100);
 
-    BmPoint dx[] = {{90, 80},{20, 90},{10, 10},{80, 20}, };
+    BmPoint P[] = {{90, 80},{20, 90},{10, 10},{80, 20}, };
     //BmPoint dx[] = {{20, 90},{10, 10},{80, 20},{90, 80}};
 
     //bm_clip(b, 2, 2, 9, 9);
     //bm_clip(out, 20, 20, 50, 50);
 
-    bm_transform_image(out, b, dx);
+    bm_stretch(out1, b, P);
 
-    bm_save(out, "out.gif");
+    bm_save(out1, "out.gif");
+
+    bm_destretch(out2, out1, P);
+
+    bm_save(out2, "out2.gif");
 
     bm_free(b);
-    bm_free(out);
+    bm_free(out1);
+    bm_free(out2);
 }
 #endif
