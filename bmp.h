@@ -690,6 +690,36 @@ unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, in
 void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);
 
 /**
+ * #### `void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4])`
+ *
+ * Stretches a bitmap `src` onto the quadrilateral defined by the four points `P`
+ * on the destination `dst`.
+ *
+ * The clipping rectangle of `src` controls the region of `src` that should be stretched
+ * onto `dst`. It won't draw anything outside of `dst`'s clipping region.
+ *
+ * Vertices in `P` are in clockwise order. `P[0]` corresponds to the top left, `P[1]` to
+ * the top right, `P[2]` to the bottom right and `P[3]` to the bottom left of `src`.
+ */
+void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
+
+/**
+ * #### `void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4])`
+ *
+ * Fits the quadrilateral defined by the four points `P` on the bitmap `src` into the
+ * destination bitmap `dst`.
+ *
+ * It is the inverse operation of `bm_stretch()`.
+ *
+ * The clipping rectangle of `dst` defines the region into which the quadrilateral should be mapped.
+ * Pixels outside of `src`'s clipping rectangle won't be mapped.
+ *
+ * Vertices in `P` are in clockwise order. `P[0]` corresponds to the top left, `P[1]` to
+ * the top right, `P[2]` to the bottom right and `P[3]` to the bottom left of `dst`.
+ */
+void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
+
+/**
  * ### Filter Functions
  */
 
