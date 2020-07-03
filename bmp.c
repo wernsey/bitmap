@@ -3925,6 +3925,45 @@ void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
     }
 }
 
+void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int xbm_w, int xbm_h, unsigned char xbm_data[]) {
+  int i,j;
+  unsigned int c = bm_get_color(dst);
+
+  assert(sx >= 0 && sx + w <= xbm_w);
+  assert(sy >= 0 && sy + h <= xbm_h);
+  (void)xbm_h;
+
+  int delta = dst->clip.x0 - dx;
+  if(delta > 0) {
+    dx = dst->clip.x0;
+    sx += delta;
+    w -= delta;
+  }
+  if((dx + w) > dst->clip.x1) {
+    w = dst->clip.x1 - dx;
+  }
+  delta = dst->clip.y0 - dy;
+  if(delta > 0) {
+    dy = dst->clip.y0;
+    sy += delta;
+    h -= delta;
+  }
+  if((dy + h) > dst->clip.y1) {
+    h = dst->clip.y1 - dy;
+  }
+
+  for(j = 0; j < h; j++) {
+    int pix = (sy + j) * xbm_w + sx;
+    for(i = 0; i < w; i++, pix++) {
+      int byte = pix >> 3;
+      int shift = pix & 0x07;
+      if(!(xbm_data[byte] & (1 << shift)))
+        bm_set(dst, dx + i, dy + j, c);
+    }
+  }
+
+}
+
 void bm_grayscale(Bitmap *b) {
     /* https://en.wikipedia.org/wiki/Grayscale */
     int x, y;

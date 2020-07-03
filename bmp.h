@@ -177,12 +177,14 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h);
 /**
  * #### `Bitmap *bm_from_Xbm(int w, int h, unsigned char *data)`
  *
- * Creates a `Bitmap` object from [XBM data](https://en.wikipedia.org/wiki/X_BitMap).
+ * Creates a `Bitmap` object from [XBM data][XBM].
  *
  * The XBM image is imported into a program through a `#include "include.xbm"` directive.
  *
  * The width `w` and height `h` are the `_width` and `_height` variables at the top of the XBM file.
  * The `data` parameter is the `_bits` variable in the XBM file.
+ *
+ * [XBM]: https://en.wikipedia.org/wiki/X_BitMap
  */
 Bitmap *bm_from_Xbm(int w, int h, unsigned char *data);
 
@@ -720,6 +722,18 @@ void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
 void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
 
 /**
+ * #### `void bm_draw_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int xbm_w, int xbm_h, unsigned char xbm_data[]);`
+ *
+ * Blits an area of `w` &times; `h` pixels at `sx,sy` in [XBM image data][XBM] to
+ * `dx,dy` on the destination bitmap `dst`.
+ *
+ * It uses the color of `dst` as the foreground. Backdround pixels are unchanged.
+ *
+ * `xbm_w` and `xbm_h` is the width and height of the XBM image respectively. `xbm_data` is the XBM bytes.
+ */
+void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int xbm_w, int xbm_h, unsigned char xbm_data[]);
+
+/**
  * ### Filter Functions
  */
 
@@ -1185,29 +1199,14 @@ void bm_set_error(const char *e);
 /**
  * TODO
  * ----
- * - [x] I should also go through the API and make the naming a bit more consistent.
- *     - ~~Functions like `bm_rect()` should use `w,h` instead of `x1,y1` as parameters.~~
- * - [ ] How about replacing functions like `bm_brightness()` with a `bm_foreach()`
- *       function that takes a callback which iterates over all the pixels to simplify
- *       the API.  \
- *       The callback can look like `int (*)(Bitmap *b, int oldcolor, int x, int y)`
- * - [ ] I've added a precompiler definition `IGNORE_ALPHA` which causes all color
- *       operations to apply a `& 0x00FFFFFF` so that alpha values are ignored.  \
- *       It is not properly tested because I don't have any serious projects that
- *       depends on the alpha values at the moment.
- * - [x] `bm_fill()` should _perhaps_ stop using `bm_picker()`
- * - [ ] To consider: In `bm_rotate_blit()` perhaps check `u,v` against the `src`
- *       clipping rect instead.  \
- *       If I do this, I might have to do it for all blitting functions.
- * - [x] Maybe `bm_fill()` _should_ take the clipping rectangle into account.
+ *
+ * - [ ] The libpng loading code should avoid the `setjmp`/`longjmp` error handling.
+ *       It's problematic for a couple of reasons.
+ *       See [section 5](http://www.libpng.org/pub/png/libpng-1.2.5-manual.html#section-5)
+ *       of the libpng documentation.
  * - [ ] `bm_fillellipse()`, like `bm_ellipse()` but filled.
- * - [x] In `bm_make_ras_font()`, because the top left corner is the space character, we
- *       can assume that the color of that pixel is the transparent color, rather than
- *       hardcoding it as black (0).
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
- * - [ ] It cannot load paletted 8-bit PNG files through libpng at the moment, and I
- *       can't explain why.
  * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
  *       actual character you want to draw, so `bm_text_width()` is broken if you
  *       aren't using a fixed width font.
