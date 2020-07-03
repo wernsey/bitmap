@@ -125,8 +125,11 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
     the _dHash_ algorithm.
   * `nanosvg.c` is an example of how to use the library with Mikko Mononen's [NanoSVG][]
     library to load SVG files.
+  * `bm_microui.c` contains functions to render `rxi`'s [microui][] graphical
+    user interfaces to a `Bitmap` structure.
 
 [NanoSVG]: https://github.com/memononen/nanosvg
+[microui]: https://github.com/rxi/microui
 
 ## References
 
