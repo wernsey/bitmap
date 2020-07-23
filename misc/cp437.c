@@ -43,6 +43,9 @@ Grid *gr_create(int cols, int rows) {
     g->r = rows;
     g->c = cols;
     g->data = calloc(rows * cols, sizeof *g->data);
+
+	gr_background(g, BLACK);
+	gr_foreground(g, WHITE);
     return g;
 }
 
@@ -76,15 +79,6 @@ unsigned short gr_get_raw(Grid *g, int x, int y) {
     return g->data[y * g->c + x];
 }
 
-void gr_draw(Grid *g, Bitmap *b, int xo, int yo) {
-    int x, y;
-    for(y = 0; y < g->r; y++) {
-        for(x = 0; x < g->c; x++) {
-            draw_tile(b, xo + x * 8, yo + y * 8, gr_get_raw(g, x, y));
-        }
-    }
-}
-
 static void draw_tile(Bitmap *b, int x, int y, unsigned short c) {
     int i, j;
     int row, col, byte;
@@ -106,6 +100,15 @@ static void draw_tile(Bitmap *b, int x, int y, unsigned short c) {
             }
         }
         byte += 128/8;
+    }
+}
+
+void gr_draw(Grid *g, Bitmap *b, int xo, int yo) {
+    int x, y;
+    for(y = 0; y < g->r; y++) {
+        for(x = 0; x < g->c; x++) {
+            draw_tile(b, xo + x * 8, yo + y * 8, gr_get_raw(g, x, y));
+        }
     }
 }
 
@@ -138,7 +141,7 @@ void gr_box(Grid *g, int x0, int y0, int x1, int y1) {
 }
 
 int gr_puts(Grid *g, int x, int y, const char *s) {
-    int x0 = x;
+    int x0 = x, i = 0;
     while(*s) {
         if(*s == '\n') {
             y++;
@@ -150,7 +153,9 @@ int gr_puts(Grid *g, int x, int y, const char *s) {
         } else
             gr_set(g, x++, y, *s);
         s++;
+		i++;
     }
+	return i;
 }
 
 int gr_printf(Grid *g, int x, int y, const char *fmt, ...) {
@@ -211,7 +216,7 @@ void draw_legend(const char *outfile) {
 #define GRID_H 16
 int main(int argc, char *argv[]) {
 
-    draw_legend("out-legend.gif");
+    draw_legend("legend.gif");
 
     int x, y, a = 0;
     Bitmap *b = bm_create(GRID_W * 8, GRID_H * 8);
