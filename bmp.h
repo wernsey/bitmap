@@ -377,7 +377,7 @@ void bm_unbind(Bitmap *b);
  * This function does not allocate memory for the `Bitmap` structure, so the
  * return value should _not_ be freed by `bm_free()` or `bm_unbind()`.
  *
- * The following example creates a temporary copy if a bitmap `orig` which will
+ * The following example creates a temporary copy of a bitmap `orig` which will
  * be removed automatically when the calling function returns, and does not require
  * the overhead of `malloc()` and `free()` as the other Bitmap create/bind functions.
  *
@@ -527,17 +527,6 @@ unsigned int bm_atoi(const char *text);
 unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
 
 /**
- * #### `int bm_colcmp(unsigned int c1, unsigned int c2)`
- *
- * Compares the RGB values of two colors, ignoring the alphas values
- * (If the alpha values are important you can just use `==`).
- *
- * Returns non-zero if the RGB values of `c1` and `c2` are the same,
- * zero otherwise.
- */
-int bm_colcmp(unsigned int c1, unsigned int c2);
-
-/**
  * #### `unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`
  *
  * Builds a color from the specified `(R,G,B,A)` values
@@ -581,6 +570,17 @@ unsigned int bm_hsla(double H, double S, double L, double A);
  * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
  */
 void bm_get_hsl(unsigned int col, double *H, double *S, double *L);
+
+/**
+ * #### `int bm_colcmp(unsigned int c1, unsigned int c2)`
+ *
+ * Compares the RGB values of two colors, ignoring the alphas values
+ * (If the alpha values are important you can just use `==`).
+ *
+ * Returns non-zero if the RGB values of `c1` and `c2` are the same,
+ * zero otherwise.
+ */
+int bm_colcmp(unsigned int c1, unsigned int c2);
 
 /**
  * #### `unsigned int bm_byte_order(unsigned int col)`
@@ -899,7 +899,9 @@ int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal)
 /**
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`
  *
- * Swaps the Red and Blue channels in a .
+ * Swaps the Red and Blue channels in a bitmap.
+ * 
+ * (It is meant for certain use cases where a buffer is BGRA instead of RGBA)
  */
 Bitmap *bm_swap_rb(Bitmap *b);
 

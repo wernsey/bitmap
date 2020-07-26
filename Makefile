@@ -98,6 +98,10 @@ util/cvrt: misc/cvrt.c libbmp.a | util
 util/imgdup: misc/imgdup.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
+luabmp: misc/luabmp.c libbmp.a
+	$(CC) -I . -o $@ $^ $(LDFLAGS) -llua
+	awk -f d.awk misc/luabmp.c > doc/luabmp.html
+
 util:
 	mkdir -p util
 

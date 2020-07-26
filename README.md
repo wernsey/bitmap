@@ -172,8 +172,6 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
 * Here are some SFont/GrafX2 font resources:
   * <https://opengameart.org/content/a-package-of-8-bit-fonts-for-grafx2-and-linux>
   * <https://opengameart.org/content/new-original-grafx2-font-collection>
-  * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>
-  * There is an outstanding bug where 8-bit PNGs cannot be read at the moment,
-    so it's best to convert these to some other format first.
+  * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>; `SaikyoBlack.png` comes from here
 
 [sfont]: http://www.linux-games.com/sfont/

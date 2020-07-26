@@ -19,6 +19,7 @@ out*.bmp
 out*.txt
 test*.gif
 test*.bmp
+misc/legend.gif
 
 # I dumped some old proof of concept files in `ignore/`
 ignore/*
