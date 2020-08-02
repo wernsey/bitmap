@@ -61,6 +61,7 @@ static void bmft_dtor(BmFont *bmf) {
 static BmFont *make_bmft_font(FT_Face face) {
 	BmFont *font = malloc(sizeof *font);
 	font->type = "FreeType";
+	font->ref_count = 1;
 	font->puts = bmft_puts;
 	font->width = bmft_width; 
 	font->height = bmft_height; 

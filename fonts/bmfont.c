@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     bm_save(b, outfile);
 	bm_free(b);
 
-	bm_free_font(font);
+	bm_font_release(font);
 
 	if(xout) {
 		b = bm_load(infile);

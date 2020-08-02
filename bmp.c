@@ -3069,7 +3069,7 @@ Bitmap *bm_copy(Bitmap *b) {
     memcpy(out->data, b->data, BM_BLOB_SIZE(b));
 
     out->color = b->color;
-    out->font = b->font;
+    bm_set_font(out, b->font);
 
     memcpy(&out->clip, &b->clip, sizeof b->clip);
 
@@ -3085,7 +3085,10 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
 
 void bm_free(Bitmap *b) {
     if(!b) return;
-    if(b->data) free(b->data);
+    if(b->data) 
+        free(b->data);
+    if(b->font)
+        bm_font_release(b->font);
     free(b);
 }
 
@@ -5779,6 +5782,9 @@ int bm_stricmp(const char *p, const char *q) {
 
 void bm_set_font(Bitmap *b, BmFont *font) {
     assert(b);
+    if(b->font)
+        bm_font_release(b->font);
+    bm_font_retain(font);
     b->font = font;
 }
 
@@ -5851,10 +5857,26 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
     return bm_puts(b, x, y, buffer);
 }
 
-void bm_free_font(BmFont *font) {
+static int free_font(BmFont *font) {
+    if(font->ref_count > 0)
+        return 0;
     if(font && font->dtor) {
         font->dtor(font);
     }
+    return 1;
+}
+
+BmFont *bm_font_retain(BmFont *font) {
+    font->ref_count++;
+    return font;
+}
+
+int bm_font_release(BmFont *font) {
+    assert(font->ref_count > 0);
+    font->ref_count--;
+    if(!font->ref_count) 
+        return free_font(font);
+    return 0;
 }
 
 /** RASTER FONT FUNCTIONS ******************************************************/
@@ -5918,6 +5940,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     if (!font)
         return NULL;
     font->type = "RASTER_FONT";
+    font->ref_count = 1;
     font->puts = rf_puts;
     font->width = rf_width;
     font->height = rf_height;
@@ -6032,6 +6055,7 @@ BmFont *bm_make_sfont(const char *file) {
         return NULL;
     }
     font->type = "SFONT";
+    font->ref_count = 1;
     font->puts = sf_puts;
     font->width = sf_width;
     font->height = sf_height;
@@ -6293,6 +6317,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
     info->spacing = spacing;
 
     font->type = "XBM";
+    font->ref_count = 1;
     font->puts = xbmf_puts;
     font->width = xbmf_width;
     font->height = xbmf_height;
@@ -6303,7 +6328,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
 }
 
 void bm_reset_font(Bitmap *b) {
-    static BmFont font = {"XBM",xbmf_puts,xbmf_width,xbmf_height,NULL,NULL};
+    static BmFont font = {"XBM",1,xbmf_puts,xbmf_width,xbmf_height,NULL,NULL};
     bm_set_font(b, &font);
 }
 

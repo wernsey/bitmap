@@ -43,7 +43,7 @@ Usage:
     bm_puts(b, 30, 60, "Hello World");
     
     /* Then free the font when you're done with it */
-    bm_free_font(font);
+    bm_font_release(font);
 
 XBM Fonts
 =========
@@ -94,15 +94,15 @@ Usage:
     bm_puts(b, 30, 60, "Hello World");
     
     /* Then free the fonts when you're done with them */
-    bm_free_font(bfont_normal);
-    bm_free_font(bfont_bold);
-    bm_free_font(bfont_circuit);
-    bm_free_font(bfont_hand);
-    bm_free_font(bfont_small);
-    bm_free_font(bfont_smallinv);
-    bm_free_font(bfont_thick);
-    bm_free_font(bfont_thinsans);
-    bm_free_font(bfont_infocom);
+    bm_font_release(bfont_normal);
+    bm_font_release(bfont_bold);
+    bm_font_release(bfont_circuit);
+    bm_font_release(bfont_hand);
+    bm_font_release(bfont_small);
+    bm_font_release(bfont_smallinv);
+    bm_font_release(bfont_thick);
+    bm_font_release(bfont_thinsans);
+    bm_font_release(bfont_infocom);
 
 If you need to modify the fonts, the `dumpfonts` utility (in `dumpfonts.c`) will
 dump all the fonts to GIF files, where they can be edited in a paint program.

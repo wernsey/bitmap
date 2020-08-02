@@ -94,6 +94,8 @@ typedef struct BmRect {
  *
  * The member `font` is a pointer to a `BmFont` structure that is used
  * to render text. See the [Font Routines][] section for more details.
+ * Don't modify this directly, since fonts are reference counted;
+ * use `bm_set_font()` instead.
  *
  * The member `clip` is a `BmRect` that defines the clipping rectangle
  * when drawing primitives and text.
@@ -123,18 +125,21 @@ typedef struct bitmap {
  *
  * It has these members:
  * * `const char *type` - a text description of the type of font
+ * * `ref_count` - a reference count for the font - This should be set 
+ *      to `1` when the font is created.
  * * `int (*puts)(Bitmap *b, int x, int y, const char *text)` -
- *   Pointer to the function that will actually render the text.
+ *      Pointer to the function that will actually render the text.
  * * `int (*width)(struct bitmap_font *font)` - Function that returns the
- *   width (in pixels) of a single character in the font.
+ *      width (in pixels) of a single character in the font.
  * * `int (*height)(struct bitmap_font *font)` - Function that returns the
- *   height (in pixels) of a single character in the font.
+ *      height (in pixels) of a single character in the font.
  * * `void (*dtor)(struct bitmap_font *font)` - Destructor function that
- *   deallocates all memory allocated to the `BmFont` object.
+ *      deallocates all memory allocated to the `BmFont` object.
  * * `void *data` - Additional data that may be required by the font.
  */
 typedef struct bitmap_font {
     const char *type;
+    unsigned int ref_count;
     int (*puts)(Bitmap *b, int x, int y, const char *text);
     int (*width)(struct bitmap_font *font);
     int (*height)(struct bitmap_font *font);
@@ -1105,12 +1110,19 @@ int bm_puts(Bitmap *b, int x, int y, const char *text);
 int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
 
 /**
- * #### `void bm_free_font(BmFont *font)`
- *
- * Deallocates a font. It basically just calls the `dtor` member of the
- * `font` structure.
+ * #### `BmFont *bm_font_retain(BmFont *font)`
+ * 
+ * Increments a font's reference counter.
  */
-void bm_free_font(BmFont *font);
+BmFont *bm_font_retain(BmFont *font);
+
+/**
+ * #### `int bm_font_release(BmFont *font)`
+ * 
+ * Decrements a font's reference counter, and if it's 0,
+ * destroys it by calling its `dtor` function on itself.
+ */
+int bm_font_release(BmFont *font);
 
 /**
  * #### `BmFont *bm_make_ras_font(const char *file, int spacing)`

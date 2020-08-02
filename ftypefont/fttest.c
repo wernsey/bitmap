@@ -1,3 +1,11 @@
+/*
+
+To compile this:
+$ gcc -I .. -I /usr/local/include/freetype2/ -o fttest fttest.c ftfont.c ../bmp.c -lfreetype `libpng-config --ldflags` -lz
+
+Alternatively: $ make ftypefont/fttest
+*/
+
 #include <stdio.h>
 
 #if defined(USESDL)
@@ -67,9 +75,9 @@ int main(int argc, char *argv[]) {
 	bm_set_color(bmp, 1);
 	bm_save(bmp, "out.gif");
 
-	bm_free_font(bfont_circuit);
-	bm_free_font(font);
-	
+	bm_font_release(bfont_circuit);
+	bm_font_release(font);
+
 	bm_free(bmp);
 	
 #ifdef USESDL

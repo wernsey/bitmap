@@ -102,6 +102,9 @@ luabmp: misc/luabmp.c libbmp.a
 	$(CC) -I . -o $@ $^ $(LDFLAGS) -llua
 	awk -f d.awk misc/luabmp.c > doc/luabmp.html
 
+ftypefont/fttest: ftypefont/fttest.c ftypefont/ftfont.c bmp.c
+	$(CC) -I . -I /usr/local/include/freetype2/ -o $@ $^ -lfreetype $(LDFLAGS)
+
 util:
 	mkdir -p util
 
@@ -109,7 +112,7 @@ util:
 
 clean:
 	-rm -f *.o $(LIB) bmph.h
-	-rm -f hello *.exe test/*.exe
+	-rm -f luabmp hello *.exe test/*.exe
 	-rm -rf $(DOCS)
 	-rm -rf util doc
 

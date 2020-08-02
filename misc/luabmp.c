@@ -60,13 +60,14 @@ static int bmf_load_raster(lua_State *L) {
 	else 
 		spacing = 8;
 	
-	BmFont **bp = lua_newuserdata(L, sizeof *bp);	
+	BmFont **fp = lua_newuserdata(L, sizeof *fp);	
 	luaL_setmetatable(L, "BitmapFont");
 	
-	*bp = bm_make_ras_font(filename, spacing);
-	if(!*bp) {
+	*fp = bm_make_ras_font(filename, spacing);
+	if(!*fp) {
 		luaL_error(L, "Unable to load raster font '%s': %s", filename, bm_get_error());
 	}
+	bm_font_retain(*fp);
 	return 1;
 }
 
@@ -78,13 +79,14 @@ static int bmf_load_raster(lua_State *L) {
 static int bmf_load_sfont(lua_State *L) {
 	const char *filename = luaL_checkstring(L,1);
 	
-	BmFont **bp = lua_newuserdata(L, sizeof *bp);	
+	BmFont **fp = lua_newuserdata(L, sizeof *fp);	
 	luaL_setmetatable(L, "BitmapFont");
 	
-	*bp = bm_make_sfont(filename);
-	if(!*bp) {
+	*fp = bm_make_sfont(filename);
+	if(!*fp) {
 		luaL_error(L, "Unable to load SFont '%s': %s", filename, bm_get_error());
 	}
+	bm_font_retain(*fp);
 	return 1;
 }
 
@@ -129,9 +131,6 @@ static int bmp_save(lua_State *L) {
 static int bmp_copy(lua_State *L) {	
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	Bitmap *b = *bp;
-
-	/* My TODO in `bmp_set_font()` applies here as well if you changed the font.
-	(perhaps I should just reset it?) */
 
 	Bitmap *clone = bm_copy(b);
 	if(!clone)
@@ -238,7 +237,7 @@ static int bmp_resample(lua_State *L) {
 		out = bm_resample(*bp, nw, nh);
 
 	out->color = (*bp)->color;
-	out->font = (*bp)->font;	// See my TODO in `bmp_set_font`
+	bm_set_font(out, (*bp)->font);
 
 	bm_free(*bp);
 	*bp = out;
@@ -432,10 +431,6 @@ static int bmp_set_font(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	if(lua_gettop(L) > 1) {
 		BmFont **font = luaL_checkudata(L,2, "BitmapFont");
-	
-		/* TODO: We need to somehow tell Lua that the 
-		font is in use and not to be garbage collected... */
-
 		bm_set_font(*bp, *font);
 	} else
 		bm_reset_font(*bp);
@@ -447,8 +442,8 @@ static int bmp_set_font(lua_State *L) {
  *  Garbage collects the `BitmapFont` instance.
  */
 static int gc_bmp_font(lua_State *L) {
-	BmFont **bp = luaL_checkudata(L,1, "BitmapFont");
-	bm_free_font(*bp);
+	BmFont **fp = luaL_checkudata(L,1, "BitmapFont");
+	bm_font_release(*fp);
 	return 0;
 }
 
