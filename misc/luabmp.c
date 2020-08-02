@@ -248,17 +248,17 @@ static int bmp_resample(lua_State *L) {
 
 /** ### `Bitmap:blit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
  * 
- * Draws an instance {{src}} of {{Bitmap}} to this bitmap at `dx, dy`.
+ * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy).
  * 
- * `sx,sy` specify the source x,y position and `dw,dh` specifies the
+ * (sx,sy) specify the source (x,y) position and (dw,dh) specifies the
  * width and height of the destination area to draw.
  * 
- * `sx,sy` defaults to `0,0` and `dw,dh` defaults to the entire 
+ * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire 
  * source bitmap.
  * 
- * If `sw,sh` is specified, the bitmap is scaled so that the area on the 
- * source bitmap from `sx,sy` with dimensions `sw,sh` is drawn onto the
- * screen at `dx,dy` with dimensions `dw,dh`.
+ * If (sw,sh) is specified, the bitmap is scaled so that the area on the 
+ * source bitmap from (sx,sy) with dimensions (sw,sh) is drawn onto the
+ * screen at (dx,dy) with dimensions (dw,dh).
  */
 static int bmp_blit(lua_State *L) {
 	Bitmap **dest = luaL_checkudata(L,1, "Bitmap");
@@ -319,6 +319,94 @@ static int bmp_getclip(lua_State *L) {
 static int bmp_unclip(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	bm_unclip(*bp);
+	return 0;
+}
+
+/** ### `Bitmap:putpixel(x,y)`
+ * Plots a pixel at (x,y) on the screen.
+ */
+static int bmp_putpixel(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x = luaL_checknumber(L,2);
+	int y = luaL_checknumber(L,3);
+	bm_putpixel(*bp, x, y);
+	return 0;
+}
+
+
+/** ### `Bitmap:line(x1, y1, x2, y2)`
+ * Draws a line from (x1,y1) to (x2,y2)
+ */
+static int bmp_line(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_line(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
+/** ### `Bitmap:rect(x1, y1, x2, y2)`
+ * Draws a rectangle between (x1,y1) and (x2,y2)
+ */
+static int bmp_rect(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_rect(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
+/** ### `Bitmap:fillrect(x1, y1, x2, y2)`
+ * Draws a filled rectangle between (x1,y1) and (x2,y2)
+ */
+static int bmp_fillrect(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_fillrect(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
+/** ### `Bitmap:dithrect(x1, y1, x2, y2)`
+ * Draws a dithered rectangle between (x1,y1) and (x2,y2)
+ */
+static int bmp_dithrect(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_dithrect(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
+/** ### `Bitmap:circle(x, y, r)`
+ * Draws a circle of radius `r` centered at (x,y)
+ */
+static int bmp_circle(lua_State *L) {	
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x = luaL_checknumber(L,2);
+	int y = luaL_checknumber(L,3);
+	int r = luaL_checknumber(L,4);
+	bm_circle(*bp, x, y, r);
+	return 0;
+}
+
+/** ### `Bitmap:fillcircle(x, y, r)`
+ * Draws a filled circle of radius `r` centered at (x,y)
+ */
+static int bmp_fillcircle(lua_State *L) {	
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x = luaL_checknumber(L,2);
+	int y = luaL_checknumber(L,3);
+	int r = luaL_checknumber(L,4);
+	bm_fillcircle(*bp, x, y, r);
 	return 0;
 }
 
@@ -391,6 +479,25 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "getclip");
 	lua_pushcfunction(L, bmp_unclip);
 	lua_setfield(L, -2, "unclip");
+	
+	lua_pushcfunction(L, bmp_putpixel);
+	lua_setfield(L, -2, "putpixel");
+	
+	lua_pushcfunction(L, bmp_putpixel);
+	lua_setfield(L, -2, "putpixel");
+	lua_pushcfunction(L, bmp_line);
+	lua_setfield(L, -2, "line");
+	lua_pushcfunction(L, bmp_rect);
+	lua_setfield(L, -2, "rect");
+	lua_pushcfunction(L, bmp_fillrect);
+	lua_setfield(L, -2, "fillrect");
+	lua_pushcfunction(L, bmp_dithrect);
+	lua_setfield(L, -2, "dithrect");
+	lua_pushcfunction(L, bmp_circle);
+	lua_setfield(L, -2, "circle");
+	lua_pushcfunction(L, bmp_fillcircle);
+	lua_setfield(L, -2, "fillcircle");
+
 	lua_pushcfunction(L, bmp_print);
 	lua_setfield(L, -2, "print");
 	lua_pushcfunction(L, bmp_set_font);
