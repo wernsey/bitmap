@@ -125,7 +125,7 @@ typedef struct bitmap {
  *
  * It has these members:
  * * `const char *type` - a text description of the type of font
- * * `ref_count` - a reference count for the font - This should be set 
+ * * `ref_count` - a reference count for the font - This should be set
  *      to `1` when the font is created.
  * * `int (*puts)(Bitmap *b, int x, int y, const char *text)` -
  *      Pointer to the function that will actually render the text.
@@ -905,7 +905,7 @@ int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal)
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`
  *
  * Swaps the Red and Blue channels in a bitmap.
- * 
+ *
  * (It is meant for certain use cases where a buffer is BGRA instead of RGBA)
  */
 Bitmap *bm_swap_rb(Bitmap *b);
@@ -987,6 +987,14 @@ void bm_fillcircle(Bitmap *b, int x0, int y0, int r);
  * <x1,y1>, using the pen color
  */
 void bm_ellipse(Bitmap *b, int x0, int y0, int x1, int y1);
+
+/**
+ * #### `void bm_fillellipse(Bitmap *b, int x0, int y0, int x1, int y1)`
+ *
+ * Draws a filled ellipse that occupies the rectangle from <x0,y0> to
+ * <x1,y1>, using the pen color
+ */
+void bm_fillellipse(Bitmap *b, int x0, int y0, int x1, int y1);
 
 /**
  * #### `void bm_round_rect(Bitmap *b, int x0, int y0, int x1, int y1, int r)`
@@ -1111,14 +1119,14 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
 
 /**
  * #### `BmFont *bm_font_retain(BmFont *font)`
- * 
+ *
  * Increments a font's reference counter.
  */
 BmFont *bm_font_retain(BmFont *font);
 
 /**
  * #### `int bm_font_release(BmFont *font)`
- * 
+ *
  * Decrements a font's reference counter, and if it's 0,
  * destroys it by calling its `dtor` function on itself.
  */
@@ -1218,7 +1226,6 @@ void bm_set_error(const char *e);
  *       It's problematic for a couple of reasons.
  *       See [section 5](http://www.libpng.org/pub/png/libpng-1.2.5-manual.html#section-5)
  *       of the libpng documentation.
- * - [ ] `bm_fillellipse()`, like `bm_ellipse()` but filled.
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
  * - [ ] I'm regretting my decision to have the BmFont.width function not look at the

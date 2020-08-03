@@ -3085,7 +3085,7 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
 
 void bm_free(Bitmap *b) {
     if(!b) return;
-    if(b->data) 
+    if(b->data)
         free(b->data);
     if(b->font)
         bm_font_release(b->font);
@@ -5135,6 +5135,84 @@ void bm_ellipse(Bitmap *b, int x0, int y0, int x1, int y1) {
     }
 }
 
+void bm_fillellipse(Bitmap *b, int x0, int y0, int x1, int y1) {
+    int a = abs(x1-x0), b0 = abs(y1-y0), b1 = b0 & 1;
+    long dx = 4 * (1 - a) * b0 * b0,
+        dy = 4*(b1 + 1) * a * a;
+    long err = dx + dy + b1*a*a, e2;
+
+    int xs, xe, x;
+
+    assert(b);
+    if(x0 > x1) { x0 = x1; x1 += a; }
+    if(y0 > y1) { y0 = y1; }
+    y0 += (b0+1)/2;
+    y1 = y0 - b1;
+    a *= 8*a;
+    b1 = 8 * b0 * b0;
+
+    do {
+
+        if(y0 >= b->clip.y0 && y0 < b->clip.y1) {
+            xs = x0;
+            xe = x1;
+            if(xs < b->clip.x0)
+                xs = b->clip.x0;
+            if(xe >= b->clip.x1)
+                xe = b->clip.x1 - 1;
+            for(x = xs; x <= xe; x++)
+                BM_SET(b, x, y0, b->color);
+        }
+
+        if(y1 >= b->clip.y0 && y1 < b->clip.y1) {
+            xs = x0;
+            xe = x1;
+            if(xs < b->clip.x0)
+                xs = b->clip.x0;
+            if(xe >= b->clip.x1)
+                xe = b->clip.x1 - 1;
+            for(x = xs; x <= xe; x++)
+                BM_SET(b, x, y1, b->color);
+        }
+
+        e2 = 2 * err;
+        if(e2 <= dy) {
+            y0++; y1--; err += dy += a;
+        }
+        if(e2 >= dx || 2*err > dy) {
+            x0++; x1--; err += dx += b1;
+        }
+    } while(x0 <= x1);
+
+    while(y0 - y1 < b0) {
+        /* When is this part used again? */
+
+        if(y0 >= b->clip.y0 && y0 < b->clip.y1) {
+            xs = x0 - 1;
+            xe = x1 + 1;
+            if(xs < b->clip.x0)
+                xs = b->clip.x0;
+            if(xe >= b->clip.x1)
+                xe = b->clip.x1 - 1;
+            for(x = xs; x <= xe; x++)
+                BM_SET(b, x, y0, b->color);
+        }
+        y0++;
+
+        if(y1 >= b->clip.y0 && y1 < b->clip.y1) {
+            xs = x0 - 1;
+            xe = x1 + 1;
+            if(xs < b->clip.x0)
+                xs = b->clip.x0;
+            if(xe >= b->clip.x1)
+                xe = b->clip.x1 - 1;
+            for(x = xs; x <= xe; x++)
+                BM_SET(b, x, y1, b->color);
+        }
+        y1--;
+    }
+}
+
 void bm_roundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
     int x = -r;
     int y = 0;
@@ -5874,7 +5952,7 @@ BmFont *bm_font_retain(BmFont *font) {
 int bm_font_release(BmFont *font) {
     assert(font->ref_count > 0);
     font->ref_count--;
-    if(!font->ref_count) 
+    if(!font->ref_count)
         return free_font(font);
     return 0;
 }

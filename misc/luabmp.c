@@ -466,6 +466,19 @@ static int bmp_ellipse(lua_State *L) {
 	return 0;
 }
 
+/** ### `Bitmap:fillellipse(x1, y1, x2, y2)`
+ * Draws a filled ellipse that is contained in the rectangle from (x1,y1) to (x2,y2)
+ */
+static int bmp_fillellipse(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_fillellipse(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
 /** ### `Bitmap:roundrect(x1, y1, x2, y2, r)`
  * Draws a rectangle between (x1,y1) and (x2,y2) with rounded corners of radius `r`
  */
@@ -577,6 +590,8 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "fillcircle");
 	lua_pushcfunction(L, bmp_ellipse);
 	lua_setfield(L, -2, "ellipse");
+	lua_pushcfunction(L, bmp_fillellipse);
+	lua_setfield(L, -2, "fillellipse");
 	lua_pushcfunction(L, bmp_roundrect);
 	lua_setfield(L, -2, "roundrect");
 	lua_pushcfunction(L, bmp_fillroundrect);
