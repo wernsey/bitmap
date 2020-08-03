@@ -184,6 +184,7 @@ static int bmp_set_color(lua_State *L) {
 static int bmp_get_color(lua_State *L) {
 	unsigned char r,g,b;
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	unsigned int color;
 	if(lua_gettop(L) == 3) {
 		int x = luaL_checknumber(L,2);
 		int y = luaL_checknumber(L,3);
@@ -191,14 +192,14 @@ static int bmp_get_color(lua_State *L) {
 		if(x >= (*bp)->w) x = (*bp)->w - 1;
 		if(y < 0) y = 0;
 		if(y >= (*bp)->h) y = (*bp)->h - 1;		
-		bm_picker(*bp, x, y);
+		color = bm_get(*bp, x, y);
 	}
-	
-	unsigned int color = bm_get_color(*bp);
+	else
+		color = bm_get_color(*bp);
 	bm_get_rgb(color, &r, &g, &b);
-	lua_pushinteger(L, r);
-	lua_pushinteger(L, g);
-	lua_pushinteger(L, b);
+	lua_pushnumber(L, (double)r / 255.0);
+	lua_pushnumber(L, (double)g / 255.0);
+	lua_pushnumber(L, (double)b / 255.0);
 	return 3;
 }
 
@@ -260,6 +261,49 @@ static int bmp_resample(lua_State *L) {
  * screen at (dx,dy) with dimensions (dw,dh).
  */
 static int bmp_blit(lua_State *L) {
+	Bitmap **dest = luaL_checkudata(L,1, "Bitmap");
+	Bitmap **src = luaL_checkudata(L,2, "Bitmap");
+	
+	int dx = luaL_checknumber(L, 3);
+	int dy = luaL_checknumber(L, 4);
+	
+	int sx = 0, sy = 0, w = (*src)->w, h = (*src)->h;
+	
+	if(lua_gettop(L) > 5) {
+		sx = luaL_checknumber(L, 5);
+		sy = luaL_checknumber(L, 6);
+	}
+	if(lua_gettop(L) > 7) {
+		w = luaL_checknumber(L, 7);
+		h = luaL_checknumber(L, 8);
+	}
+	if(lua_gettop(L) > 9) {
+		int sw = luaL_checknumber(L, 9);
+		int sh = luaL_checknumber(L, 10);
+		bm_blit_ex(*dest, dx, dy, w, h, *src, sx, sy, sw, sh, 0);
+	} else {
+		bm_blit(*dest, dx, dy, *src, sx, sy, w, h);
+	}
+	
+	return 0;
+}
+
+/** ### `Bitmap:maskedblit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
+ * 
+ * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy), using the
+ * color of `src` as a mask.
+ * 
+ * (sx,sy) specify the source (x,y) position and (dw,dh) specifies the
+ * width and height of the destination area to draw.
+ * 
+ * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire 
+ * source bitmap.
+ * 
+ * If (sw,sh) is specified, the bitmap is scaled so that the area on the 
+ * source bitmap from (sx,sy) with dimensions (sw,sh) is drawn onto the
+ * screen at (dx,dy) with dimensions (dw,dh).
+ */
+static int bmp_maskedblit(lua_State *L) {
 	Bitmap **dest = luaL_checkudata(L,1, "Bitmap");
 	Bitmap **src = luaL_checkudata(L,2, "Bitmap");
 	
@@ -409,6 +453,47 @@ static int bmp_fillcircle(lua_State *L) {
 	return 0;
 }
 
+/** ### `Bitmap:ellipse(x1, y1, x2, y2)`
+ * Draws an ellipse that is contained in the rectangle from (x1,y1) to (x2,y2)
+ */
+static int bmp_ellipse(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	bm_ellipse(*bp, x0, y0, x1, y1);
+	return 0;
+}
+
+/** ### `Bitmap:roundrect(x1, y1, x2, y2, r)`
+ * Draws a rectangle between (x1,y1) and (x2,y2) with rounded corners of radius `r`
+ */
+static int bmp_roundrect(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	int r = luaL_checknumber(L,6);
+	bm_roundrect(*bp, x0, y0, x1, y1, r);
+	return 0;
+}
+
+/** ### `Bitmap:fillroundrect(x1, y1, x2, y2, r)`
+ * Draws a filled rectangle between (x1,y1) and (x2,y2) with rounded corners of radius `r`
+ */
+static int bmp_fillroundrect(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	int r = luaL_checknumber(L,6);
+	bm_fillroundrect(*bp, x0, y0, x1, y1, r);
+	return 0;
+}
+
 /** ### `Bitmap:print(x,y,text)`
  *  Prints the `text` to the bitmap, with its top left position at `x,y`.
  */
@@ -424,8 +509,7 @@ static int bmp_print(lua_State *L) {
 }
 
 /** ### `Bitmap:setFont(font)`
- * 
- *
+ * Sets the font used by `Bitmap:print()`
  */
 static int bmp_set_font(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
@@ -468,15 +552,14 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "resample");
 	lua_pushcfunction(L, bmp_blit);
 	lua_setfield(L, -2, "blit");
+	lua_pushcfunction(L, bmp_maskedblit);
+	lua_setfield(L, -2, "maskedblit");
 	lua_pushcfunction(L, bmp_clip);
 	lua_setfield(L, -2, "clip");
 	lua_pushcfunction(L, bmp_getclip);
 	lua_setfield(L, -2, "getclip");
 	lua_pushcfunction(L, bmp_unclip);
 	lua_setfield(L, -2, "unclip");
-	
-	lua_pushcfunction(L, bmp_putpixel);
-	lua_setfield(L, -2, "putpixel");
 	
 	lua_pushcfunction(L, bmp_putpixel);
 	lua_setfield(L, -2, "putpixel");
@@ -492,6 +575,12 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "circle");
 	lua_pushcfunction(L, bmp_fillcircle);
 	lua_setfield(L, -2, "fillcircle");
+	lua_pushcfunction(L, bmp_ellipse);
+	lua_setfield(L, -2, "ellipse");
+	lua_pushcfunction(L, bmp_roundrect);
+	lua_setfield(L, -2, "roundrect");
+	lua_pushcfunction(L, bmp_fillroundrect);
+	lua_setfield(L, -2, "fillroundrect");
 
 	lua_pushcfunction(L, bmp_print);
 	lua_setfield(L, -2, "print");
