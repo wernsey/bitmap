@@ -1125,12 +1125,15 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...);
 BmFont *bm_font_retain(BmFont *font);
 
 /**
- * #### `int bm_font_release(BmFont *font)`
+ * #### `unsigned int bm_font_release(BmFont *font)`
  *
  * Decrements a font's reference counter, and if it's 0,
  * destroys it by calling its `dtor` function on itself.
+ *
+ * It returns the reference count of the font, so 0
+ * means the font was destroyed.
  */
-int bm_font_release(BmFont *font);
+unsigned int bm_font_release(BmFont *font);
 
 /**
  * #### `BmFont *bm_make_ras_font(const char *file, int spacing)`

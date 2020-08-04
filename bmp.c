@@ -5860,10 +5860,10 @@ int bm_stricmp(const char *p, const char *q) {
 
 void bm_set_font(Bitmap *b, BmFont *font) {
     assert(b);
-    if(b->font)
-        bm_font_release(b->font);
-    bm_font_retain(font);
-    b->font = font;
+    BmFont *old = b->font;
+    b->font = bm_font_retain(font);
+    if(old)
+        bm_font_release(old);
 }
 
 BmFont *bm_get_font(Bitmap *b) {
@@ -5935,26 +5935,20 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
     return bm_puts(b, x, y, buffer);
 }
 
-static int free_font(BmFont *font) {
-    if(font->ref_count > 0)
-        return 0;
-    if(font && font->dtor) {
-        font->dtor(font);
-    }
-    return 1;
-}
-
 BmFont *bm_font_retain(BmFont *font) {
     font->ref_count++;
     return font;
 }
 
-int bm_font_release(BmFont *font) {
+unsigned int bm_font_release(BmFont *font) {
     assert(font->ref_count > 0);
     font->ref_count--;
-    if(!font->ref_count)
-        return free_font(font);
-    return 0;
+    if(!font->ref_count) {
+        if(font->dtor)
+            font->dtor(font);
+        return 0;
+    }
+    return font->ref_count;
 }
 
 /** RASTER FONT FUNCTIONS ******************************************************/

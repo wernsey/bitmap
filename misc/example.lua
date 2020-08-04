@@ -1,5 +1,3 @@
-io.write("hello\n")
-
 --[[
 bitmap = Bitmap.load("misc/tile.gif")
 
@@ -57,3 +55,6 @@ bitmap:setFont()
 bitmap:print(10, 70, "Hello Font")
 
 bitmap:save('out-lua.bmp')
+
+
+io.write("Done.")
