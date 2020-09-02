@@ -374,28 +374,6 @@ void bm_rebind(Bitmap *b, unsigned char *data);
 void bm_unbind(Bitmap *b);
 
 /**
- * #### `Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h)`
- *
- * Binds a `Bitmap` structure to an array of `w` &times; `h` &times; 4 bytes.
- *
- * The intended use case is to manipulate bitmaps in local variables in functions.
- * This function does not allocate memory for the `Bitmap` structure, so the
- * return value should _not_ be freed by `bm_free()` or `bm_unbind()`.
- *
- * The following example creates a temporary copy of a bitmap `orig` which will
- * be removed automatically when the calling function returns, and does not require
- * the overhead of `malloc()` and `free()` as the other Bitmap create/bind functions.
- *
- * ```c
- * Bitmap b;
- * unsigned char buffer[WIDTH * HEIGHT * 4];
- * bm_bind_static(&b, buffer, WIDTH, HEIGHT);
- * memcpy(b.data, orig->data, WIDTH * HEIGHT * 4);
- * ```
- */
-Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h);
-
-/**
  * ### Clipping and Buffer Manipulation Functions
  */
 

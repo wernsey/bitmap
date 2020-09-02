@@ -3078,17 +3078,18 @@ Bitmap *bm_copy(Bitmap *b) {
 
 Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
     Bitmap *o = bm_create(w, h);
-    if(!o) return NULL;
+    if(!o)
+        return NULL;
     bm_blit(o, 0, 0, b, x, y, w, h);
     return o;
 }
 
 void bm_free(Bitmap *b) {
-    if(!b) return;
-    if(b->data)
-        free(b->data);
-    if(b->font)
-        bm_font_release(b->font);
+    if(!b)
+        return;
+    assert(b->data);
+    free(b->data);
+    bm_font_release(b->font);
     free(b);
 }
 
@@ -3099,20 +3100,15 @@ Bitmap *bm_bind(int w, int h, unsigned char *data) {
         SET_ERROR("out of memory");
         return NULL;
     }
-    return bm_bind_static(b, data, w, h);
-}
 
-
-Bitmap *bm_bind_static(Bitmap *b, unsigned char *data, int w, int h) {
     b->w = w;
     b->h = h;
+    b->data = data;
 
     b->clip.x0 = 0;
     b->clip.y0 = 0;
     b->clip.x1 = w;
     b->clip.y1 = h;
-
-    b->data = data;
 
     b->font = NULL;
     bm_reset_font(b);
@@ -3126,7 +3122,9 @@ void bm_rebind(Bitmap *b, unsigned char *data) {
 }
 
 void bm_unbind(Bitmap *b) {
-    if(!b) return;
+    if(!b)
+        return;
+    bm_font_release(b->font);
     free(b);
 }
 
@@ -5941,6 +5939,7 @@ BmFont *bm_font_retain(BmFont *font) {
 }
 
 unsigned int bm_font_release(BmFont *font) {
+    assert(font);
     assert(font->ref_count > 0);
     font->ref_count--;
     if(!font->ref_count) {
