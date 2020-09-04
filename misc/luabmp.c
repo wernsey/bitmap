@@ -100,7 +100,7 @@ static int bmf_load_sfont(lua_State *L) {
 static int bmp_tostring(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	Bitmap *b = *bp;
-	lua_pushfstring(L, "Bitmap[%dx%d]", b->w, b->h);
+	lua_pushfstring(L, "Bitmap[%dx%d]", bm_width(b), bm_height(b));
 	return 1;
 }
 
@@ -189,9 +189,9 @@ static int bmp_get_color(lua_State *L) {
 		int x = luaL_checknumber(L,2);
 		int y = luaL_checknumber(L,3);
 		if(x < 0) x = 0;
-		if(x >= (*bp)->w) x = (*bp)->w - 1;
+		if(x >= bm_width(*bp)) x = bm_width(*bp) - 1;
 		if(y < 0) y = 0;
-		if(y >= (*bp)->h) y = (*bp)->h - 1;
+		if(y >= bm_height(*bp)) y = bm_height(*bp) - 1;
 		color = bm_get(*bp, x, y);
 	}
 	else
@@ -208,8 +208,8 @@ static int bmp_get_color(lua_State *L) {
  */
 static int bmp_size(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
-	lua_pushinteger(L, (*bp)->w);
-	lua_pushinteger(L, (*bp)->h);
+	lua_pushinteger(L, bm_width(*bp));
+	lua_pushinteger(L, bm_height(*bp));
 	return 2;
 }
 
@@ -237,8 +237,8 @@ static int bmp_resample(lua_State *L) {
 	else
 		out = bm_resample(*bp, nw, nh);
 
-	out->color = (*bp)->color;
-	bm_set_font(out, (*bp)->font);
+	bm_set_color(out, bm_get_color(*bp));
+	bm_set_font(out, bm_get_font(*bp));
 
 	bm_free(*bp);
 	*bp = out;
@@ -267,7 +267,7 @@ static int bmp_blit(lua_State *L) {
 	int dx = luaL_checknumber(L, 3);
 	int dy = luaL_checknumber(L, 4);
 
-	int sx = 0, sy = 0, w = (*src)->w, h = (*src)->h;
+	int sx = 0, sy = 0, w = bm_width(*src), h = bm_height(*src);
 
 	if(lua_gettop(L) > 5) {
 		sx = luaL_checknumber(L, 5);
@@ -310,7 +310,7 @@ static int bmp_maskedblit(lua_State *L) {
 	int dx = luaL_checknumber(L, 3);
 	int dy = luaL_checknumber(L, 4);
 
-	int sx = 0, sy = 0, w = (*src)->w, h = (*src)->h;
+	int sx = 0, sy = 0, w = bm_width(*src), h = bm_height(*src);
 
 	if(lua_gettop(L) > 5) {
 		sx = luaL_checknumber(L, 5);
@@ -349,10 +349,11 @@ static int bmp_clip(lua_State *L) {
  */
 static int bmp_getclip(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
-    lua_pushinteger(L, (*bp)->clip.x0);
-    lua_pushinteger(L, (*bp)->clip.y0);
-    lua_pushinteger(L, (*bp)->clip.x1);
-    lua_pushinteger(L, (*bp)->clip.y1);
+	BmRect clip = bm_get_clip(*bp);
+    lua_pushinteger(L, clip.x0);
+    lua_pushinteger(L, clip.y0);
+    lua_pushinteger(L, clip.x1);
+    lua_pushinteger(L, clip.y1);
 	return 4;
 }
 

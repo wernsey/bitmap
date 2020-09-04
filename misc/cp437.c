@@ -85,14 +85,15 @@ static void draw_tile(Bitmap *b, int x, int y, unsigned short c) {
     row = (c >> 4) & 0x0F;
     col = c & 0x0F;
     byte = (row * 128 + col);
+    BmRect clip = bm_get_clip(b);
     unsigned int fgc = cga_colors[(c >> 8) & 0x0F];
     unsigned int bgc = cga_colors[(c >> 12) & 0x0F];
     for(j = 0; j < 8; j++) {
-        if(y + j < b->clip.y0) continue;
-        else if(y + j >= b->clip.y1) break;
+        if(y + j < clip.y0) continue;
+        else if(y + j >= clip.y1) break;
         for(i = 0; i < 8; i++) {
-            if(x + i < b->clip.x0) continue;
-            else if(x + i >= b->clip.x1) break;
+            if(x + i < clip.x0) continue;
+            else if(x + i >= clip.x1) break;
             if(cp437_bits[byte] & (1 << i)) {
                 bm_set(b, x + i, y + j, bgc);
             } else {
@@ -195,8 +196,8 @@ void draw_legend(const char *outfile) {
         bm_printf(b, 16 * 8 + 11 + 4, y * 8 + 11, "%X", y);
     }
     bm_set_color(b, cga_colors[LIGHT_GRAY]);
-    bm_line(b, 0, 9, b->w, 9);
-    bm_line(b, 9, 0, 9, b->h);
+    bm_line(b, 0, 9, bm_width(b), 9);
+    bm_line(b, 9, 0, 9, bm_height(b));
 
 
     gr_free(g);

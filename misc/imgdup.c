@@ -27,23 +27,22 @@ void bm_dhash(Bitmap *b, unsigned char bytes[8]) {
     b = bm_copy(b);
     bm_grayscale(b);
 
-    Bitmap diff;
-    unsigned char buffer[9 * 8 * 4];
-    bm_bind_static(&diff, buffer, 9, 8);
+    Bitmap * diff = bm_create(9, 8);
 
-    bm_resample_bcub_into(b, &diff);
+    bm_resample_bcub_into(b, diff);
 
     int x, y;
     for(y = 0; y < 8; y++) {
         bytes[y] = 0;
         for(x = 0; x < 8; x++) {
-            int c1 = BM_GET(&diff, x, y) & 0xFF;
-            int c2 = BM_GET(&diff, x + 1, y) & 0xFF;
+            int c1 = BM_GET(diff, x, y) & 0xFF;
+            int c2 = BM_GET(diff, x + 1, y) & 0xFF;
             if(c1 < c2)
                 bytes[y] |= (1 << x);
         }
     }
     bm_free(b);
+    bm_free(diff);
 }
 
 int hamming_dist(unsigned char bytes1[8], unsigned char bytes2[8]) {

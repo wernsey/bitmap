@@ -8,22 +8,23 @@
 
 int bm_to_Xbm(Bitmap *b, const char *name) {
     int x, y, bit = 0, byte = 0;
+    int bw = bm_width(b), bh = bm_height(b);
     //unsigned int c = bm_get_color(b) & 0x00FFFFFF;
     char fname[30];
     snprintf(fname, sizeof fname, "%s.xbm", name);
     FILE *f = fopen(fname, "wb");
     if(!f) return 0;
-    fprintf(f, "#define %s_width  %3d\n", name, b->w);
-    fprintf(f, "#define %s_height %3d\n", name, b->h);
+    fprintf(f, "#define %s_width  %3d\n", name, bw);
+    fprintf(f, "#define %s_height %3d\n", name, bh);
     fprintf(f, "static unsigned char %s_bits[] = {\n", name);
-    for(y = 0; y < b->h; y++) {
+    for(y = 0; y < bh; y++) {
         fputs("  ", f);
-        for(x = 0, bit = 0, byte = 0; x < b->w; x++) {
+        for(x = 0, bit = 0, byte = 0; x < bw; x++) {
             //if((bm_get(b, x, y) & 0x00FFFFFF) != c)
             if(!(bm_get(b, x, y) & 0x00FFFFFF))
                 byte |= (1 << bit);
             if(++bit == 8) {
-                if(x == b->w - 1 && y == b->h - 1)
+                if(x == bw - 1 && y == bh - 1)
                     fprintf(f, "0x%02x", byte);
                 else
                     fprintf(f, "0x%02x,", byte);
@@ -32,7 +33,7 @@ int bm_to_Xbm(Bitmap *b, const char *name) {
             }
         }
         if(bit) {
-            if(y == b->h - 1)
+            if(y == bh - 1)
                 fprintf(f, "0x%02x\n", byte);
             else
                 fprintf(f, "0x%02x,\n", byte);

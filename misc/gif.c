@@ -858,7 +858,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
     if(g->palette) {
         nc = g->palette_size;
         assert(nc > 0); /* You must have at least some colors in your palette */
-        bg = b->color & 0x00FFFFFF;
+        bg = bm_get_color(b) & 0x00FFFFFF;
         for(q = 0; q < nc; q++) {
             bm_get_rgb(g->palette[q], &gct[q].r, &gct[q].g, &gct[q].b);
         }
@@ -876,7 +876,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
                 /* FIXME: Octree color quantization
                 My color quantization method is to just choose random pixels,
                 and hope for the best. */
-                int c = bm_get(b, rand()%b->w, rand()%b->h);
+                int c = bm_get(b, rand() % bm_width(b), rand() % bm_height(b));
                 gct[nc].r = (c >> 16) & 0xFF;
                 gct[nc].g = (c >> 8) & 0xFF;
                 gct[nc].b = (c >> 0) & 0xFF;
@@ -917,7 +917,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
     memset(&gct[nc], 0, (sgct - nc) * sizeof(*gct));
 
     /* See if we can find the background color in the palette */
-    bg = b->color & 0x00FFFFFF;
+    bg = bm_get_color(b) & 0x00FFFFFF;
     q = bsrch_palette_lookup(gct, bg, 0, nc - 1);
     if(q >= 0) {
         file.lsd.background = q;
@@ -970,14 +970,14 @@ static int gif_save_fp(GIF *g, FILE *f) {
     for(fi = 0; fi < g->n; fi++) {
 
         b = g->frames[fi].image;
-        assert(b->w == g->w && b->h == g->h);
+        assert(bm_width(b) == g->w && bm_height(b) == g->h);
 
         bm_reduce_palette(b, palette, nc);
 
         /* Map the pixels in the image to their palette indices */
         int x, y, p = 0;
-        for(y = 0; y < b->h; y++) {
-            for(x = 0; x < b->w; x++) {
+        for(y = 0; y < bm_height(b); y++) {
+            for(x = 0; x < bm_width(b); x++) {
                 unsigned int i;
                 int c = bm_get(b, x, y);
                 i = bsrch_palette_lookup(gct, c, 0, nc - 1);
@@ -987,7 +987,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
                 pixels[p++] = i;
             }
         }
-        assert(p == b->w * b->h);
+        assert(p == bm_pixel_count(b));
 
         gce.block_size = 4;
         gce.fields = 0x04;
@@ -1010,8 +1010,8 @@ static int gif_save_fp(GIF *g, FILE *f) {
         gif_id.separator = 0x2C;
         gif_id.left = 0x00;
         gif_id.top = 0x00;
-        gif_id.width = b->w;
-        gif_id.height = b->h;
+        gif_id.width = bm_width(b);
+        gif_id.height = bm_height(b);
         /* Not using local color table or interlacing */
         gif_id.fields = 0;
         if(fwrite(&gif_id, sizeof gif_id, 1, f) != 1) {
@@ -1023,7 +1023,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
 
         /* Perform the LZW compression */
         int len;
-        unsigned char *bytes = lzw_encode_bytes(pixels, b->w * b->h, code_size, &len);
+        unsigned char *bytes = lzw_encode_bytes(pixels, bm_pixel_count(b), code_size, &len);
 
         /* Write out the data sub-blocks */
         for(p = 0; p < len; p++) {
@@ -1086,8 +1086,8 @@ void gif_free(GIF *gif) {
 }
 
 GIF_FRAME *gif_add_frame(GIF *g, Bitmap *b) {
-    if(b->w != g->w || b->h != g->h) {
-        if(g->w > b->w || g->h > b->h) {
+    if(bm_width(b) != g->w || bm_height(b) != g->h) {
+        if(g->w > bm_width(b) || g->h > bm_height(b)) {
             b = bm_resample_blin(b, g->w, g->h);
         } else {
             b = bm_resample_bcub(b, g->w, g->h);
@@ -1150,9 +1150,9 @@ static int cnt_comp_mask(const void*ap, const void*bp) {
  */
 static int count_colors_build_palette(Bitmap *b, struct gif_triplet rgb[256]) {
     int count = 1, i, c;
-    int npx = b->w * b->h;
+    int npx = bm_width(b) * bm_height(b);
     int *sort = malloc(npx * sizeof *sort);
-    memcpy(sort, b->data, npx * sizeof *sort);
+    memcpy(sort, bm_raw_data(b), npx * sizeof *sort);
     qsort(sort, npx, sizeof(int), cnt_comp_mask);
     c = sort[0] & 0x00FFFFFF;
     rgb[0].r = (c >> 16) & 0xFF;

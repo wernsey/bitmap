@@ -62,6 +62,21 @@ extern "C" {
  */
 
 /**
+ * #### `typedef struct bitmap Bitmap;`
+ *
+ * Structure containing a bitmap image.
+ *
+ * - Use `bm_width()` and `bm_height()` to get the dimensions of a bitmap
+ * - Use `bm_set_color()` and `bm_get_color()` to access the color used when drawing
+ * - Use `bm_clip()`, `bm_get_clip()` and `bm_set_clip()` to manipulate the clipping
+ *      rectangle used when drawing
+ * - Use `bm_set_font()` and `bm_get_font()` to access the font used with `bm_puts()`
+ *      and related routines
+ * - Use `bm_raw_data()` to access the raw pixel data in the bitmap.
+ */
+typedef struct bitmap Bitmap;
+
+/**
  * #### `typedef struct BmPoint BmPoint;`
  * A point, with `x` and `y` coordinates
  */
@@ -79,43 +94,6 @@ typedef struct BmRect {
     int x0, y0;
     int x1, y1;
 } BmRect;
-
-/**
- * #### `typedef struct bitmap Bitmap;`
- * Structure containing a bitmap image.
- *
- * The internal format is `0xAARRGGBB` little endian.
- * Meaning that `p[0]` contains B, `p[1]` contains G,
- * `p[2]` contains R and `p[3]` contains A
- * and the data buffer is an array of bytes BGRABGRABGRABGRABGRA...
- *
- * The member `color` contains the color that will be used for drawing
- * primitives, and for transparency while blitting.
- *
- * The member `font` is a pointer to a `BmFont` structure that is used
- * to render text. See the [Font Routines][] section for more details.
- * Don't modify this directly, since fonts are reference counted;
- * use `bm_set_font()` instead.
- *
- * The member `clip` is a `BmRect` that defines the clipping rectangle
- * when drawing primitives and text.
- */
-typedef struct bitmap {
-    /* Dimesions of the bitmap */
-    int w, h;
-
-    /* The actual pixel data in RGBA format */
-    unsigned char *data;
-
-    /* Color for the pen of the canvas */
-    unsigned int color;
-
-    /* Font object for rendering text */
-    struct bitmap_font *font;
-
-    /* Clipping rectangle */
-    BmRect clip;
-} Bitmap;
 
 /**
  * #### `typedef struct bitmap_font BmFont;`
@@ -214,6 +192,27 @@ int bm_width(Bitmap *b);
  * Retrieves the height of the bitmap `b`
  */
 int bm_height(Bitmap *b);
+
+/**
+ * #### `unsigned char *bm_raw_data(Bitmap *b)`
+ *
+ * Retrieves the raw pixels in the bitmap `b`.
+ *
+ * The internal format is `0xAARRGGBB` little endian.
+ * Meaning that `p[0]` contains B, `p[1]` contains G,
+ * `p[2]` contains R and `p[3]` contains A
+ * and the data buffer is an array of bytes BGRABGRABGRABGRABGRA...
+ */
+unsigned char *bm_raw_data(Bitmap *b);
+
+/**
+ * #### `int bm_pixel_count(Bitmap *b)`
+ *
+ * Returns the number of pixels in the bitmap `b`.
+ *
+ * Essentially `bm_width(b) * bm_height(b)`
+ */
+int bm_pixel_count(Bitmap *b);
 
 /**
  * ### File I/O Functions

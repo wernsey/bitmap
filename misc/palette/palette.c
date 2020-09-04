@@ -304,10 +304,10 @@ int main(int argc, char *argv[]) {
 						fprintf(stderr, "error: Couldn't create bitmap\n");
 						return 1;
 					}
-					if(verbose) printf("dimensions: %d x %d\n", b->w, b->h);
-					for(y = 0; y < b->h; y++) {
+					if(verbose) printf("dimensions: %d x %d\n", bm_width(b), bm_height(b));
+					for(y = 0; y < bm_height(b); y++) {
 						int q = y / scale;
-						for(x = 0; x < b->w; x++) {
+						for(x = 0; x < bm_width(b); x++) {
 							int p = x / scale;
 							int i = q * columns + p;
 							int c = 0;

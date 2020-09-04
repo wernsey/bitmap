@@ -102,14 +102,14 @@ static void show_iteration(Bitmap *b, int n, int np, int *cat, unsigned int *pal
 #endif
 
 int cluster(Bitmap *b, unsigned int *pal, unsigned int K, unsigned int *nk) {
-    int np = b->w * b->h;
+    int np = bm_pixel_count(b);
     assert(K <= MAX_K);
 
     int *cat = calloc(np, sizeof *cat);
 
     unsigned int n[MAX_K];
     if(!nk) nk = n;
-    unsigned int *bytes = (unsigned int *)b->data;
+    unsigned int *bytes = bm_raw_data(b);
     int i, k;
 #if 1
     for(k = 0; k < K; k++) {
@@ -146,8 +146,8 @@ int cluster(Bitmap *b, unsigned int *pal, unsigned int K, unsigned int *nk) {
 
 void bm_reduce_palette_nearest(Bitmap *b, unsigned int palette[], size_t n) {
     int i, k;
-    int np = b->w * b->h;
-    unsigned int *bytes = (unsigned int *)b->data;
+    int np = bm_pixel_count(b);
+    unsigned int *bytes = bm_raw_data(b);
     for(i = 0; i < np; i++) {
         unsigned char iR, iG, iB;
         bm_get_rgb(bytes[i], &iR, &iG, &iB);
@@ -210,17 +210,20 @@ int main(int argc, char *argv[]) {
     //bm_reduce_palette_OD8(b, pal, k);
     bm_save(b, "final-fs.bmp");
 
+    int bw = bm_width(b), bh = bm_height(b);
+    int oh = bm_height(o);
+
     o = bm_create(40, 200);
-    unsigned int t = b->w * b->h, y = 0;
+    unsigned int t = bw * bh, y = 0;
     for(i = 0; i < K; i++) {
-        int h = (int)(((double)(counts[i] * o->h) + 0.5) / t);
+        int h = (int)(((double)(counts[i] * oh) + 0.5) / t);
         bm_set_color(o, pal[i]);
-        bm_fillrect(o, 0, y, b->w - 1, y + h);
+        bm_fillrect(o, 0, y, bw - 1, y + h);
         y += h;
     }
-    if(y != o->h) {
+    if(y != oh) {
         /* sometimes there's an artifact at the bottom due to rounding */
-        bm_fillrect(o, 0, y, b->w - 1, o->h - 1);
+        bm_fillrect(o, 0, y, bw - 1, oh - 1);
     }
     bm_save(o, "palette.bmp");
     bm_free(o);

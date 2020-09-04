@@ -22,6 +22,9 @@ int main(int argc, char *argv[]) {
     double perc = -1.0;
     unsigned int *pal = NULL, npal = 0;
 
+    int iw = bm_width(b);
+    int ih = bm_height(b);
+
     while((opt = getopt(argc, argv, "w:h:np:P:?")) != -1) {
         switch(opt) {
             case 'w' : {
@@ -65,21 +68,21 @@ int main(int argc, char *argv[]) {
     }
 
     if(perc > 0) {
-        ow = b->w * perc;
-        oh = b->h * perc;
+        ow = iw * perc;
+        oh = ih * perc;
     }
 
     if(ow > 0 || oh > 0) {
         Bitmap *tmp;
 
         /* Maintain aspect ratio if only new width/height specified */
-        if(ow <= 0) ow = b->w * oh / b->h;
-        if(oh <= 0) oh = b->h * ow / b->w;
+        if(ow <= 0) ow = iw * oh / ih;
+        if(oh <= 0) oh = ih * ow / iw;
 
         if(nn) {
             tmp = bm_resample(b, ow, oh);
         } else {
-            if(ow > b->w || oh > b->h) {
+            if(ow > iw || oh > ih) {
                 /* Use bilinear filtering to make image larger */
                 tmp = bm_resample_blin(b, ow, oh);
             } else {

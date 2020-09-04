@@ -97,6 +97,42 @@ See __STDC_LIB_EXT1__
 #  define strdup _strdup
 #endif
 
+/*
+ * Structure containing a bitmap image.
+ *
+ * The internal format is `0xAARRGGBB` little endian.
+ * Meaning that `p[0]` contains B, `p[1]` contains G,
+ * `p[2]` contains R and `p[3]` contains A
+ * and the data buffer is an array of bytes BGRABGRABGRABGRABGRA...
+ *
+ * The member `color` contains the color that will be used for drawing
+ * primitives, and for transparency while blitting.
+ *
+ * The member `font` is a pointer to a `BmFont` structure that is used
+ * to render text. See the [Font Routines][] section for more details.
+ * Don't modify this directly, since fonts are reference counted;
+ * use `bm_set_font()` instead.
+ *
+ * The member `clip` is a `BmRect` that defines the clipping rectangle
+ * when drawing primitives and text.
+ */
+struct bitmap {
+    /* Dimesions of the bitmap */
+    int w, h;
+
+    /* The actual pixel data in RGBA format */
+    unsigned char *data;
+
+    /* Color for the pen of the canvas */
+    unsigned int color;
+
+    /* Font object for rendering text */
+    struct bitmap_font *font;
+
+    /* Clipping rectangle */
+    BmRect clip;
+};
+
 #pragma pack(push, 1) /* Don't use any padding (Windows compilers) */
 
 /* Data structures for the header of BMP files. */
@@ -4755,6 +4791,16 @@ int bm_width(Bitmap *b) {
 int bm_height(Bitmap *b) {
     assert(b);
     return b->h;
+}
+
+unsigned char *bm_raw_data(Bitmap *b) {
+    assert(b);
+    return b->data;
+}
+
+int bm_pixel_count(Bitmap *b) {
+    assert(b);
+    return b->w * b->h;
 }
 
 void bm_clear(Bitmap *b) {
