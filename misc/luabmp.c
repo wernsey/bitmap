@@ -1,13 +1,13 @@
 #include <lua.h>
 #include <lauxlib.h>
-#include <lualib.h> 
+#include <lualib.h>
 
 #include "bmp.h"
 
 /** # luabmp.c
- * 
+ *
  * [Lua][] bindings for the bitmap library.
- * 
+ *
  * [Lua]: https://www.lua.org
  */
 
@@ -21,10 +21,10 @@
 static int bmp_create(lua_State *L) {
 	int w = luaL_checknumber(L,1);
 	int h = luaL_checknumber(L,2);
-	
-	Bitmap **bp = lua_newuserdata(L, sizeof *bp);	
+
+	Bitmap **bp = lua_newuserdata(L, sizeof *bp);
 	luaL_setmetatable(L, "Bitmap");
-	
+
 	*bp = bm_create(w, h);
 	if(!*bp) {
 		luaL_error(L, "Unable to create bitmap");
@@ -37,10 +37,10 @@ static int bmp_create(lua_State *L) {
  */
 static int bmp_load(lua_State *L) {
 	const char *filename = luaL_checkstring(L,1);
-	
-	Bitmap **bp = lua_newuserdata(L, sizeof *bp);	
+
+	Bitmap **bp = lua_newuserdata(L, sizeof *bp);
 	luaL_setmetatable(L, "Bitmap");
-	
+
 	*bp = bm_load(filename);
 	if(!*bp) {
 		luaL_error(L, "Unable to load bitmap '%s': %s", filename, bm_get_error());
@@ -54,15 +54,15 @@ static int bmp_load(lua_State *L) {
 static int bmf_load_raster(lua_State *L) {
 	const char *filename = luaL_checkstring(L,1);
 	int spacing;
-	
+
 	if(lua_gettop(L) > 1)
 	 	spacing = luaL_checknumber(L, 2);
-	else 
+	else
 		spacing = 8;
-	
-	BmFont **fp = lua_newuserdata(L, sizeof *fp);	
+
+	BmFont **fp = lua_newuserdata(L, sizeof *fp);
 	luaL_setmetatable(L, "BitmapFont");
-	
+
 	*fp = bm_make_ras_font(filename, spacing);
 	if(!*fp) {
 		luaL_error(L, "Unable to load raster font '%s': %s", filename, bm_get_error());
@@ -73,15 +73,15 @@ static int bmf_load_raster(lua_State *L) {
 
 /** ### `Bitmap.Font.loadSFont(filename)`
  * Loads the [SFont][sfont] specified by `filename`
- * 
+ *
  * [sfont]: http://www.linux-games.com/sfont/
  */
 static int bmf_load_sfont(lua_State *L) {
 	const char *filename = luaL_checkstring(L,1);
-	
-	BmFont **fp = lua_newuserdata(L, sizeof *fp);	
+
+	BmFont **fp = lua_newuserdata(L, sizeof *fp);
 	luaL_setmetatable(L, "BitmapFont");
-	
+
 	*fp = bm_make_sfont(filename);
 	if(!*fp) {
 		luaL_error(L, "Unable to load SFont '%s': %s", filename, bm_get_error());
@@ -97,7 +97,7 @@ static int bmf_load_sfont(lua_State *L) {
 /** ### `Bitmap:__tostring()`
  *  Returns a string representation of the `Bitmap` instance.
  */
-static int bmp_tostring(lua_State *L) {	
+static int bmp_tostring(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	Bitmap *b = *bp;
 	lua_pushfstring(L, "Bitmap[%dx%d]", b->w, b->h);
@@ -116,7 +116,7 @@ static int gc_bmp_obj(lua_State *L) {
 /** ### `Bitmap:save(filename)`
  *  Saves the `Bitmap` to a file.
  */
-static int bmp_save(lua_State *L) {	
+static int bmp_save(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	const char *filename = luaL_checkstring(L, 2);
 	if(!bm_save(*bp, filename))
@@ -128,14 +128,14 @@ static int bmp_save(lua_State *L) {
 /** ### `Bitmap:copy()`
  *  Returns a copy of the `Bitmap` instance.
  */
-static int bmp_copy(lua_State *L) {	
+static int bmp_copy(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	Bitmap *b = *bp;
 
 	Bitmap *clone = bm_copy(b);
 	if(!clone)
 		luaL_error(L, "Unable to copy bitmap");
-	bp = lua_newuserdata(L, sizeof *bp);	
+	bp = lua_newuserdata(L, sizeof *bp);
 	luaL_setmetatable(L, "Bitmap");
 	*bp = clone;
 	return 1;
@@ -144,12 +144,12 @@ static int bmp_copy(lua_State *L) {
 /** ### `Bitmap:setColor(color)`, `Bitmap:setColor(R,G,B [,A])`
  *
  *  Sets the pen color of the bitmap.
- * 
+ *
  * The first form expects a CSS-style string value, whereas the
  * second form takes numeric R,G,B and an optional Alpha values
  * between 0.0 and 1.0
  */
-static int bmp_set_color(lua_State *L) {	
+static int bmp_set_color(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	unsigned int color = 0;
 	if(lua_gettop(L) == 2) {
@@ -159,7 +159,7 @@ static int bmp_set_color(lua_State *L) {
 		double R = luaL_checknumber(L,2);
 		double G = luaL_checknumber(L,3);
 		double B = luaL_checknumber(L,4);
-		
+
 		if(R < 0.0) R = 0.0; if(R > 1.0) R = 1.0;
 		if(G < 0.0) G = 0.0; if(G > 1.0) G = 1.0;
 		if(B < 0.0) B = 0.0; if(B > 1.0) B = 1.0;
@@ -168,7 +168,7 @@ static int bmp_set_color(lua_State *L) {
 			double A = luaL_checknumber(L,5);
 			if(A < 0.0) A = 0.0; if(A > 1.0) A = 1.0;
 			color = bm_rgba(R * 255, G * 255, B * 255, A * 255);
-		} else 
+		} else
 			color = bm_rgb(R * 255, G * 255, B * 255);
 	}
 	bm_set_color(*bp, color);
@@ -177,7 +177,7 @@ static int bmp_set_color(lua_State *L) {
 
 /** ### `R,G,B = Bitmap:getColor()`, `R,G,B = Bitmap:getColor(x, y)`
  * Gets the pen color of the bitmap.
- * 
+ *
  * If the `x,y` parameters are supplied, the color of the
  * pixel at `x,y` is returned.
  */
@@ -191,7 +191,7 @@ static int bmp_get_color(lua_State *L) {
 		if(x < 0) x = 0;
 		if(x >= (*bp)->w) x = (*bp)->w - 1;
 		if(y < 0) y = 0;
-		if(y >= (*bp)->h) y = (*bp)->h - 1;		
+		if(y >= (*bp)->h) y = (*bp)->h - 1;
 		color = bm_get(*bp, x, y);
 	}
 	else
@@ -206,7 +206,7 @@ static int bmp_get_color(lua_State *L) {
 /** ### `W,H = Bitmap:size()`
  *  Returns the width and height of the bitmap
  */
-static int bmp_size(lua_State *L) {	
+static int bmp_size(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	lua_pushinteger(L, (*bp)->w);
 	lua_pushinteger(L, (*bp)->h);
@@ -214,10 +214,10 @@ static int bmp_size(lua_State *L) {
 }
 
 /** ### `Bitmap:resample(W, H, [mode])`
- * 
+ *
  * Resizes a bitmap to the new width, height.
- * 
- * `mode` is either `"blin"` for bilinear, `"bcub"` for bicubic, 
+ *
+ * `mode` is either `"blin"` for bilinear, `"bcub"` for bicubic,
  * or `"near"` for nearest neighbour
  */
 static int bmp_resample(lua_State *L) {
@@ -225,10 +225,10 @@ static int bmp_resample(lua_State *L) {
 	int nw = luaL_checknumber(L, 2);
 	int nh = luaL_checknumber(L, 3);
 	const char *mode = "near";
-	
+
 	if(lua_gettop(L) == 4)
 		mode = luaL_checkstring(L, 4);
-	
+
 	Bitmap *out;
 	if(!bm_stricmp(mode, "blin"))
 		out = bm_resample_blin(*bp, nw, nh);
@@ -247,28 +247,28 @@ static int bmp_resample(lua_State *L) {
 }
 
 /** ### `Bitmap:blit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
- * 
+ *
  * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy).
- * 
+ *
  * (sx,sy) specify the source (x,y) position and (dw,dh) specifies the
  * width and height of the destination area to draw.
- * 
- * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire 
+ *
+ * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire
  * source bitmap.
- * 
- * If (sw,sh) is specified, the bitmap is scaled so that the area on the 
+ *
+ * If (sw,sh) is specified, the bitmap is scaled so that the area on the
  * source bitmap from (sx,sy) with dimensions (sw,sh) is drawn onto the
  * screen at (dx,dy) with dimensions (dw,dh).
  */
 static int bmp_blit(lua_State *L) {
 	Bitmap **dest = luaL_checkudata(L,1, "Bitmap");
 	Bitmap **src = luaL_checkudata(L,2, "Bitmap");
-	
+
 	int dx = luaL_checknumber(L, 3);
 	int dy = luaL_checknumber(L, 4);
-	
+
 	int sx = 0, sy = 0, w = (*src)->w, h = (*src)->h;
-	
+
 	if(lua_gettop(L) > 5) {
 		sx = luaL_checknumber(L, 5);
 		sy = luaL_checknumber(L, 6);
@@ -284,34 +284,34 @@ static int bmp_blit(lua_State *L) {
 	} else {
 		bm_blit(*dest, dx, dy, *src, sx, sy, w, h);
 	}
-	
+
 	return 0;
 }
 
 /** ### `Bitmap:maskedblit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
- * 
+ *
  * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy), using the
  * color of `src` as a mask.
- * 
+ *
  * (sx,sy) specify the source (x,y) position and (dw,dh) specifies the
  * width and height of the destination area to draw.
- * 
- * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire 
+ *
+ * (sx,sy) defaults to (0,0) and (dw,dh) defaults to the entire
  * source bitmap.
- * 
- * If (sw,sh) is specified, the bitmap is scaled so that the area on the 
+ *
+ * If (sw,sh) is specified, the bitmap is scaled so that the area on the
  * source bitmap from (sx,sy) with dimensions (sw,sh) is drawn onto the
  * screen at (dx,dy) with dimensions (dw,dh).
  */
 static int bmp_maskedblit(lua_State *L) {
 	Bitmap **dest = luaL_checkudata(L,1, "Bitmap");
 	Bitmap **src = luaL_checkudata(L,2, "Bitmap");
-	
+
 	int dx = luaL_checknumber(L, 3);
 	int dy = luaL_checknumber(L, 4);
-	
+
 	int sx = 0, sy = 0, w = (*src)->w, h = (*src)->h;
-	
+
 	if(lua_gettop(L) > 5) {
 		sx = luaL_checknumber(L, 5);
 		sy = luaL_checknumber(L, 6);
@@ -327,7 +327,7 @@ static int bmp_maskedblit(lua_State *L) {
 	} else {
 		bm_maskedblit(*dest, dx, dy, *src, sx, sy, w, h);
 	}
-	
+
 	return 0;
 }
 
@@ -432,7 +432,7 @@ static int bmp_dithrect(lua_State *L) {
 /** ### `Bitmap:circle(x, y, r)`
  * Draws a circle of radius `r` centered at (x,y)
  */
-static int bmp_circle(lua_State *L) {	
+static int bmp_circle(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	int x = luaL_checknumber(L,2);
 	int y = luaL_checknumber(L,3);
@@ -444,7 +444,7 @@ static int bmp_circle(lua_State *L) {
 /** ### `Bitmap:fillcircle(x, y, r)`
  * Draws a filled circle of radius `r` centered at (x,y)
  */
-static int bmp_fillcircle(lua_State *L) {	
+static int bmp_fillcircle(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
 	int x = luaL_checknumber(L,2);
 	int y = luaL_checknumber(L,3);
@@ -507,6 +507,23 @@ static int bmp_fillroundrect(lua_State *L) {
 	return 0;
 }
 
+/** ### `Bitmap:bezier3(x0, y0, x1, y1, x2, y2)`
+ * Draws a Bezier curve from (x0,y0) to (x2,y2)
+ * with (x1,y1) as the control point.
+ * Note that it doesn't pass through (x1,y1)
+ */
+static int bmp_bezier3(lua_State *L) {
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	int x0 = luaL_checknumber(L,2);
+	int y0 = luaL_checknumber(L,3);
+	int x1 = luaL_checknumber(L,4);
+	int y1 = luaL_checknumber(L,5);
+	int x2 = luaL_checknumber(L,6);
+	int y2 = luaL_checknumber(L,7);
+	bm_bezier3(*bp, x0, y0, x1, y1, x2, y2);
+	return 0;
+}
+
 /** ### `Bitmap:print(x,y,text)`
  *  Prints the `text` to the bitmap, with its top left position at `x,y`.
  */
@@ -515,10 +532,27 @@ static int bmp_print(lua_State *L) {
 	int x = luaL_checknumber(L, 2);
 	int y = luaL_checknumber(L, 3);
 	const char *s = luaL_checkstring(L, 4);
-	
+
 	bm_puts(*bp, x, y, s);
-	
+
 	return 0;
+}
+
+/** ### `w,h = Bitmap:textSize(text)`
+ * Returns the width,height in pixels that the `text`
+ * will occupy on the screen.
+ *
+ *     local w,h = bitmap:textSize(message);
+ */
+static int bmp_textdims(lua_State *L) {
+
+	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
+	const char *s = luaL_checkstring(L, 2);
+
+	lua_pushinteger(L, bm_text_width(*bp, s));
+	lua_pushinteger(L, bm_text_height(*bp, s));
+
+	return 2;
 }
 
 /** ### `Bitmap:setFont(font)`
@@ -531,7 +565,7 @@ static int bmp_set_font(lua_State *L) {
 		bm_set_font(*bp, *font);
 	} else
 		bm_reset_font(*bp);
-	
+
 	return 0;
 }
 
@@ -545,11 +579,11 @@ static int gc_bmp_font(lua_State *L) {
 }
 
 void register_bmp_functions(lua_State *L) {
-	
+
 	luaL_newmetatable(L, "Bitmap");
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index"); /* Bitmap.__index = Bitmap */
-	
+
 	/* Add methods */
 	lua_pushcfunction(L, bmp_save);
 	lua_setfield(L, -2, "save");
@@ -573,7 +607,7 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "getclip");
 	lua_pushcfunction(L, bmp_unclip);
 	lua_setfield(L, -2, "unclip");
-	
+
 	lua_pushcfunction(L, bmp_putpixel);
 	lua_setfield(L, -2, "putpixel");
 	lua_pushcfunction(L, bmp_line);
@@ -596,30 +630,32 @@ void register_bmp_functions(lua_State *L) {
 	lua_setfield(L, -2, "roundrect");
 	lua_pushcfunction(L, bmp_fillroundrect);
 	lua_setfield(L, -2, "fillroundrect");
+	lua_pushcfunction(L, bmp_bezier3);
+	lua_setfield(L, -2, "bezier3");
 
 	lua_pushcfunction(L, bmp_print);
 	lua_setfield(L, -2, "print");
 	lua_pushcfunction(L, bmp_set_font);
 	lua_setfield(L, -2, "setFont");
-	
+	lua_pushcfunction(L, bmp_textdims);
+	lua_setfield(L, -2, "textSize");
+
 	lua_pushcfunction(L, bmp_tostring);
-	lua_setfield(L, -2, "__tostring");	
+	lua_setfield(L, -2, "__tostring");
 	lua_pushcfunction(L, gc_bmp_obj);
 	lua_setfield(L, -2, "__gc");
 
-	
 	luaL_newmetatable(L, "BitmapFont");
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -2, "__index"); /* Bitmap.__index = Bitmap */
 	lua_pushcfunction(L, gc_bmp_font);
 	lua_setfield(L, -2, "__gc");
 
-	
 	/* The global table Bitmap with static function load() */
 	lua_createtable (L, 0, 3);
-	
+
 	lua_pushcfunction(L, bmp_create);
-	lua_setfield(L, -2, "create");	
+	lua_setfield(L, -2, "create");
 	lua_pushcfunction(L, bmp_load);
 	lua_setfield(L, -2, "load");
 
@@ -638,7 +674,7 @@ void register_bmp_functions(lua_State *L) {
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
-	
+
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 	register_bmp_functions(L);

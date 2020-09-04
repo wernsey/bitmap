@@ -45,16 +45,23 @@ bitmap:roundrect(210, 70, 240, 100, 4)
 bitmap:setColor("#FF5500")
 bitmap:fillroundrect(210, 120, 240, 150, 5)
 
+bitmap:bezier3(10, 140, 10, 130, 30, 125)
+
 -- font = Bitmap.Font.loadSFont('3rd-party/SaikyoBlack.png')
 font = Bitmap.Font.loadRaster('fonts/font.gif')
 
+message = "Hello Font"
+
 bitmap:setFont(font)
-bitmap:print(10, 60, "Hello Font")
+bitmap:print(10, 60, message)
+
+W,H = bitmap:textSize(message)
+io.write("Text size: " .. W .. "x" .. H .. "\n")
 
 bitmap:setFont()
-bitmap:print(10, 70, "Hello Font")
+bitmap:print(10, 70, message)
 
-bitmap:save('out-lua.bmp')
+bitmap:save('out-lua.gif')
 
 
 io.write("Done.")
