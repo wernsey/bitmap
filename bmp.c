@@ -948,10 +948,10 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     unsigned char header[8];
     png_structp png = NULL;
-    png_infop info = NULL;
-    png_bytep *rows = NULL;
+    png_infop volatile info = NULL;
+    png_bytep * volatile rows = NULL;
 
-    int w, h, ct, bpp, x, y, il, has_alpha = 0;
+    volatile int w, h, ct, bpp, x, y, il, has_alpha = 0;
 
     const char *error_message = "";
 
@@ -970,14 +970,15 @@ static Bitmap *bm_load_png_fp(FILE *f) {
         error_message = "png_create_info_struct failed";
         goto error;
     }
+
     if(setjmp(png_jmpbuf(png))) {
-        error_message = "png_read_info failed";
         goto error;
     }
 
     png_init_io(png, f);
     png_set_sig_bytes(png, 8);
 
+    error_message = "png_read_info failed";
     png_read_info(png, info);
 
     w = png_get_image_width(png, info);
@@ -1011,6 +1012,8 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     if(il)
         png_set_interlace_handling(png);
+
+    error_message = "png_read_update_info failed";
 
     png_read_update_info(png, info);
 
