@@ -79,6 +79,13 @@ static const char *bm_last_error = "no error";
 
 #define SWAPINT(a, b) do {int t = a; a = b; b = t;} while(0)
 
+/* https://eli.thegreenplace.net/2009/11/16/void-and-casts-in-c-and-c */
+#if defined(__cplusplus)
+#  define CAST(T) static_cast<T>
+#else
+#  define CAST(T)
+#endif
+
 #if !defined(WIN32) && 0
 /* TODO: Use `alloca()` if it is available */
 #define ALLOCA(x) alloca(x)
@@ -211,7 +218,7 @@ struct rgb_triplet {
 
 Bitmap *bm_create(int w, int h) {
     SET_ERROR("no error");
-    Bitmap *b = malloc(sizeof *b);
+    Bitmap *b = CAST(Bitmap *)(malloc(sizeof *b));
     if(!b) {
         SET_ERROR("out of memory");
         return NULL;
@@ -228,7 +235,7 @@ Bitmap *bm_create(int w, int h) {
     b->clip.x1 = w;
     b->clip.y1 = h;
 
-    b->data = malloc(BM_BLOB_SIZE(b));
+    b->data = CAST(unsigned char *)(malloc(BM_BLOB_SIZE(b)));
     if(!b->data) {
         SET_ERROR("out of memory");
         free(b);
@@ -568,7 +575,7 @@ Bitmap *bm_load_base64(const char *base64) {
 
     unsigned octet = 0, sextet, bits = 0;
 
-    buffer = malloc(len + 1);
+    buffer = CAST(unsigned char*)(malloc(len + 1));
     if(!buffer) {
         SET_ERROR("out of memory");
         return NULL;
@@ -623,7 +630,11 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
 
     int i, j;
     unsigned rs;
-    char *data = NULL;
+    unsigned char *data = NULL;
+
+    uint32_t rgbmask[3] = { 0, 0, 0 };
+    uint32_t rgbshift[3] = { 0, 0, 0 };
+    float rgbcorr[3] = { 0.0f, 0.0f, 0.0f };
 
     long start_offset = rd.ftell(rd.data);
 
@@ -642,7 +653,6 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         SET_ERROR("fread on header");
         return NULL;
     }
-
 
     if (dib.bitspp != 1 &&
         dib.bitspp != 4 &&
@@ -669,7 +679,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         if(!dib.ncolors) {
             dib.ncolors = 1 << dib.bitspp;
         }
-        palette = calloc(dib.ncolors, sizeof *palette);
+        palette = CAST(struct bmpfile_colinfo*)(calloc(dib.ncolors, sizeof *palette));
         if(!palette) {
             SET_ERROR("out of memory");
             goto error;
@@ -679,10 +689,6 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             goto error;
         }
     }
-
-    uint32_t rgbmask[3] = { 0, 0, 0 };
-    uint32_t rgbshift[3] = { 0, 0, 0 };
-    float rgbcorr[3] = { 0.0f, 0.0f, 0.0f };
 
     /* standard bitmasks for 16 & 32 bpp, required when biCompression = BI_RGB */
     if (dib.bitspp == 32) {
@@ -721,7 +727,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     rs = ((dib.width * dib.bitspp / 8) + 3) & ~3;
     assert(rs % 4 == 0);
 
-    data = malloc(rs * b->h);
+    data = CAST(unsigned char *)(malloc(rs * b->h));
     if(!data) {
         SET_ERROR("out of memory");
         goto error;
@@ -870,7 +876,7 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
     FILE *f;
 
     int rs, padding, i, j;
-    char *data;
+    unsigned char *data;
 
     padding = 4 - ((b->w * 3) % 4);
     if(padding > 3) padding = 0;
@@ -913,7 +919,7 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
     fwrite(&hdr, sizeof hdr, 1, f);
     fwrite(&dib, sizeof dib, 1, f);
 
-    data = malloc(dib.bmp_bytesz);
+    data = CAST(unsigned char *)(malloc(dib.bmp_bytesz));
     if(!data) {
         SET_ERROR("out of memory");
         fclose(f);
@@ -1627,7 +1633,7 @@ static int cnt_comp_noalpha(const void*ap, const void*bp) {
 static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]) {
     int count = 1, i, c;
     int npx = b->w * b->h;
-    int *sort = ALLOCA(npx * sizeof *sort);
+    int *sort = CAST(int *)(ALLOCA(npx * sizeof *sort));
     if (!sort) return 0;
     memcpy(sort, b->data, npx * sizeof *sort);
     qsort(sort, npx, sizeof(int), cnt_comp_noalpha);
@@ -1671,7 +1677,8 @@ static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int i
 
 /* Comparison function for sorting an array of rgb_triplets with qsort() */
 static int comp_rgb(const void *ap, const void *bp) {
-    const struct rgb_triplet *ta = ap, *tb = bp;
+    const struct rgb_triplet *ta = CAST(const struct rgb_triplet*)(ap),
+                             *tb = CAST(const struct rgb_triplet*)(bp);
     int a = (ta->r << 16) | (ta->g << 8) | ta->b;
     int b = (tb->r << 16) | (tb->g << 8) | tb->b;
     return a - b;
@@ -1684,6 +1691,8 @@ http://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011
 http://www.matthewflickinger.com/lab/whatsinagif/bits_and_bytes.asp
 */
 
+enum gif_type {gif_87a, gif_89a};
+
 #pragma pack(push, 1) /* Don't use any padding */
 typedef struct {
 
@@ -1693,7 +1702,7 @@ typedef struct {
         char version[3];
     } header;
 
-    enum {gif_87a, gif_89a} version;
+    enum gif_type version;
 
     /* logical screen descriptor */
     struct {
@@ -1805,7 +1814,7 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
     if(gct) {
         /* Section 19. Global Color Table. */
         struct rgb_triplet *bg;
-        palette = calloc(sgct, sizeof *palette);
+        palette = CAST(struct rgb_triplet*)(calloc(sgct, sizeof *palette));
         if (!palette)
             return NULL;
 
@@ -1927,7 +1936,7 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
         /* raise 2 to the power of [slct+1] */
         slct = 1 << (slct + 1);
 
-        ct = calloc(slct, sizeof *ct);
+        ct = CAST(struct rgb_triplet*)(calloc(slct, sizeof *ct));
 
         if(rd.fread(ct, sizeof *ct, slct, rd.data) != slct) {
             free(ct);
@@ -1960,7 +1969,7 @@ static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
         SET_ERROR("error reading GIF subblock size");
         return NULL;
     }
-    void *tbuf = realloc(buffer, 1);
+    unsigned char *tbuf = CAST(unsigned char*)(realloc(buffer, 1));
     if (!tbuf) {
         free(buffer);
         return NULL;
@@ -1968,7 +1977,7 @@ static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
     buffer = tbuf;
 
     while(size > 0) {
-        tbuf = realloc(buffer, tsize + size + 1);
+        tbuf = CAST(unsigned char*)(realloc(buffer, tsize + size + 1));
         if (!tbuf) {
             free(buffer);
             return NULL;
@@ -2129,16 +2138,16 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
 
     /* Dictionary */
     int di, dict_size = 1 << (code_size + 1);
-    gif_dict *dict = realloc(NULL, dict_size * sizeof *dict);
+    gif_dict *dict = CAST(gif_dict*)(realloc(NULL, dict_size * sizeof *dict));
 
     /* Stack so we don't need to recurse down the dictionary */
     int stack_size = 2;
-    unsigned char *stack = realloc(NULL, stack_size);
+    unsigned char *stack = CAST(unsigned char *)(realloc(NULL, stack_size));
     int sp = 0;
     int sym = -1, ptr;
 
     *out_len = 0;
-    out = realloc(NULL, out_size);
+    out = CAST(unsigned char *)(realloc(NULL, out_size));
 
     /* Initialize the dictionary */
     for(di = 0; di < dict_size; di++) {
@@ -2182,7 +2191,7 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
             stack[sp++] = dict[ptr].code;
             if(sp == stack_size) {
                 stack_size <<= 1;
-                void *tbuf = realloc(stack, stack_size);
+                unsigned char *tbuf = CAST(unsigned char*)(realloc(stack, stack_size));
                 if (!tbuf) {
                     free(stack);
                     return NULL;
@@ -2198,7 +2207,7 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
             out[outp++] = stack[--sp];
             if(outp == out_size) {
                 out_size <<= 1;
-                void *tbuf = realloc(out, out_size);
+                unsigned char *tbuf = CAST(unsigned char*)(realloc(out, out_size));
                 if (!tbuf) {
                     free(out);
                     return NULL;
@@ -2218,13 +2227,12 @@ static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int c
             if(di == dict_size && code_size < 11) {
                 code_size++;
                 dict_size = 1 << (code_size + 1);
-                void *tmp = realloc(dict, dict_size * sizeof *dict);
+                gif_dict *tmp = CAST(gif_dict*)(realloc(dict, dict_size * sizeof *dict));
                 if (!tmp) {
                     free(dict);
                     return NULL;
                 }
                 dict = tmp;
-
             }
         }
 
@@ -2246,7 +2254,7 @@ static void lzw_emit_code(unsigned char **buffer, int *buf_size, int *pos, int c
         if(!bit) {
             if(byte == *buf_size) {
                 *buf_size <<= 1;
-                void *tmp = realloc(*buffer, *buf_size);
+                unsigned char *tmp = CAST(unsigned char *)(realloc(*buffer, *buf_size));
                 if (!tmp) {
                     free(*buffer);
                     return;
@@ -2270,11 +2278,11 @@ static unsigned char *lzw_encode_bytes(unsigned char *bytes, int data_len, int c
 
     /* dictionary */
     int i, di, dict_size = 1 << (code_size + 1);
-    gif_dict *dict = realloc(NULL, dict_size * sizeof *dict);
+    gif_dict *dict = CAST(gif_dict*)(realloc(NULL, dict_size * sizeof *dict));
 
     int buf_size = 4;
     int pos = 0;
-    unsigned char *buffer = realloc(NULL, buf_size);
+    unsigned char *buffer = CAST(unsigned char *)(realloc(NULL, buf_size));
 
     int ii, string, prev, tlen;
 
@@ -2325,7 +2333,7 @@ reread:
                 if(code_size < 11) {
                     code_size++;
                     dict_size = 1 << (code_size + 1);
-                    void *tmp = realloc(dict, dict_size * sizeof *dict);
+                    gif_dict *tmp = CAST(gif_dict*)(realloc(dict, dict_size * sizeof *dict));
                     if (!tmp) {
                         free(dict);
                         return NULL;
@@ -2470,7 +2478,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     }
 
     /* Map the pixels in the image to their palette indices */
-    pixels = malloc(b->w * b->h);
+    pixels = CAST(unsigned char*)(malloc(b->w * b->h));
     for(y = 0, p = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
             int i, c = bm_get(b, x, y);
@@ -2821,6 +2829,12 @@ static int is_tga_file(BmReader rd) {
        an educated guess as to whether it looks like one from its header */
     struct tga_header head;
     long start = rd.ftell(rd.data), rv = 1;
+
+    static const uint8_t tga_types[] = {0,1,2,3,9,10,11, /* 32,33 */};
+    /* 32 and 33 seem complex and not widely supported, so I'm not going
+    to bother with them. */
+    int n, m = sizeof(tga_types)/ sizeof(tga_types[0]);
+
     if(rd.fread(&head, sizeof head, 1, rd.data) != 1) {
         rv = 0;
         goto done;
@@ -2830,10 +2844,6 @@ static int is_tga_file(BmReader rd) {
         rv = 0;
         goto done;
     }
-    static const uint8_t tga_types[] = {0,1,2,3,9,10,11, /* 32,33 */};
-    /* 32 and 33 seem complex and not widely supported, so I'm not going
-    to bother with them. */
-    int n, m = sizeof(tga_types)/ sizeof(tga_types[0]);
     for(n = 0; n < m; n++) {
         if(head.img_type == tga_types[n])
             break;
@@ -2898,6 +2908,7 @@ static int tga_decode_pixel(Bitmap *bmp, int x, int y, uint8_t bytes[], struct t
 
 static Bitmap *bm_load_tga_rd(BmReader rd) {
     struct tga_header head;
+    int i = 0, j, np;
     assert(sizeof(struct tga_header) == 18);
 
     /* Just try to catch cases where is_tga_file() might fail... */
@@ -2921,7 +2932,7 @@ static Bitmap *bm_load_tga_rd(BmReader rd) {
     Bitmap *bmp = bm_create(head.img_spec.w, head.img_spec.h);
 
     if(head.map_type) {
-        color_map = calloc(head.map_spec.length, head.map_spec.size);
+        color_map = CAST(uint8_t*)(calloc(head.map_spec.length, head.map_spec.size));
         int r = rd.fread(color_map, head.map_spec.size / 8, head.map_spec.length, rd.data);
         if(r != head.map_spec.length) {
             SET_ERROR("error reading TGA color map");
@@ -2929,8 +2940,7 @@ static Bitmap *bm_load_tga_rd(BmReader rd) {
         }
     }
 
-    int i = 0, j;
-    int np = head.img_spec.w * head.img_spec.h;
+    np = head.img_spec.w * head.img_spec.h;
 
     while(i < np) {
 
@@ -3134,7 +3144,7 @@ void bm_free(Bitmap *b) {
 
 Bitmap *bm_bind(int w, int h, unsigned char *data) {
     SET_ERROR("no error");
-    Bitmap *b = malloc(sizeof *b);
+    Bitmap *b = CAST(Bitmap*)(malloc(sizeof *b));
     if(!b) {
         SET_ERROR("out of memory");
         return NULL;
@@ -3170,7 +3180,7 @@ void bm_unbind(Bitmap *b) {
 void bm_flip_vertical(Bitmap *b) {
     int y;
     size_t s = BM_ROW_SIZE(b);
-    unsigned char *trow = ALLOCA(s);
+    unsigned char *trow = CAST(unsigned char*)(ALLOCA(s));
     if (!trow)
         return;
     for(y = 0; y < b->h/2; y++) {
@@ -3885,7 +3895,7 @@ static int vec2_cross(BmPoint v1, BmPoint v2) {
 }
 
 static BmPoint vec2_interp(BmPoint P, BmPoint D, double t) {
-    BmPoint v = {P.x + t * D.x, P.y + t * D.y};
+    BmPoint v = {(int)(P.x + t * D.x), (int)(P.y + t * D.y)};
     return v;
 }
 
@@ -5475,7 +5485,7 @@ void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n) {
     unsigned int nodes;
 
     if(n > MAX_POLY_CORNERS) {
-        nodeX = calloc(n, sizeof *nodeX);
+        nodeX = CAST(int*)(calloc(n, sizeof *nodeX));
         if(!nodeX) return;
     }
 
@@ -5555,7 +5565,7 @@ void bm_fill(Bitmap *b, int x, int y) {
     if(sc == dc)
         return;
 
-    queue = calloc(mqs, sizeof *queue);
+    queue = CAST(BmPoint*)(calloc(mqs, sizeof *queue));
     if(!queue)
         return;
 
@@ -5594,8 +5604,8 @@ void bm_fill(Bitmap *b, int x, int y) {
                     queue[qs++] = nn;
                     if(qs == mqs) {
                         mqs <<= 1;
-                        void *tmp = realloc(queue, mqs * sizeof *queue);
-                        if (!queue) {
+                        BmPoint *tmp = CAST(BmPoint*)(realloc(queue, mqs * sizeof *queue));
+                        if (!tmp) {
                             free(queue);
                             return;
                         }
@@ -5609,7 +5619,7 @@ void bm_fill(Bitmap *b, int x, int y) {
                     queue[qs++] = nn;
                     if(qs == mqs) {
                         mqs <<= 1;
-                        void *tmp = realloc(queue, mqs * sizeof *queue);
+                        BmPoint *tmp = CAST(BmPoint*)(realloc(queue, mqs * sizeof *queue));
                         if (!tmp) {
                             free(queue);
                             return;
@@ -5807,7 +5817,7 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
         (void)version;
         if(fscanf(f, "%u", &an) != 1)
             goto error;
-        pal = calloc(an, sizeof *pal);
+        pal = CAST(unsigned int*)(calloc(an, sizeof *pal));
         if(!pal)
             goto error;
         for(n = 0; n < an; n++) {
@@ -5825,7 +5835,7 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
     /* TODO: Here's a spec for the Microsoft PAL format
     https://worms2d.info/Palette_file */
 
-    pal = calloc(an, sizeof *pal);
+    pal = CAST(unsigned int*)(calloc(an, sizeof *pal));
     if (!pal)
         goto error;
     while(fgets(buf, sizeof buf, f) && n < 256) {
@@ -5850,7 +5860,7 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
         pal[n++] = bm_atoi(s);
         if(n == an) {
             an <<= 1;
-            void *tmp = realloc(pal, an * sizeof *pal);
+            unsigned int *tmp = CAST(unsigned int *)(realloc(pal, an * sizeof *pal));
             if (!tmp)
                 goto error;
             pal = tmp;
@@ -6010,7 +6020,7 @@ typedef struct {
 
 static int rf_puts(Bitmap *b, int x, int y, const char *s) {
     assert(!strcmp(b->font->type, "RASTER_FONT"));
-    RasterFontData *data = b->font->data;
+    RasterFontData *data = CAST(RasterFontData *)(b->font->data);
     int x0 = x;
     while(*s) {
         if(*s == '\n') {
@@ -6037,12 +6047,12 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
 
 static int rf_width(BmFont *font) {
     assert(!strcmp(font->type, "RASTER_FONT"));
-    RasterFontData *data = font->data;
+    RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->width;
 }
 static int rf_height(BmFont *font) {
     assert(!strcmp(font->type, "RASTER_FONT"));
-    RasterFontData *data = font->data;
+    RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->height;
 }
 
@@ -6056,7 +6066,7 @@ static void rf_free_font(BmFont *font) {
 
 BmFont *bm_make_ras_font(const char *file, int spacing) {
     unsigned int bg = 0;
-    BmFont *font = malloc(sizeof *font);
+    BmFont *font = CAST(BmFont *)(malloc(sizeof *font));
     if (!font)
         return NULL;
     font->type = "RASTER_FONT";
@@ -6065,7 +6075,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     font->width = rf_width;
     font->height = rf_height;
     font->dtor = rf_free_font;
-    RasterFontData *data = malloc(sizeof *data);
+    RasterFontData *data = CAST(RasterFontData *)(malloc(sizeof *data));
     if (!data) {
         SET_ERROR("out of memory");
         free(font);
@@ -6103,7 +6113,7 @@ typedef struct {
 
 static int sf_puts(Bitmap *b, int x, int y, const char *s) {
     assert(!strcmp(b->font->type, "SFONT"));
-    SFontData *data = b->font->data;
+    SFontData *data = CAST(SFontData *)(b->font->data);
     int x0 = x;
 
     int cw = 0, ch = data->bmp->h - 1;
@@ -6147,12 +6157,12 @@ static int sf_puts(Bitmap *b, int x, int y, const char *s) {
 }
 static int sf_width(BmFont *font) {
     assert(!strcmp(font->type, "SFONT"));
-    SFontData *data = font->data;
+    SFontData *data = CAST(SFontData *)(font->data);
     return data->width;
 }
 static int sf_height(BmFont *font) {
     assert(!strcmp(font->type, "SFONT"));
-    SFontData *data = font->data;
+    SFontData *data = CAST(SFontData *)(font->data);
     return data->height;
 }
 static void sf_dtor(BmFont *font) {
@@ -6166,10 +6176,10 @@ static void sf_dtor(BmFont *font) {
 BmFont *bm_make_sfont(const char *file) {
     SET_ERROR("no error");
     unsigned int bg, mark;
-    int cnt = 0, x, w = 1, s = 0, mw = 0;
+    int cnt = 0, x, w = 1, s = 0, mw = 0, state = 0;
     Bitmap *b = NULL;
     SFontData *data = NULL;
-    BmFont *font = malloc(sizeof *font);
+    BmFont *font = CAST(BmFont *)(malloc(sizeof *font));
     if(!font) {
         SET_ERROR("out of memory");
         return NULL;
@@ -6180,7 +6190,7 @@ BmFont *bm_make_sfont(const char *file) {
     font->width = sf_width;
     font->height = sf_height;
     font->dtor = sf_dtor;
-    data = malloc(sizeof *data);
+    data = CAST(SFontData *)(malloc(sizeof *data));
     if(!data) {
         SET_ERROR("out of memory");
         goto error;
@@ -6201,7 +6211,6 @@ BmFont *bm_make_sfont(const char *file) {
 
     /* Use a small state machine to extract all the
     characters' offsets and widths */
-    int state = 0;
     for(x = 0; x < b->w; x++) {
         unsigned int col = bm_get(b, x, 0);
         if(cnt == 94)
@@ -6364,7 +6373,7 @@ static int xbmf_puts(Bitmap *b, int x, int y, const char *text) {
 
     if(!b->font) return 0;
 
-    info = b->font->data;
+    info = CAST(XbmFontInfo*)(b->font->data);
     if(info) {
         spacing = info->spacing;
         bits = info->bits;
@@ -6401,7 +6410,7 @@ static int xbmf_puts(Bitmap *b, int x, int y, const char *text) {
 }
 
 static int xbmf_width(BmFont *font) {
-    XbmFontInfo *info = font->data;
+    XbmFontInfo *info = CAST(XbmFontInfo *)(font->data);
     if(!info) return 6;
     return info->spacing;
 }
@@ -6411,7 +6420,7 @@ static int xbmf_height(BmFont *font) {
 }
 
 static void xbmf_free(BmFont *font) {
-    XbmFontInfo *info = font->data;
+    XbmFontInfo *info = CAST(XbmFontInfo *)(font->data);
     assert(!strcmp(font->type, "XBM"));
     free(info);
     free(font);
@@ -6421,12 +6430,12 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
     SET_ERROR("no error");
     BmFont *font;
     XbmFontInfo *info;
-    font = malloc(sizeof *font);
+    font = CAST(BmFont *)(malloc(sizeof *font));
     if(!font) {
         SET_ERROR("out of memory");
         return NULL;
     }
-    info = malloc(sizeof *info);
+    info = CAST(XbmFontInfo *)(malloc(sizeof *info));
     if(!info) {
         SET_ERROR("out of memory");
         free(font);

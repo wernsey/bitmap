@@ -48,7 +48,7 @@
 #ifndef BMP_H
 #define BMP_H
 
-#if defined(__cplusplus) || defined(c_plusplus)
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -1244,7 +1244,7 @@ void bm_set_error(const char *e);
  * * [Count the consecutive zero bits (trailing) on the right in parallel](https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightParallel)
  */
 
-#if defined(__cplusplus) || defined(c_plusplus)
+#if defined(__cplusplus)
 } /* extern "C" */
 #endif
 
