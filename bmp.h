@@ -20,7 +20,7 @@
  * ```
  * MIT License
  *
- * Copyright (c) 2017 Werner Stoop
+ * Copyright (c) 2017 Werner Stoop <wstoop@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -279,7 +279,7 @@ Bitmap *bm_load_base64(const char *base64);
  * #### `Bitmap *bm_load_rw(SDL_RWops *file)`
  *
  * Loads a bitmap from a SDL `SDL_RWops*` structure,
- * for use with the [SDL library] (http://www.libsdl.org).
+ * for use with the [SDL library](http://www.libsdl.org).
  *
  * This function is only available if the `USESDL` preprocessor macro
  * is defined, and `SDL.h` is included before `bmp.h`.
@@ -494,7 +494,7 @@ unsigned int bm_picker(Bitmap *bm, int x, int y);
  * Additionally, it also supports the CSS syntax for "RGB(r,g,b)",
  * "RGBA(r,g,b,a)", "HSL(h,s,l)" and "HSLA(h,s,l,a)".
  *
- * The list of supported colors are based on the wikipedia's
+ * The list of supported colors are based on Wikipedia's
  * list of HTML and X11 [Web colors](http://en.wikipedia.org/wiki/Web_colors).
  *
  * It returns 0 (black) if the string couldn't be parsed.

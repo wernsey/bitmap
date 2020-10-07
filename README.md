@@ -1,5 +1,7 @@
 # Bitmap API
 
+![GitHub](https://img.shields.io/github/license/wernsey/bitmap)
+
 A C library for manipulating bitmap graphics in memory and on disk.
 
 ```c
@@ -89,7 +91,7 @@ Use `bm_create()` to create `Bitmap` objects and `bm_free()` to destroy them.
 bytes, such as OpenGL textures and SDL surfaces.
 
 The `Makefile` generates HTML documentation from `bmp.h` through the
-`[d.awk][dawk]` script. Type `make docs` to create the documentation.
+[d.awk][dawk] script. Type `make docs` to create the documentation.
 
 [dawk]: https://github.com/wernsey/d.awk
 [zlib]: https://www.zlib.net
