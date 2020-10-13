@@ -115,7 +115,7 @@ void walkdir(const char *path) {
     struct dirent *entry;
     while((entry = readdir(dp))) {
         if(entry->d_name[0] == '.') continue;
-        char filepath[128];
+        char filepath[257];
         snprintf(filepath, sizeof filepath, "%s/%s", path, entry->d_name);
         add_image(filepath);
     }

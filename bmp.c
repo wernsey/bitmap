@@ -959,7 +959,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     volatile int w, h, ct, bpp, x, y, il, has_alpha = 0;
 
-    const char *error_message = "";
+    const char * volatile error_message = "";
 
     if((fread(header, 1, 8, f) != 8) || png_sig_cmp(header, 0, 8)) {
         error_message = "fread on PNG header";
@@ -5808,7 +5808,8 @@ unsigned int *bm_load_palette(const char * filename, unsigned int *npal) {
     if(!f) return NULL;
 #endif
 
-    fgets(buf, sizeof buf, f);
+    if(!fgets(buf, sizeof buf, f))
+        goto error;
     if(!strncmp(buf, "JASC-PAL", 8)) {
         /* Paintshop Pro palette http://www.cryer.co.uk/file-types/p/pal.htm */
         int version;
