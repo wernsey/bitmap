@@ -3176,6 +3176,8 @@ void bm_free(Bitmap *b) {
 }
 
 Bitmap *bm_retain(Bitmap *b) {
+    if(!b)
+        return NULL;
     b->ref_count++;
     return b;
 }

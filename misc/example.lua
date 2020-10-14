@@ -1,12 +1,8 @@
---[[
-bitmap = Bitmap.load("misc/tile.gif")
 
-W,H = bitmap:size()
-
-io.write("Object: " .. bitmap:__tostring() .. ": " .. W .. "x" .. H .. "\n")
-]]
-
+-- Create a bitmap
 bitmap = Bitmap.create(200, 100)
+
+--
 tile = Bitmap.load("misc/tile.gif")
 
 --bitmap:clip(30,15, 60, 50)
@@ -25,7 +21,6 @@ bitmap:resample(300, 150, 'blin')
 bitmap:blit(tile, 30, 30)
 
 bitmap:setColor("#FFFF00")
---io.write(bitmap:getColor())
 
 bitmap:line(200, 100, 300, 150)
 bitmap:rect(200, 10, 250, 60)
@@ -47,23 +42,34 @@ bitmap:fillroundrect(210, 120, 240, 150, 5)
 
 bitmap:bezier3(10, 140, 10, 130, 30, 125)
 
-font = Bitmap.Font.loadSFont('3rd-party/SaikyoBlack.png')
-
 message = "Hello Font"
 
-bitmap:setFont(font)
+-- Load an SFont:
+sfont = Bitmap.Font.loadSFont('3rd-party/SaikyoBlack.png')
+bitmap:setFont(sfont)
 bitmap:print(20, 80, message)
 
-font = Bitmap.Font.loadRaster('fonts/font.gif')
-bitmap:setFont(font)
+-- Or load a raster font
+rfont = Bitmap.Font.loadRaster('fonts/font.gif')
+bitmap:setFont(rfont)
 bitmap:print(30, 90, message)
 
 W,H = bitmap:textSize(message)
 io.write("Text size: " .. W .. "x" .. H .. "\n")
 
-bitmap:setFont()
+bitmap:setFont() -- reset the font
 bitmap:print(10, 70, message)
 
+-- Write the bitmap to a file
 bitmap:save('out-lua.gif')
+
+-- The `canvas` variable is a Bitmap that got loaded into the Lua VM from the C program
+canvas:setFont(sfont)
+canvas:print(10, 10, "Hello Canvas")
+
+-- The old `canvas` is still retained by the C program, so replacing it on the Lua side won't work.
+canvas = Bitmap.create(120, 80)
+bitmap:setColor("#FF5500")
+canvas:print(10, 10, "Hello Canvas")
 
 io.write("Done.\n")

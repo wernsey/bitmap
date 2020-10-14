@@ -12,10 +12,33 @@
  */
 
 /**
- * ## Static functions
+ * ## C API
+ *
+ * The C API has just two functions, `bmlua_initialize()` and
+ * ``, with their prototypes given as follows:
+ *
+ * ```
+ * void bmlua_initialize(lua_State *L);
+ * void bmlua_push_bitmap(lua_State *L, Bitmap *b);
+ * ```
+ *
+ * `bmlua_initialize()` adds all the bitmap related functions to the
+ * gives Lua State.
+ *
+ * `bmlua_push_bitmap()` pushes a bitmap onto the Lua stack from where
+ * other Lua API functions can expose it to the Lua VM.
+ *
+ */
+void bmlua_initialize(lua_State *L);
+void bmlua_push_bitmap(lua_State *L, Bitmap *b);
+
+/**
+ * ## Lua API
+ *
+ * ### Static functions
  */
 
-/** ### `Bitmap.create(W, H)`
+/** #### `Bitmap.create(W, H)`
  * Creates a bitmap object of the specified size
  */
 static int bmp_create(lua_State *L) {
@@ -32,7 +55,7 @@ static int bmp_create(lua_State *L) {
 	return 1;
 }
 
-/** ### `Bitmap.load(filename)`
+/** #### `Bitmap.load(filename)`
  * Loads the bitmap file specified by `filename`
  */
 static int bmp_load(lua_State *L) {
@@ -49,7 +72,7 @@ static int bmp_load(lua_State *L) {
 	return 1;
 }
 
-/** ### `Bitmap.Font.loadRaster(filename, spacing)`
+/** #### `Bitmap.Font.loadRaster(filename, spacing)`
  * Loads the raster font specified by `filename`
  */
 static int bmf_load_raster(lua_State *L) {
@@ -72,7 +95,7 @@ static int bmf_load_raster(lua_State *L) {
 	return 1;
 }
 
-/** ### `Bitmap.Font.loadSFont(filename)`
+/** #### `Bitmap.Font.loadSFont(filename)`
  * Loads the [SFont][sfont] specified by `filename`
  *
  * [sfont]: http://www.linux-games.com/sfont/
@@ -91,10 +114,10 @@ static int bmf_load_sfont(lua_State *L) {
 }
 
 /**
- * ## The `Bitmap` object
+ * ### The `Bitmap` object
  */
 
-/** ### `Bitmap:__tostring()`
+/** #### `Bitmap:__tostring()`
  *  Returns a string representation of the `Bitmap` instance.
  */
 static int bmp_tostring(lua_State *L) {
@@ -104,7 +127,7 @@ static int bmp_tostring(lua_State *L) {
 	return 1;
 }
 
-/** ### `Bitmap:__gc()`
+/** #### `Bitmap:__gc()`
  *  Garbage collects the `Bitmap` instance.
  */
 static int gc_bmp_obj(lua_State *L) {
@@ -113,7 +136,7 @@ static int gc_bmp_obj(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:save(filename)`
+/** #### `Bitmap:save(filename)`
  *  Saves the `Bitmap` to a file.
  */
 static int bmp_save(lua_State *L) {
@@ -125,7 +148,7 @@ static int bmp_save(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:copy()`
+/** #### `Bitmap:copy()`
  *  Returns a copy of the `Bitmap` instance.
  */
 static int bmp_copy(lua_State *L) {
@@ -147,7 +170,7 @@ static double clamp(double n) {
 	return n;
 }
 
-/** ### `Bitmap:setColor(color)`, `Bitmap:setColor(R,G,B [,A])`
+/** #### `Bitmap:setColor(color)`, `Bitmap:setColor(R,G,B [,A])`
  *
  *  Sets the pen color of the bitmap.
  *
@@ -176,7 +199,7 @@ static int bmp_set_color(lua_State *L) {
 	return 0;
 }
 
-/** ### `R,G,B = Bitmap:getColor()`, `R,G,B = Bitmap:getColor(x, y)`
+/** #### `R,G,B = Bitmap:getColor()`, `R,G,B = Bitmap:getColor(x, y)`
  * Gets the pen color of the bitmap.
  *
  * If the `x,y` parameters are supplied, the color of the
@@ -204,7 +227,7 @@ static int bmp_get_color(lua_State *L) {
 	return 3;
 }
 
-/** ### `W,H = Bitmap:size()`
+/** #### `W,H = Bitmap:size()`
  *  Returns the width and height of the bitmap
  */
 static int bmp_size(lua_State *L) {
@@ -214,7 +237,7 @@ static int bmp_size(lua_State *L) {
 	return 2;
 }
 
-/** ### `Bitmap:resample(W, H, [mode])`
+/** #### `Bitmap:resample(W, H, [mode])`
  *
  * Resizes a bitmap to the new width, height.
  *
@@ -247,7 +270,7 @@ static int bmp_resample(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:blit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
+/** #### `Bitmap:blit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
  *
  * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy).
  *
@@ -289,7 +312,7 @@ static int bmp_blit(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:maskedblit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
+/** #### `Bitmap:maskedblit(src, dx, dy, [sx, sy, [dw, dh, [sw, sh]]])`
  *
  * Draws an instance `src` of `Bitmap` to this bitmap at (dx, dy), using the
  * color of `src` as a mask.
@@ -332,7 +355,7 @@ static int bmp_maskedblit(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:clip(x0,y0, x1,y1)`
+/** #### `Bitmap:clip(x0,y0, x1,y1)`
  * Sets the clipping rectangle when drawing primitives.
  */
 static int bmp_clip(lua_State *L) {
@@ -345,7 +368,7 @@ static int bmp_clip(lua_State *L) {
 	return 0;
 }
 
-/** ### `x0,y0, x1,y1 = Bitmap:getClip()`
+/** #### `x0,y0, x1,y1 = Bitmap:getClip()`
  * Gets the current clipping rectangle for drawing primitives.
  */
 static int bmp_getclip(lua_State *L) {
@@ -358,7 +381,7 @@ static int bmp_getclip(lua_State *L) {
 	return 4;
 }
 
-/** ### `Bitmap:unclip()`
+/** #### `Bitmap:unclip()`
  * Resets the clipping rectangle when drawing primitives.
  */
 static int bmp_unclip(lua_State *L) {
@@ -367,7 +390,7 @@ static int bmp_unclip(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:putpixel(x,y)`
+/** #### `Bitmap:putpixel(x,y)`
  * Plots a pixel at (x,y) on the screen.
  */
 static int bmp_putpixel(lua_State *L) {
@@ -379,7 +402,7 @@ static int bmp_putpixel(lua_State *L) {
 }
 
 
-/** ### `Bitmap:line(x1, y1, x2, y2)`
+/** #### `Bitmap:line(x1, y1, x2, y2)`
  * Draws a line from (x1,y1) to (x2,y2)
  */
 static int bmp_line(lua_State *L) {
@@ -392,7 +415,7 @@ static int bmp_line(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:rect(x1, y1, x2, y2)`
+/** #### `Bitmap:rect(x1, y1, x2, y2)`
  * Draws a rectangle between (x1,y1) and (x2,y2)
  */
 static int bmp_rect(lua_State *L) {
@@ -405,7 +428,7 @@ static int bmp_rect(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:fillrect(x1, y1, x2, y2)`
+/** #### `Bitmap:fillrect(x1, y1, x2, y2)`
  * Draws a filled rectangle between (x1,y1) and (x2,y2)
  */
 static int bmp_fillrect(lua_State *L) {
@@ -418,7 +441,7 @@ static int bmp_fillrect(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:dithrect(x1, y1, x2, y2)`
+/** #### `Bitmap:dithrect(x1, y1, x2, y2)`
  * Draws a dithered rectangle between (x1,y1) and (x2,y2)
  */
 static int bmp_dithrect(lua_State *L) {
@@ -431,7 +454,7 @@ static int bmp_dithrect(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:circle(x, y, r)`
+/** #### `Bitmap:circle(x, y, r)`
  * Draws a circle of radius `r` centered at (x,y)
  */
 static int bmp_circle(lua_State *L) {
@@ -443,7 +466,7 @@ static int bmp_circle(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:fillcircle(x, y, r)`
+/** #### `Bitmap:fillcircle(x, y, r)`
  * Draws a filled circle of radius `r` centered at (x,y)
  */
 static int bmp_fillcircle(lua_State *L) {
@@ -455,7 +478,7 @@ static int bmp_fillcircle(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:ellipse(x1, y1, x2, y2)`
+/** #### `Bitmap:ellipse(x1, y1, x2, y2)`
  * Draws an ellipse that is contained in the rectangle from (x1,y1) to (x2,y2)
  */
 static int bmp_ellipse(lua_State *L) {
@@ -468,7 +491,7 @@ static int bmp_ellipse(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:fillellipse(x1, y1, x2, y2)`
+/** #### `Bitmap:fillellipse(x1, y1, x2, y2)`
  * Draws a filled ellipse that is contained in the rectangle from (x1,y1) to (x2,y2)
  */
 static int bmp_fillellipse(lua_State *L) {
@@ -481,7 +504,7 @@ static int bmp_fillellipse(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:roundrect(x1, y1, x2, y2, r)`
+/** #### `Bitmap:roundrect(x1, y1, x2, y2, r)`
  * Draws a rectangle between (x1,y1) and (x2,y2) with rounded corners of radius `r`
  */
 static int bmp_roundrect(lua_State *L) {
@@ -495,7 +518,7 @@ static int bmp_roundrect(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:fillroundrect(x1, y1, x2, y2, r)`
+/** #### `Bitmap:fillroundrect(x1, y1, x2, y2, r)`
  * Draws a filled rectangle between (x1,y1) and (x2,y2) with rounded corners of radius `r`
  */
 static int bmp_fillroundrect(lua_State *L) {
@@ -509,7 +532,7 @@ static int bmp_fillroundrect(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:bezier3(x0, y0, x1, y1, x2, y2)`
+/** #### `Bitmap:bezier3(x0, y0, x1, y1, x2, y2)`
  * Draws a Bezier curve from (x0,y0) to (x2,y2)
  * with (x1,y1) as the control point.
  * Note that it doesn't pass through (x1,y1)
@@ -526,7 +549,7 @@ static int bmp_bezier3(lua_State *L) {
 	return 0;
 }
 
-/** ### `Bitmap:print(x,y,text)`
+/** #### `Bitmap:print(x,y,text)`
  *  Prints the `text` to the bitmap, with its top left position at `x,y`.
  */
 static int bmp_print(lua_State *L) {
@@ -540,7 +563,7 @@ static int bmp_print(lua_State *L) {
 	return 0;
 }
 
-/** ### `w,h = Bitmap:textSize(text)`
+/** #### `w,h = Bitmap:textSize(text)`
  * Returns the width,height in pixels that the `text`
  * will occupy on the screen.
  *
@@ -557,7 +580,7 @@ static int bmp_textdims(lua_State *L) {
 	return 2;
 }
 
-/** ### `Bitmap:setFont(font)`
+/** #### `Bitmap:setFont(font)`
  * Sets the font used by `Bitmap:print()`
  */
 static int bmp_set_font(lua_State *L) {
@@ -571,7 +594,7 @@ static int bmp_set_font(lua_State *L) {
 	return 0;
 }
 
-/** ### `BitmapFont:__gc()`
+/** #### `BitmapFont:__gc()`
  *  Garbage collects the `BitmapFont` instance.
  */
 static int gc_bmp_font(lua_State *L) {
@@ -580,7 +603,7 @@ static int gc_bmp_font(lua_State *L) {
 	return 0;
 }
 
-void register_bmp_functions(lua_State *L) {
+void bmlua_initialize(lua_State *L) {
 
 	luaL_newmetatable(L, "Bitmap");
 	lua_pushvalue(L, -1);
@@ -671,32 +694,45 @@ void register_bmp_functions(lua_State *L) {
 	lua_setglobal(L, "Bitmap");
 }
 
+void bmlua_push_bitmap(lua_State *L, Bitmap *b) {
+	Bitmap **bp = lua_newuserdata(L, sizeof *bp);
+	luaL_setmetatable(L, "Bitmap");
+	*bp = bm_retain(b);
+}
+
 #define LUABMP_MAIN
 #ifdef LUABMP_MAIN
 #include <stdio.h>
-
-/*
-TODO: I want a C function `lbm_push_bitmap` that can push a Bitmap onto a Lua stack.
-
-(it needs to call bm_retain() on the Bitmap internally, thus the C code outside also
-needs to retain/release it)
-
-Usage something like so:
-
-	lua_State *L = ...;
-	Bitmap *canvas = bm_retain(bm_create(320, 240));
-	lbm_push_bitmap(L, canvas);
-	lua_setglobal(L, "canvas");
-	...
-	bm_release(canvas);
-*/
 
 int main(int argc, char *argv[]) {
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
-	register_bmp_functions(L);
 
+	/* Add all the Bitmap related functions to the Lua State */
+	bmlua_initialize(L);
+
+	/* This is how you would expose a Bitmap from your C program to a Lua script:
+	First, create your bitmap if you haven't done so already.
+	Then retain it with `bm_retain()`. It is important to use the reference counter
+	for Bitmaps shared with Lua, because the luabmp module uses the reference counter
+	internally to ensure that the Lua garbage collector don't delete bitmaps still
+	in use by the C program. */
+	Bitmap *canvas = bm_retain(bm_create(120, 80));
+	if(!canvas) {
+		fprintf(stderr, "Unable to create canvas: %s\n", bm_get_error());
+		return 1;
+	}
+
+	/* Now push the bitmap onto the Lua stack: */
+	bmlua_push_bitmap(L, canvas);
+
+	/* You can now do Lua-related things. In this case I just save the bitmap
+		into a Lua global variable named `canvas`. The Lua script can then call
+		methods on it just as with any other Bitmap object */
+	lua_setglobal(L, "canvas");
+
+	/* Execute the Lua script */
 	if(argc > 1) {
 		if(luaL_dofile(L, argv[1])) {
 			fprintf(stderr, "error: %s\n", lua_tostring(L, -1));
@@ -706,6 +742,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	lua_close(L);
+
+	bm_save(canvas, "out-canvas.gif");
+
+	/* Release our reference to the `canvas` bitmap */
+	bm_release(canvas);
+
 	return 0;
 }
 #endif
