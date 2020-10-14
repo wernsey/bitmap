@@ -8,6 +8,9 @@ LIB_SOURCES=bmp.c
 LIB_OBJECTS=$(LIB_SOURCES:.c=.o)
 LIB=libbmp.a
 
+# To build luabmp, link against the lua library
+LUALIBS=-llua
+
 DOCS=doc/bitmap.html doc/README.html doc/freetype-fonts.html doc/built-in-fonts.html doc/LICENSE
 
 ifeq ($(BUILD),debug)
@@ -18,6 +21,25 @@ else
 # Release mode
 CFLAGS += -O2 -DNDEBUG
 LDFLAGS += -s
+endif
+
+#
+ifeq ($(OS),Windows_NT)
+    # Windows (MinGW)
+	CFLAGS += -D WIN32
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+    endif
+	ifeq ($(UNAME_S),Linux)
+		# Under linux, we need to link Lua related stuff with -ldl
+		LUALIBS += -ldl
+        CFLAGS += -D LINUX
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        CFLAGS += -D OSX
+    endif
+
 endif
 
 all: libbmp.a docs utils bmph.h
@@ -99,7 +121,7 @@ util/imgdup: misc/imgdup.c libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 luabmp: misc/luabmp.o libbmp.a | doc
-	$(CC) -o $@ $^ $(LDFLAGS) -llua
+	$(CC) -o $@ $^ $(LDFLAGS) $(LUALIBS)
 	awk -f d.awk misc/luabmp.c > doc/luabmp.html
 
 misc/luabmp.o: misc/luabmp.c

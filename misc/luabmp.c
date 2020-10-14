@@ -26,9 +26,9 @@ static int bmp_create(lua_State *L) {
 	luaL_setmetatable(L, "Bitmap");
 
 	*bp = bm_create(w, h);
-	if(!*bp) {
+	if(!*bp)
 		luaL_error(L, "Unable to create bitmap");
-	}
+	bm_retain(*bp);
 	return 1;
 }
 
@@ -42,9 +42,10 @@ static int bmp_load(lua_State *L) {
 	luaL_setmetatable(L, "Bitmap");
 
 	*bp = bm_load(filename);
-	if(!*bp) {
+	if(!*bp)
 		luaL_error(L, "Unable to load bitmap '%s': %s", filename, bm_get_error());
-	}
+	bm_retain(*bp);
+
 	return 1;
 }
 
@@ -67,7 +68,7 @@ static int bmf_load_raster(lua_State *L) {
 	if(!*fp) {
 		luaL_error(L, "Unable to load raster font '%s': %s", filename, bm_get_error());
 	}
-	bm_font_retain(*fp);
+	/* Fonts enter the world with a ref count of 1, so no need to retain them */
 	return 1;
 }
 
@@ -86,7 +87,6 @@ static int bmf_load_sfont(lua_State *L) {
 	if(!*fp) {
 		luaL_error(L, "Unable to load SFont '%s': %s", filename, bm_get_error());
 	}
-	bm_font_retain(*fp);
 	return 1;
 }
 
@@ -109,7 +109,7 @@ static int bmp_tostring(lua_State *L) {
  */
 static int gc_bmp_obj(lua_State *L) {
 	Bitmap **bp = luaL_checkudata(L,1, "Bitmap");
-	bm_free(*bp);
+	bm_release(*bp);
 	return 0;
 }
 
@@ -137,8 +137,14 @@ static int bmp_copy(lua_State *L) {
 		luaL_error(L, "Unable to copy bitmap");
 	bp = lua_newuserdata(L, sizeof *bp);
 	luaL_setmetatable(L, "Bitmap");
-	*bp = clone;
+	*bp = bm_retain(clone);
 	return 1;
+}
+
+static double clamp(double n) {
+	if(n < 0) return 0;
+	if(n > 1) return 1;
+	return n;
 }
 
 /** ### `Bitmap:setColor(color)`, `Bitmap:setColor(R,G,B [,A])`
@@ -156,17 +162,12 @@ static int bmp_set_color(lua_State *L) {
 		const char *mask = luaL_checkstring(L, 2);
 		color = bm_atoi(mask);
 	} else if(lua_gettop(L) == 4 || lua_gettop(L) == 5) {
-		double R = luaL_checknumber(L,2);
-		double G = luaL_checknumber(L,3);
-		double B = luaL_checknumber(L,4);
-
-		if(R < 0.0) R = 0.0; if(R > 1.0) R = 1.0;
-		if(G < 0.0) G = 0.0; if(G > 1.0) G = 1.0;
-		if(B < 0.0) B = 0.0; if(B > 1.0) B = 1.0;
+		double R = clamp(luaL_checknumber(L,2));
+		double G = clamp(luaL_checknumber(L,3));
+		double B = clamp(luaL_checknumber(L,4));
 
 		if(lua_gettop(L) == 5) {
-			double A = luaL_checknumber(L,5);
-			if(A < 0.0) A = 0.0; if(A > 1.0) A = 1.0;
+			double A = clamp(luaL_checknumber(L,5));
 			color = bm_rgba(R * 255, G * 255, B * 255, A * 255);
 		} else
 			color = bm_rgb(R * 255, G * 255, B * 255);
@@ -240,8 +241,8 @@ static int bmp_resample(lua_State *L) {
 	bm_set_color(out, bm_get_color(*bp));
 	bm_set_font(out, bm_get_font(*bp));
 
-	bm_free(*bp);
-	*bp = out;
+	bm_release(*bp);
+	*bp = bm_retain(out);
 
 	return 0;
 }
@@ -673,6 +674,22 @@ void register_bmp_functions(lua_State *L) {
 #define LUABMP_MAIN
 #ifdef LUABMP_MAIN
 #include <stdio.h>
+
+/*
+TODO: I want a C function `lbm_push_bitmap` that can push a Bitmap onto a Lua stack.
+
+(it needs to call bm_retain() on the Bitmap internally, thus the C code outside also
+needs to retain/release it)
+
+Usage something like so:
+
+	lua_State *L = ...;
+	Bitmap *canvas = bm_retain(bm_create(320, 240));
+	lbm_push_bitmap(L, canvas);
+	lua_setglobal(L, "canvas");
+	...
+	bm_release(canvas);
+*/
 
 int main(int argc, char *argv[]) {
 
