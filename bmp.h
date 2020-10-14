@@ -336,6 +336,39 @@ Bitmap *bm_from_stb(int w, int h, unsigned char *data);
 int bm_save(Bitmap *b, const char *fname);
 
 /**
+ * ### Reference Counting Functions
+ *
+ * These functions implement reference counting on `Bitmap` objects.
+ *
+ * Call `bm_retain()` on a bitmap at every location where a reference is held.
+ * Then call `bm_release()` on the bitmap when those references are no longer being held.
+ * When the last reference is released, the bitmap will be freed automatically.
+ *
+ * _Reference counting is optional:_ Bitmap objects are created with a reference
+ * count of zero to indicate they are not managed by the reference counter, and those
+ * should be destroyed through `bm_free()`.
+ */
+
+/**
+ * #### `Bitmap *bm_retain(Bitmap *b)`
+ *
+ * Increments the reference count of a `Bitmap` object `b`.
+ *
+ * It returns the object.
+ */
+Bitmap *bm_retain(Bitmap *b);
+
+/**
+ * #### `void bm_release(Bitmap *b)`
+ *
+ * Decrements the reference count of a `Bitmap` object.
+ *
+ * If the reference count reaches 0, `bm_free()` is called on
+ * the object, and the pointer is no longer valid.
+ */
+void bm_release(Bitmap *b);
+
+/**
  * ### Binding Functions
  * These functions are used to bind a `Bitmap` structure to
  * an existing memory buffer such as an OpenGL texture, an
@@ -349,8 +382,9 @@ int bm_save(Bitmap *b, const char *fname);
  * of pixel data (for example, an OpenGL texture or a SDL surface). The
  * `data` must be an array of `w` &times; `h` &times; 4 bytes of ARGB pixel data.
  *
- * The returned `Bitmap*` must be destroyed with `bm_unbind()`
- * rather than `bm_free()`.
+ * ~~The returned `Bitmap*` must be destroyed with `bm_unbind()`
+ * rather than `bm_free()`.~~ In the latest versions, `bm_unbind()` just calls
+ * `bm_free()`
  */
 Bitmap *bm_bind(int w, int h, unsigned char *data);
 
@@ -359,6 +393,7 @@ Bitmap *bm_bind(int w, int h, unsigned char *data);
  *
  * Changes the data referred to by a bitmap structure previously
  * created with a call to `bm_bind()`.
+ *
  * The new data must be of the same dimensions as specified
  * in the original `bm_bind()` call.
  */
@@ -369,6 +404,9 @@ void bm_rebind(Bitmap *b, unsigned char *data);
  *
  * Deallocates the memory of a bitmap structure previously created
  * through `bm_bind()`.
+ *
+ * **Deprecated** - in the newest versions, this function just
+ * calls `bm_free()`
  */
 void bm_unbind(Bitmap *b);
 

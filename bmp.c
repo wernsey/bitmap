@@ -104,6 +104,17 @@ See __STDC_LIB_EXT1__
 #  define strdup _strdup
 #endif
 
+/* Definitions for Bitmap::flags */
+
+/* FLAG_OWNS_DATA - set if the Bitmap owns the memory allocated to Bitmap::data.
+    If it is set, then bm_free() will free it.
+ */
+#define FLAG_OWNS_DATA  1
+
+/* TODO: I want to add flags to check if the bitmap had a palette and an alpha channel
+    and so on in the file it was loaded from, etc.
+ */
+
 /*
  * Structure containing a bitmap image.
  *
@@ -135,6 +146,12 @@ struct bitmap {
 
     /* Font object for rendering text */
     struct bitmap_font *font;
+
+    /* Reference count of the bitmap object */
+    unsigned int ref_count;
+
+    /* Some flags for the bitmap */
+    unsigned int flags;
 
     /* Clipping rectangle */
     BmRect clip;
@@ -216,7 +233,7 @@ struct rgb_triplet {
 /* N=0 -> B, N=1 -> G, N=2 -> R, N=3 -> A */
 #define BM_GETN(B,N,X,Y) (B->data[((Y) * BM_ROW_SIZE(B) + (X) * BM_BPP) + (N)])
 
-Bitmap *bm_create(int w, int h) {
+static Bitmap *bm_create_internal(int w, int h) {
     SET_ERROR("no error");
     Bitmap *b = CAST(Bitmap *)(malloc(sizeof *b));
     if(!b) {
@@ -235,19 +252,33 @@ Bitmap *bm_create(int w, int h) {
     b->clip.x1 = w;
     b->clip.y1 = h;
 
-    b->data = CAST(unsigned char *)(malloc(BM_BLOB_SIZE(b)));
-    if(!b->data) {
-        SET_ERROR("out of memory");
-        free(b);
-        return NULL;
-    }
-    memset(b->data, 0x00, BM_BLOB_SIZE(b));
+    b->data = NULL;
+    b->flags = 0;
 
     b->font = NULL;
     bm_reset_font(b);
 
     bm_set_color(b, 0xFFFFFFFF);
 
+    b->ref_count = 0;
+
+    return b;
+}
+
+Bitmap *bm_create(int w, int h) {
+    Bitmap *b = bm_create_internal(w, h);
+    if(!b)
+        return NULL;
+
+    b->data = CAST(unsigned char *)(malloc(BM_BLOB_SIZE(b)));
+    if(!b->data) {
+        SET_ERROR("out of memory");
+        bm_free(b);
+        return NULL;
+    }
+    memset(b->data, 0x00, BM_BLOB_SIZE(b));
+
+    b->flags = FLAG_OWNS_DATA;
     return b;
 }
 
@@ -3136,33 +3167,31 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
 void bm_free(Bitmap *b) {
     if(!b)
         return;
-    assert(b->data);
-    free(b->data);
+
+    assert(b->ref_count == 0 && "Attempt to free() a bitmap that still has references");
+    if((b->flags & FLAG_OWNS_DATA) && b->data)
+        free(b->data);
     bm_font_release(b->font);
     free(b);
 }
 
+Bitmap *bm_retain(Bitmap *b) {
+    b->ref_count++;
+    return b;
+}
+
+void bm_release(Bitmap *b) {
+    assert(b->ref_count > 0 && "Attempt to release a bitmap that is not reference counted");
+    b->ref_count--;
+    if(!b->ref_count)
+        bm_free(b);
+}
+
 Bitmap *bm_bind(int w, int h, unsigned char *data) {
-    SET_ERROR("no error");
-    Bitmap *b = CAST(Bitmap*)(malloc(sizeof *b));
-    if(!b) {
-        SET_ERROR("out of memory");
+    Bitmap *b = bm_create_internal(w, h);
+    if(!b)
         return NULL;
-    }
-
-    b->w = w;
-    b->h = h;
     b->data = data;
-
-    b->clip.x0 = 0;
-    b->clip.y0 = 0;
-    b->clip.x1 = w;
-    b->clip.y1 = h;
-
-    b->font = NULL;
-    bm_reset_font(b);
-
-    bm_set_color(b, 0xFFFFFFFF);
     return b;
 }
 
@@ -3171,10 +3200,8 @@ void bm_rebind(Bitmap *b, unsigned char *data) {
 }
 
 void bm_unbind(Bitmap *b) {
-    if(!b)
-        return;
-    bm_font_release(b->font);
-    free(b);
+    assert(!(b->flags & FLAG_OWNS_DATA));
+    bm_free(b);
 }
 
 void bm_flip_vertical(Bitmap *b) {
