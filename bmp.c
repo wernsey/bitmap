@@ -985,7 +985,7 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     unsigned char header[8];
     png_structp png = NULL;
-    png_infop volatile info = NULL;
+    png_infop info = NULL;
     png_bytep * volatile rows = NULL;
 
     volatile int w, h, ct, bpp, x, y, il, has_alpha = 0;
@@ -1090,7 +1090,7 @@ error:
     bmp = NULL;
 done:
     if (info != NULL) png_free_data(png, info, PNG_FREE_ALL, -1);
-    if (png != NULL) png_destroy_read_struct(&png, NULL, NULL);
+    if (png != NULL) png_destroy_read_struct(&png, &info, NULL);
     if(rows) {
         for(y = 0; y < h; y++) {
             free(rows[y]);
