@@ -17,7 +17,7 @@
  * License
  * -------
  *
- * ```
+ * ```txt
  * MIT License
  *
  * Copyright (c) 2017 Werner Stoop <wstoop@gmail.com>
@@ -759,7 +759,7 @@ void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int 
 
 /** #### `void bm_grayscale(Bitmap *b)`
  *
- * Converts an image to grascale.
+ * Converts an image to grayscale.
  */
 void bm_grayscale(Bitmap *b);
 
@@ -1240,10 +1240,6 @@ void bm_set_error(const char *e);
  * TODO
  * ----
  *
- * - [ ] The libpng loading code should avoid the `setjmp`/`longjmp` error handling.
- *       It's problematic for a couple of reasons.
- *       See [section 5](http://www.libpng.org/pub/png/libpng-1.2.5-manual.html#section-5)
- *       of the libpng documentation.
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
  * - [ ] I'm regretting my decision to have the BmFont.width function not look at the

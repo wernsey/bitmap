@@ -15,7 +15,7 @@
  * ## C API
  *
  * The C API has just two functions, `bmlua_initialize()` and
- * ``, with their prototypes given as follows:
+ * `bmlua_push_bitmap()`, with their prototypes given as follows:
  *
  * ```
  * void bmlua_initialize(lua_State *L);
@@ -25,9 +25,29 @@
  * `bmlua_initialize()` adds all the bitmap related functions to the
  * gives Lua State.
  *
+ * ```
+ * lua_State *L = luaL_newstate();
+ * luaL_openlibs(L);
+ * bmlua_initialize(L);
+ * luaL_dofile(L, "script.lua");
+ * lua_close(L);
+ * ```
+ *
  * `bmlua_push_bitmap()` pushes a bitmap onto the Lua stack from where
  * other Lua API functions can expose it to the Lua VM.
  *
+ * ```
+ * Bitmap *canvas = bm_retain(bm_create(120, 80));
+ * bmlua_push_bitmap(L, canvas);
+ * lua_setglobal(L, "canvas");
+ * // do things ...
+ * bm_release(canvas);
+ * ```
+ *
+ * (the bitmap _must_ be reference counted through `bm_retain()` because
+ * the luabmp module uses reference counting internally to manage memory and
+ * to ensure Lua garbage collector don't collect bitmap objects that might
+ * still be in use by the C program)
  */
 void bmlua_initialize(lua_State *L);
 void bmlua_push_bitmap(lua_State *L, Bitmap *b);
