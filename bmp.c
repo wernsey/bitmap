@@ -5050,10 +5050,10 @@ void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1) {
 
 void bm_rect(Bitmap *b, int x0, int y0, int x1, int y1) {
     assert(b);
-    bm_line(b, x0, y0, x1, y0);
-    bm_line(b, x1, y0, x1, y1);
-    bm_line(b, x1, y1, x0, y1);
-    bm_line(b, x0, y1, x0, y0);
+    bm_line(b, x0, y0, x1-1, y0);
+    bm_line(b, x1-1, y0, x1-1, y1-1);
+    bm_line(b, x1-1, y1-1, x0, y1-1);
+    bm_line(b, x0, y1-1, x0, y0);
 }
 
 void bm_fillrect(Bitmap *b, int x0, int y0, int x1, int y1) {
