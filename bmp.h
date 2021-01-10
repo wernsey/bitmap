@@ -624,6 +624,15 @@ unsigned int bm_byte_order(unsigned int col);
 unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t);
 
 /**
+ * #### `unsigned int bm_graypixel(unsigned int c)`
+ *
+ * Converts a color to its grayscale value.
+ *
+ * See <https://en.wikipedia.org/wiki/Grayscale>
+ */
+unsigned int bm_graypixel(unsigned int c);
+
+/**
  * ### Blitting Functions
  */
 

@@ -56,7 +56,13 @@ FIXME: Not all functions that should respect IGNORE_ALPHA does so.
 #  define ABGR 0
 #endif
 
-#define TGA_SAVE_RLE    1 /* Use RLE when saving TGA files? */
+/* Use RLE when saving TGA files? */
+#define TGA_SAVE_RLE    1
+
+/* Save NetPBM in binary format (P4,P5,P6)? */
+#ifndef PPM_BINARY
+#  define PPM_BINARY 0
+#endif
 
 /* Save transparent backgrounds when saving GIF?
 It used to be on by default, but it turned out to be less useful
@@ -410,6 +416,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd);
 static Bitmap *bm_load_gif_rd(BmReader rd);
 static Bitmap *bm_load_pcx_rd(BmReader rd);
 static Bitmap *bm_load_tga_rd(BmReader rd);
+static Bitmap *bm_load_ppm_rd(BmReader rd);
 #ifdef USEPNG
 static Bitmap *bm_load_png_fp(FILE *f);
 #endif
@@ -421,7 +428,7 @@ Bitmap *bm_load_fp(FILE *f) {
     SET_ERROR("no error");
     unsigned char magic[4];
 
-    long start, isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
+    long start, isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0, ispbm = 0;
 
     BmReader rd = make_file_reader(f);
     start = rd.ftell(rd.data);
@@ -440,6 +447,8 @@ Bitmap *bm_load_fp(FILE *f) {
             ispcx = 1;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
             ispng = 1;
+        if(magic[0] == 'P' && strchr("123456", magic[1]))
+            ispbm = 1;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
             rd.fseek(rd.data, start, SEEK_SET);
@@ -497,6 +506,9 @@ Bitmap *bm_load_fp(FILE *f) {
     if(istga) {
         return bm_load_tga_rd(rd);
     }
+    if(ispbm) {
+        return bm_load_ppm_rd(rd);
+    }
     SET_ERROR("unsupported file type");
     return NULL;
 }
@@ -506,7 +518,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
 
     unsigned char magic[4];
 
-    long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0;
+    long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0, ispbm = 0;
 
     BmMemReader memr;
     memr.buffer = buffer;
@@ -527,6 +539,8 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
             ispcx = 1;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
             ispng = 1;
+        if(magic[0] == 'P' && strchr("123456", magic[1]))
+            ispbm = 1;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
             rd.fseek(rd.data, 0, SEEK_SET);
@@ -587,6 +601,9 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     }
     if(istga) {
         return bm_load_tga_rd(rd);
+    }
+    if(ispbm) {
+        return bm_load_ppm_rd(rd);
     }
     SET_ERROR("unsupported file type"); /* should not happen */
     return NULL;
@@ -852,6 +869,7 @@ static int bm_save_bmp(Bitmap *b, const char *fname);
 static int bm_save_gif(Bitmap *b, const char *fname);
 static int bm_save_pcx(Bitmap *b, const char *fname);
 static int bm_save_tga(Bitmap *b, const char *fname);
+static int bm_save_ppm(Bitmap *b, const char *fname);
 #ifdef USEPNG
 static int bm_save_png(Bitmap *b, const char *fname);
 #endif
@@ -861,17 +879,21 @@ static int bm_save_jpg(Bitmap *b, const char *fname);
 
 int bm_save(Bitmap *b, const char *fname) {
     SET_ERROR("no error");
+
     /* Chooses the file type to save as based on the
     extension in the filename */
     char *lname = strdup(fname), *c,
-        jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0;
+        jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0, ppm = 0;
+
     for(c = lname; *c; c++)
         *c = tolower(*c);
+
     png = !!strstr(lname, ".png");
     pcx = !!strstr(lname, ".pcx");
     gif = !!strstr(lname, ".gif");
     tga = !!strstr(lname, ".tga");
     jpg = !!strstr(lname, ".jpg") || !!strstr(lname, ".jpeg");
+    ppm = !!strstr(lname, ".pbm") || !!strstr(lname, ".pgm") || !!strstr(lname, ".ppm");
     free(lname);
 
 #ifdef USEPNG
@@ -892,6 +914,8 @@ int bm_save(Bitmap *b, const char *fname) {
         return bm_save_pcx(b, fname);
     if(tga)
         return bm_save_tga(b, fname);
+    if(ppm)
+        return bm_save_ppm(b, fname);
     return bm_save_bmp(b, fname);
 }
 
@@ -3028,11 +3052,13 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
     FILE *f;
     errno_t err = fopen_s(&f, fname, "wb");
     if (err != 0) {
+        SET_ERROR("tga: couldn't open file for writing");
         return 0;
     }
 #else
     FILE *f = fopen(fname, "wb");
     if(!f) {
+        SET_ERROR("tga: couldn't open file for writing");
         return 0;
     }
 #endif
@@ -3098,6 +3124,362 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
     fclose(f);
     return 1;
 }
+
+/*
+Netpbm support
+https://en.wikipedia.org/wiki/Netpbm
+
+Specs and example files can be found here:
+http://paulbourke.net/dataformats/ppm/
+https://people.sc.fsu.edu/~jburkardt/data/pbmb/pbmb.html
+https://people.sc.fsu.edu/~jburkardt/data/pgmb/pgmb.html
+https://people.sc.fsu.edu/~jburkardt/data/ppmb/ppmb.html
+*/
+
+static char *tokenize_pbm(char *s, char **r) {
+    char *p = s, *e;
+
+    if(!s && r)
+        p = *r;
+
+    if(!p) return NULL;
+
+start:
+    while(isspace(*p))
+        p++;
+    if(*p == '\0')
+        return NULL;
+    if(*p == '#') {
+        while(*p != '\n') {
+            if(*p == '\0')
+                return NULL;
+            p++;
+        }
+        goto start;
+    }
+
+    for(e = p; *e && !isspace(*e); e++);
+
+    if(r) {
+        if(*e != '\0')
+            *r = e + 1;
+        else
+            *r = e;
+    }
+
+    *e = '\0';
+
+    return p;
+}
+
+static Bitmap *bm_load_ppm_rd(BmReader rd) {
+
+    Bitmap *bm = NULL;
+
+    rd.fseek(rd.data, 0, SEEK_END);
+    long len = rd.ftell(rd.data);
+    rd.fseek(rd.data, 0, SEEK_SET);
+
+    char *str = malloc(len+2);
+    if(!str) {
+        SET_ERROR("ppm: out of memory");
+        return NULL;
+    }
+    long read = rd.fread(str, 1, len, rd.data);
+
+    if(read != len) {
+        SET_ERROR("ppm: error reading data");
+        free(str);
+        return NULL;
+    }
+    str[len] = '\0';
+
+    char *p, *r;
+    int type = 0, w, h, d = 1, x, y;
+
+    p = tokenize_pbm(str, &r);
+    if(!p) {
+        SET_ERROR("ppm: couldn't determine type");
+        goto error;
+    }
+
+    if(p[0] != 'P' || !strchr("123456", p[1]) || p[2]) {
+        SET_ERROR("ppm: invalid type");
+        goto error;
+    }
+
+    type = p[1] - '0';
+
+#define GET_INT(v, error_msg)   do{ if(!(p = tokenize_pbm(NULL, &r))) { \
+                                    SET_ERROR(error_msg); \
+                                    goto error;\
+                                }\
+                                v = atoi(p); } while(0)
+
+    GET_INT(w, "ppm: bad width");
+    GET_INT(h, "ppm: bad height");
+
+    if(type != 1 && type != 4)
+        GET_INT(d, "ppm: bad depth");
+
+    if(w <= 0 || h <= 0 || d <= 0) {
+        SET_ERROR("ppm: invalid dimensions");
+        goto error;
+    }
+
+    bm = bm_create(w,h);
+
+    int pr = 0, pg = 0, pb = 0, c;
+
+    switch(type) {
+        case 1: {
+            x = 0;
+            y = 0;
+            while(y < h) {
+                if(r - str >= len) {
+                    SET_ERROR("ppm: unexpected end of file");
+                    goto error;
+                }
+                while(isspace(*r))
+                    r++;
+                if(!r[0]) {
+                    SET_ERROR("ppm: insufficient data");
+                    goto error;
+                }
+                else if(r[0] == '#') {
+                    while(r[0] && r[0] != '\n')
+                        r++;
+                    continue;
+                }
+                else if(r[0] == '0')
+                    bm_set(bm, x, y, 0xFFFFFFFF);
+                else if(r[0] == '1')
+                    bm_set(bm, x, y, 0xFF000000);
+                else {
+                    SET_ERROR("ppm: bad data");
+                    goto error;
+                }
+                r++;
+                if(++x == w) {
+                    x = 0;
+                    y++;
+                }
+            }
+        } break;
+        case 2: {
+            for(y = 0; y < h; y++) {
+                for(x = 0; x < w; x++) {
+                    GET_INT(pr, "ppm: bad value");
+                    pr = pr * 255 / d;
+                    c = 0xFF000000 | (pr << 16) | (pr << 8) | pr;
+                    bm_set(bm, x, y, c);
+                }
+            }
+        } break;
+        case 3: {
+            for(y = 0; y < h; y++) {
+                for(x = 0; x < w; x++) {
+                    GET_INT(pr, "ppm: bad R value");
+                    pr = pr * 255 / d;
+                    GET_INT(pg, "ppm: bad G value");
+                    pg = pg * 255 / d;
+                    GET_INT(pb, "ppm: bad B value");
+                    pb = pb * 255 / d;
+                    c = 0xFF000000 | (pr << 16) | (pg << 8) | pb;
+                    bm_set(bm, x, y, c);
+                }
+            }
+        } break;
+        case 4: {
+            for(y = 0; y < h; y++) {
+                int mask = 0x80;
+                unsigned char byte = *(r++);
+                for(x = 0; x < w; x++) {
+                    bm_set(bm, x, y, (byte & mask) ? 0xFF000000 : 0xFFFFFFFF);
+                    if(!(mask >>= 1)) {
+                        if(r - str >= len) {
+                            SET_ERROR("ppm: unexpected end of file");
+                            goto error;
+                        }
+                        mask = 0x80;
+                        byte = *(r++);
+                    }
+                }
+            }
+        } break;
+        case 5: {
+            for(y = 0; y < h; y++) {
+                for(x = 0; x < w; x++) {
+                    if(r - str >= len) {
+                        SET_ERROR("ppm: unexpected end of file");
+                        goto error;
+                    }
+                    pr = (*(r++) * 255 / d) & 0xFF;
+                    c = 0xFF000000 | (pr << 16) | (pr << 8) | pr;
+                    bm_set(bm, x, y, c);
+                }
+            }
+        } break;
+        case 6: {
+            for(y = 0; y < h; y++) {
+                for(x = 0; x < w; x++) {
+                    if(r - str > len - 3) {
+                        SET_ERROR("ppm: unexpected end of file");
+                        goto error;
+                    }
+                    pr = (*(r++) * 255 / d) & 0xFF;
+                    pg = (*(r++) * 255 / d) & 0xFF;
+                    pb = (*(r++) * 255 / d) & 0xFF;
+                    c = 0xFF000000 | (pr << 16) | (pg << 8) | pb;
+                    bm_set(bm, x, y, c);
+                }
+            }
+        } break;
+        default:
+            SET_ERROR("ppm: format not supported");
+            goto error;
+    }
+
+    goto done;
+error:
+    if(bm) bm_free(bm);
+    bm = NULL;
+done:
+    free(str);
+    return bm;
+
+#undef GET_INT
+
+}
+
+static int bm_save_ppm(Bitmap *b, const char *fname) {
+
+#if !PPM_BINARY
+    const char *file_mode = "w";
+#else
+    const char *file_mode = "wb";
+#endif
+
+    int type = 3;
+    char *ext = strrchr(fname, '.');
+    if(!ext || strlen(ext) != 4) {
+        SET_ERROR("ppm: bad extension");
+        return 0;
+    }
+
+    switch(ext[2]) {
+#if !PPM_BINARY
+        case 'b': case 'B': type = 1; break;
+        case 'g': case 'G': type = 2; break;
+        case 'p': case 'P': type = 3; break;
+#else
+        case 'b': case 'B': type = 4; break;
+        case 'g': case 'G': type = 5; break;
+        case 'p': case 'P': type = 6; break;
+#endif
+    }
+
+#ifdef SAFE_C11
+    FILE *f;
+    errno_t err = fopen_s(&f, fname, file_mode);
+    if (err != 0) {
+        SET_ERROR("ppm: couldn't open file for writing");
+        return 0;
+    }
+#else
+    FILE *f = fopen(fname, file_mode);
+    if(!f) {
+        SET_ERROR("ppm: couldn't open file for writing");
+        return 0;
+    }
+#endif
+
+    fprintf(f, "P%d\n", type);
+    fprintf(f, "%d %d\n", b->w, b->h);
+    if(type != 1 && type != 4)
+        fprintf(f, "255\n");
+
+    int x, y;
+    unsigned char p[3] = {0, 0, 0};
+
+    switch(type) {
+        case 1:
+            for(y = 0; y < b->h; y++) {
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    fprintf(f, "%c", c & 0xFFFFFF ? '0' : '1');
+                }
+                fputc('\n',f);
+            }
+            break;
+        case 2:
+            for(y = 0; y < b->h; y++) {
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    fprintf(f, "%u ", bm_graypixel(c));
+                }
+                fputc('\n',f);
+            }
+            break;
+        case 3:
+            for(y = 0; y < b->h; y++) {
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    bm_get_rgb(c, &p[0], &p[1], &p[2]);
+                    fprintf(f, "%u %u %u ", p[0], p[1], p[2]);
+                }
+                fputc('\n',f);
+            }
+            break;
+        case 4: {
+            for(y = 0; y < b->h; y++) {
+                int mask = 0x80;
+                unsigned char byte = 0;
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    if(!(c & 0xFFFFFF))
+                        byte |= mask;
+                    if(!(mask >>= 1)) {
+                        fwrite(&byte, 1, 1, f);
+                        byte = 0;
+                        mask = 0x80;
+                    }
+                }
+                if(mask)
+                    fwrite(&byte, 1, 1, f);
+            }
+        } break;
+        case 5: {
+            for(y = 0; y < b->h; y++) {
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    unsigned char g = (unsigned char)bm_graypixel(c);
+                    fwrite(&g, 1, 1, f);
+                }
+            }
+        } break;
+        case 6:
+            for(y = 0; y < b->h; y++) {
+                for(x = 0; x < b->w; x++) {
+                    unsigned int c = BM_GET(b, x, y);
+                    bm_get_rgb(c, &p[0], &p[1], &p[2]);
+                    fwrite(&p, 1, 3, f);
+                }
+            }
+            break;
+        default: break;
+    }
+    if(type <= 3)
+        fprintf(f, "\n");
+
+
+    if(type == 4 && p[1])
+        fwrite(&p, 1, 1, f);
+
+    fclose(f);
+    return 1;
+}
+
 
 #if defined(USESTB)
 /*
@@ -4043,12 +4425,18 @@ void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int 
 
 }
 
+unsigned int bm_graypixel(unsigned int c) {
+    unsigned char R,G,B;
+    bm_get_rgb(c, &R, &G, &B);
+    return (2126 * R + 7152 * G + 722 * B)/10000;
+}
+
 void bm_grayscale(Bitmap *b) {
     /* https://en.wikipedia.org/wiki/Grayscale */
     int x, y;
     for(y = 0; y < b->h; y++)
         for(x = 0; x < b->w; x++) {
-            unsigned int c =  BM_GET(b, x, y);
+            unsigned int c = BM_GET(b, x, y);
             unsigned char R,G,B;
             bm_get_rgb(c, &R, &G, &B);
             c = (2126 * R + 7152 * G + 722 * B)/10000;

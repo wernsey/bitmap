@@ -36,6 +36,7 @@ Features:
     additional formats, such as PSD, PIC and PNM binary formats. See
     `bm_load_stb()` for more information.
     A copy of `stb_image.h` has been placed in </3rd-party/stb_image.h>.
+  * [NetPBM][] formats (PBM, PGM and PPM), in ASCII or binary variants.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/)
   surfaces, [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface)
   contexts. See the `bm_bind()` function. It can also serve as a back end for
@@ -63,6 +64,7 @@ The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
 [sfont]: http://www.linux-games.com/sfont/
 [grafx2]: https://en.wikipedia.org/wiki/GrafX2
+[NetPBM]: https://en.wikipedia.org/wiki/Netpbm
 
 ## Getting Started
 
@@ -118,8 +120,8 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
     for the [Cairo graphics library](https://cairographics.org)
   * The `palette/` subdirectory contains a utility for generating palettes and
     converting images to those palettes.
-  * `pbm.c` and `xpm.c`: Samples on how to use the module with PBM and XPM file
-    formats. `to_xbm.c` contains a function that can output a bitmap as a XBM.
+  * `xpm.c`: Samples on how to use the module with the XPM file
+    format. `to_xbm.c` contains a function that can output a bitmap as a XBM.
   * The `kmeans/` subdirectory contains a program that uses [K-means
     clustering](https://en.wikipedia.org/wiki/K-means_clustering) to identify
     the dominant colors in an image.
