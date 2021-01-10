@@ -9,6 +9,7 @@
 #endif
 
 int main(int argc, char *argv[]) {
+    (void)argc;(void)argv;
     Bitmap *b = bm_create(128,128);
 
     bm_set_color(b, bm_atoi("white"));

@@ -105,19 +105,19 @@ bmph.h: bmp.c bmp.h
 
 utils: util/hello util/bmfont util/dumpfonts util/cvrt util/imgdup
 
-util/hello: hello.c libbmp.a | util
+util/hello: hello.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-util/bmfont: fonts/bmfont.c misc/to_xbm.c libbmp.a | util
+util/bmfont: fonts/bmfont.o misc/to_xbm.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-util/dumpfonts: fonts/dumpfonts.c misc/to_xbm.c libbmp.a | util
+util/dumpfonts: fonts/dumpfonts.o misc/to_xbm.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-util/cvrt: misc/cvrt.c libbmp.a | util
+util/cvrt: misc/cvrt.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-util/imgdup: misc/imgdup.c libbmp.a | util
+util/imgdup: misc/imgdup.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 luabmp: misc/luabmp.o libbmp.a | doc

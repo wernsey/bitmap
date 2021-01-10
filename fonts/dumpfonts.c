@@ -30,10 +30,11 @@ xbm_details xbms[] = {
     STRUCT_CONTENTS(smallinv),
     STRUCT_CONTENTS(thick),
     STRUCT_CONTENTS(thinsans),
-    {NULL, NULL}
+    {NULL, NULL, 0, 0}
 };
 
 int main(int argc, char *argv[]) {
+    (void)argc;(void)argv;
     xbm_details *d = xbms;
     while(d->name) {
         char outname[128];

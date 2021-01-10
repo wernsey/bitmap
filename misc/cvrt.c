@@ -22,9 +22,6 @@ int main(int argc, char *argv[]) {
     double perc = -1.0;
     unsigned int *pal = NULL, npal = 0;
 
-    int iw = bm_width(b);
-    int ih = bm_height(b);
-
     while((opt = getopt(argc, argv, "w:h:np:P:?")) != -1) {
         switch(opt) {
             case 'w' : {
@@ -66,6 +63,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Unable to load %s: %s\n", infile, bm_get_error());
         return 1;
     }
+
+    int iw = bm_width(b);
+    int ih = bm_height(b);
 
     if(perc > 0) {
         ow = iw * perc;
