@@ -617,6 +617,20 @@ Bitmap *bm_load_base64(const char *base64) {
     whitespace in the input data */
     if(!base64)
         return NULL;
+
+    if(!memcmp(base64, "data:", 5)) {
+        /* https://en.wikipedia.org/wiki/Data_URI_scheme
+        I can ignore the parameters because we deduce the file type from the data,
+        and assume the Base64 is in ASCII
+        */
+        base64 = strchr(base64, ',');
+        if(!base64) {
+            SET_ERROR("invalid data URI");
+            return NULL;
+        }
+        base64++;
+    }
+
     long len = strlen(base64);
     unsigned char *p, *buffer;
     const char *q;
@@ -917,6 +931,16 @@ int bm_save(Bitmap *b, const char *fname) {
     if(ppm)
         return bm_save_ppm(b, fname);
     return bm_save_bmp(b, fname);
+}
+
+int bm_savef(Bitmap *b, const char *fmt, ...) {
+	char fname[256];
+    va_list arg;
+    assert(b);
+    va_start(arg, fmt);
+    vsnprintf(fname, sizeof fname, fmt, arg);
+    va_end(arg);
+    return bm_save(b, fname);
 }
 
 static int bm_save_bmp(Bitmap *b, const char *fname) {
@@ -3487,26 +3511,15 @@ In the future, I can add support for stb_image_write.h as well.
 See https://github.com/nothings/stb/blob/master/stb_image_write.h
 */
 Bitmap *bm_from_stb(int w, int h, unsigned char *data) {
-    Bitmap *b = malloc(sizeof *b);
-    int i;
 
-    b->w = w;
-    b->h = h;
-
-    b->clip.x0 = 0;
-    b->clip.y0 = 0;
-    b->clip.x1 = w;
-    b->clip.y1 = h;
-
-    b->font = NULL;
-    bm_reset_font(b);
-
-    bm_set_color(b, 0xFFFFFFFF);
+    Bitmap *b = bm_create_internal(w, h);
     b->data = data;
+    b->flags |= FLAG_OWNS_DATA;
 
 #if !ABGR
     /* Unfortunately, the R and B channels of stb_image are
         swapped from the format I'd prefer them in. */
+    int i;
     for(i = 0; i < w * h * 4; i += 4) {
         unsigned char c = data[i];
         data[i] = data[i+2];

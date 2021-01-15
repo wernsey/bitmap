@@ -336,6 +336,13 @@ Bitmap *bm_from_stb(int w, int h, unsigned char *data);
 int bm_save(Bitmap *b, const char *fname);
 
 /**
+ * #### `int bm_savef(Bitmap *b, const char *fname, ...)`
+ *
+ * Like `bm_save()`, but the filename is given as a `printf()`-style format string.
+ */
+int bm_savef(Bitmap *b, const char *fname, ...);
+
+/**
  * ### Reference Counting Functions
  *
  * These functions implement reference counting on `Bitmap` objects.
