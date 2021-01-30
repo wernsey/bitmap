@@ -4359,11 +4359,11 @@ void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]) {
             double nda = vec2_cross(vec2_sub(q, P[3]), DA);
 
             if(nab <= 0 && nbc <= 0 && ncd <= 0 && nda <= 0) {
-                double u = (double)(src->clip.x1 - src->clip.x0) * (nda / (nda + nbc)) + src->clip.x0;
-                double v = (double)(src->clip.y1 - src->clip.y0) * (nab / (nab + ncd)) + src->clip.y0;
+                int u = (src->clip.x1 - 1 - src->clip.x0) * (nda / (nda + nbc)) + src->clip.x0;
+                int v = (src->clip.y1 - 1 - src->clip.y0) * (nab / (nab + ncd)) + src->clip.y0;
 
                 if(u >= 0 && u < src->w && v >= 0 && v < src->h) {
-                    unsigned int c = BM_GET(src, (int)u, (int)v);
+                    unsigned int c = BM_GET(src, u, v);
                     BM_SET(dst, q.x, q.y, c);
                 }
             }
