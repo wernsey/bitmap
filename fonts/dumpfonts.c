@@ -11,6 +11,7 @@
 #include "smallinv.xbm"
 #include "thick.xbm"
 #include "thinsans.xbm"
+#include "italic.xbm"
 
 typedef struct xbm_details {
     const char *name;
@@ -26,6 +27,7 @@ xbm_details xbms[] = {
     STRUCT_CONTENTS(hand),
     STRUCT_CONTENTS(infocom),
     STRUCT_CONTENTS(normal),
+    STRUCT_CONTENTS(italic),
     STRUCT_CONTENTS(small),
     STRUCT_CONTENTS(smallinv),
     STRUCT_CONTENTS(thick),
