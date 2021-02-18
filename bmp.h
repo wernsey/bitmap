@@ -234,6 +234,13 @@ int bm_pixel_count(Bitmap *b);
  */
 Bitmap *bm_load(const char *filename);
 
+/**
+ * #### `int bm_loadf(const char *fmt, ...)`
+ *
+ * Like `bm_load()`, but the filename is given as a `printf()`-style format string.
+ */
+Bitmap *bm_loadf(const char *fmt, ...);
+
 #ifdef EOF /* <stdio.h> included? http://stackoverflow.com/q/29117606/115589 */
 /**
  * #### `Bitmap *bm_load_fp(FILE *f)`

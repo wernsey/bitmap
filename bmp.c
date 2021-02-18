@@ -408,6 +408,15 @@ Bitmap *bm_load(const char *filename) {
     return bmp;
 }
 
+Bitmap *bm_loadf(const char *fmt, ...) {
+	char fname[256];
+    va_list arg;
+    va_start(arg, fmt);
+    vsnprintf(fname, sizeof fname, fmt, arg);
+    va_end(arg);
+    return bm_load(fname);
+}
+
 static int is_tga_file(BmReader rd);
 
 static uint32_t count_trailing_zeroes(uint32_t v);
