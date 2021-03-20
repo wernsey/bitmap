@@ -1,3 +1,6 @@
+
+
+
 CC=gcc
 CFLAGS=-c -Wall -Wextra -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
 LDFLAGS=`libpng-config --ldflags` -lz -ljpeg -lm
@@ -23,10 +26,12 @@ CFLAGS += -O2 -DNDEBUG
 LDFLAGS += -s
 endif
 
-#
+LUA_EXEC=luabmp
+
 ifeq ($(OS),Windows_NT)
     # Windows (MinGW)
 	CFLAGS += -D WIN32
+	LUA_EXEC := $(LUA_EXEC).exe
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
@@ -120,7 +125,9 @@ util/cvrt: misc/cvrt.o libbmp.a | util
 util/imgdup: misc/imgdup.o libbmp.a | util
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-luabmp: misc/luabmp.o libbmp.a | doc
+lua-bindings : $(LUA_EXEC)
+
+$(LUA_EXEC): misc/luabmp.o libbmp.a | doc
 	$(CC) -o $@ $^ $(LDFLAGS) $(LUALIBS)
 	awk -f d.awk misc/luabmp.c > doc/luabmp.html
 
@@ -133,12 +140,12 @@ ftypefont/fttest: ftypefont/fttest.c ftypefont/ftfont.c bmp.c
 util:
 	mkdir -p util
 
-.PHONY : clean
+.PHONY : clean lua-bindings
 
 clean:
 	-rm -f *.o $(LIB) bmph.h
-	-rm -f luabmp hello *.exe test/*.exe
+	-rm -f $(LUA_EXEC) hello *.exe test/*.exe
 	-rm -rf $(DOCS)
-	-rm -rf util doc misc/*.o
+	-rm -rf util doc misc/*.o fonts/*.o
 
 # The .exe above is for MinGW, btw.
