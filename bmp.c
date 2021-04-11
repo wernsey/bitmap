@@ -73,6 +73,10 @@ Still, it is here if you need it
 #  define SAVE_GIF_TRANSPARENT 0
 #endif
 
+#ifndef SIZE_LIMITS
+#  define SIZE_LIMITS 1
+#endif
+
 #if BM_LAST_ERROR
 static const char *bm_last_error = "no error";
 #  define SET_ERROR(e) bm_last_error = e
@@ -241,14 +245,23 @@ struct rgb_triplet {
 
 static Bitmap *bm_create_internal(int w, int h) {
     SET_ERROR("no error");
+
+    if(w <= 0 || h <= 0) {
+        SET_ERROR("invalid dimensions");
+        return NULL;
+    }
+#if SIZE_LIMITS
+    if(w > 23000 || h > 23000 || w*h > 0x1FFFFFFF) {
+        SET_ERROR("dimensions too large");
+        return NULL;
+    }
+#endif
+
     Bitmap *b = CAST(Bitmap *)(malloc(sizeof *b));
     if(!b) {
         SET_ERROR("out of memory");
         return NULL;
     }
-
-    assert(w > 0);
-    assert(h > 0);
 
     b->w = w;
     b->h = h;
@@ -789,7 +802,6 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         rgbcorr[i] = chdepth ? 255.0f / chdepth : 0.0f;
     }
 
-
     if(rd.fseek(rd.data, hdr.bmp_offset + start_offset, SEEK_SET) != 0) {
         SET_ERROR("out of memory");
         goto error;
@@ -798,18 +810,24 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     rs = ((dib.width * dib.bitspp / 8) + 3) & ~3;
     assert(rs % 4 == 0);
 
-    data = CAST(unsigned char *)(malloc(rs * b->h));
-    if(!data) {
-        SET_ERROR("out of memory");
-        goto error;
-    }
-
     if(dib.bmp_bytesz == 0) {
+        data = CAST(unsigned char *)(malloc(rs * b->h));
+        if(!data) {
+            SET_ERROR("out of memory");
+            goto error;
+        }
+
         if(rd.fread(data, 1, rs * b->h, rd.data) != rs * b->h) {
             SET_ERROR("fread on data");
             goto error;
         }
     } else {
+        data = CAST(unsigned char *)(malloc(dib.bmp_bytesz));
+        if(!data) {
+            SET_ERROR("out of memory");
+            goto error;
+        }
+
         if(rd.fread(data, 1, dib.bmp_bytesz, rd.data) != dib.bmp_bytesz) {
             SET_ERROR("fread on data");
             goto error;
@@ -851,9 +869,9 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         }
     } else if (dib.bitspp == 32) {
         for(j = 0; j < b->h; j++) {
-            int y = b->h - j - 1;
+            uint32_t y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
-                int p = y * rs + i * 4;
+                uint32_t p = y * rs + i * 4;
 
                 uint32_t* pixel = (uint32_t*)(data + p);
                 uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
@@ -868,9 +886,9 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
         }
     } else {
         for(j = 0; j < b->h; j++) {
-            int y = b->h - j - 1;
+            uint32_t y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
-                int p = y * rs + i * 3;
+                uint32_t p = y * rs + i * 3;
                 BM_SET_RGBA(b, i, j, data[p+2], data[p+1], data[p+0], 0xFF);
             }
         }
@@ -3039,6 +3057,8 @@ static Bitmap *bm_load_tga_rd(BmReader rd) {
     uint8_t bytes[4];
     uint8_t *color_map = NULL;
     Bitmap *bmp = bm_create(head.img_spec.w, head.img_spec.h);
+    if(!bmp)
+        return NULL;
 
     if(head.map_type) {
         color_map = CAST(uint8_t*)(calloc(head.map_spec.length, head.map_spec.size));

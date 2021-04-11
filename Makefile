@@ -1,6 +1,3 @@
-
-
-
 CC=gcc
 CFLAGS=-c -Wall -Wextra -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
 LDFLAGS=`libpng-config --ldflags` -lz -ljpeg -lm

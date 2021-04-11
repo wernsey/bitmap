@@ -1263,11 +1263,19 @@ void bm_set_error(const char *e);
  * TODO
  * ----
  *
+ * - [ ] [k-d trees][kdtree] have been suggested as a way to speed up nearest neighbour searches.
+ *       I'm thinking in particular in my color quantization code which is a bit naive at the moment.
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
  * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
  *       actual character you want to draw, so `bm_text_width()` is broken if you
  *       aren't using a fixed width font.
+ * - [ ] I only recently learned of [Wuffs][wuffs]. It might be worth integrating it in the same way
+ *       I integrate `stb_image` for security sensitive applications.
+ *       ([HN link](https://news.ycombinator.com/item?id=26714831))
+ *
+ * [kdtree]: https://en.wikipedia.org/wiki/K-d_tree
+ * [wuffs]: https://github.com/google/wuffs
  *
  * References
  * ----------
