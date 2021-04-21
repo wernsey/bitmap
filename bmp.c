@@ -3706,7 +3706,7 @@ Bitmap *bm_from_Xbm(int w, int h, unsigned char *data) {
 /*
 See also https://www.fileformat.info/format/xpm/egff.htm
 */
-Bitmap *bm_from_Xpm(char *xpm[]) {
+Bitmap *bm_from_Xpm(const char *xpm[]) {
 #define XPM_MAX_COLORS 256
     Bitmap *b;
     int w, h, nc, cp;
@@ -3777,7 +3777,7 @@ Bitmap *bm_from_Xpm(char *xpm[]) {
 
     /* Get the actual pixel data */
     for(j = 0; j < h; j++) {
-        char *row = xpm[1 + nc + j];
+        const char *row = xpm[1 + nc + j];
         for(i = 0; i < w; i++) {
             assert(row[i]);
             for(r = 0; r < nc; r++) {

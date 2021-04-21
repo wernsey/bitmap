@@ -172,12 +172,12 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h);
 Bitmap *bm_from_Xbm(int w, int h, unsigned char *data);
 
 /**
- * #### `Bitmap *bm_from_Xpm(char *xpm[])`
+ * #### `Bitmap *bm_from_Xpm(const char *xpm[])`
  *
  * Creates a `Bitmap` object from [X PixMap](https://en.wikipedia.org/wiki/X_PixMap)
  * data in a source file.
  */
-Bitmap *bm_from_Xpm(char *xpm[]);
+Bitmap *bm_from_Xpm(const char *xpm[]);
 
 /**
  * #### `int bm_width(Bitmap *b)`
