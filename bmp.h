@@ -281,20 +281,20 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len);
  */
 Bitmap *bm_load_base64(const char *base64);
 
-#if defined(USESDL) && defined(_SDL_H)
+#if defined(USESDL)
 /**
  * #### `Bitmap *bm_load_rw(SDL_RWops *file)`
  *
  * Loads a bitmap from a SDL `SDL_RWops*` structure,
  * for use with the [SDL library](http://www.libsdl.org).
  *
- * This function is only available if the `USESDL` preprocessor macro
- * is defined, and `SDL.h` is included before `bmp.h`.
- *
  * BMP, GIF and PCX support is always enabled, while JPG and PNG support
  * depends on how the library was compiled.
  *
  * Returns `NULL` if the file could not be loaded.
+ *
+ * **Note** This function is only available if the `USESDL` preprocessor macro
+ * is defined, and `SDL.h` is included before `bmp.h`.
  */
 Bitmap *bm_load_rw(SDL_RWops *file);
 #endif
@@ -423,6 +423,18 @@ void bm_rebind(Bitmap *b, unsigned char *data);
  * calls `bm_free()`
  */
 void bm_unbind(Bitmap *b);
+
+#if defined(USESDL)
+/**
+ * #### `SDL_Texture *bm_create_SDL_texture(Bitmap *b, SDL_Renderer *renderer)`
+ *
+ * Creates a
+ *
+ * **Note** This function is only available if the `USESDL` preprocessor macro
+ * is defined, and `SDL.h` is included before `bmp.h`.
+ */
+SDL_Texture *bm_create_SDL_texture(Bitmap *b, SDL_Renderer *renderer);
+#endif
 
 /**
  * ### Clipping and Buffer Manipulation Functions

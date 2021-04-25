@@ -3647,9 +3647,21 @@ void bm_rebind(Bitmap *b, unsigned char *data) {
 }
 
 void bm_unbind(Bitmap *b) {
-    assert(!(b->flags & FLAG_OWNS_DATA));
+    assert(!(b->flags & FLAG_OWNS_DATA) && "Attempt to unbind a bitmap that is not bound");
     bm_free(b);
 }
+
+#ifdef USESDL
+SDL_Texture *bm_create_SDL_texture(Bitmap *b, SDL_Renderer *renderer) {
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, b->w, b->h);
+    if(!texture) {
+        SET_ERROR(SDL_GetError());
+        return NULL;
+    }
+    SDL_UpdateTexture(texture, NULL, b->data, b->w * 4);
+    return texture;
+}
+#endif
 
 void bm_flip_vertical(Bitmap *b) {
     int y;
