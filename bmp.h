@@ -281,7 +281,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len);
  */
 Bitmap *bm_load_base64(const char *base64);
 
-#if defined(USESDL)
+#if defined(USESDL) && defined(SDL_h_)
 /**
  * #### `Bitmap *bm_load_rw(SDL_RWops *file)`
  *
@@ -424,7 +424,7 @@ void bm_rebind(Bitmap *b, unsigned char *data);
  */
 void bm_unbind(Bitmap *b);
 
-#if defined(USESDL)
+#if defined(USESDL) && defined(SDL_h_)
 /**
  * #### `SDL_Texture *bm_create_SDL_texture(Bitmap *b, SDL_Renderer *renderer)`
  *
