@@ -1866,8 +1866,8 @@ typedef struct {
 } GIF_TXT_EXT;
 #pragma pack(pop)
 
-static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct);
-static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct);
+static int gif_read_image(BmReader rd, GIF *gif, BmPalette *pal);
+static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, BmPalette *pal);
 static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize);
 static unsigned char *lzw_decode_bytes(unsigned char *bytes, int data_len, int code_size, int *out_len);
 
@@ -1877,7 +1877,7 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
     /* From the packed fields in the logical screen descriptor */
     unsigned gct, sgct;
 
-    struct rgb_triplet *palette = NULL;
+    BmPalette *pal = NULL;
 
     unsigned char trailer;
 
@@ -1905,7 +1905,7 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
 
     /* Ugh, I once used a compiler that added a padding byte */
     assert(sizeof gif.lsd == 7);
-    assert(sizeof *palette == 3);
+    assert(sizeof(struct rgb_triplet) == 3);
 
     if(rd.fread(&gif.lsd, sizeof gif.lsd, 1, rd.data) != 1) {
         SET_ERROR("unable to read GIF LSD");
@@ -1918,19 +1918,17 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
     if(gct) {
         /* raise 2 to the power of [sgct+1] */
         sgct = 1 << (sgct + 1);
+        assert(sgct <= 256);
     }
 
     gif.bmp = bm_create(gif.lsd.width, gif.lsd.height);
 
     if(gct) {
         /* Section 19. Global Color Table. */
-        struct rgb_triplet *bg;
-        palette = CAST(struct rgb_triplet*)(calloc(sgct, sizeof *palette));
-        if (!palette)
-            return NULL;
+        struct rgb_triplet *bg, palette[256];
+        unsigned int i;
 
         if(rd.fread(palette, sizeof *palette, sgct, rd.data) != sgct) {
-            free(palette);
             SET_ERROR("unable to read GIF palette");
             return NULL;
         }
@@ -1942,22 +1940,28 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
         SET_COLOR_RGB(gif.bmp, 0, 0, 0);
         bm_set_alpha(gif.bmp, 0);
 
+        pal = bm_create_palette(sgct);
+        if(!pal)
+            return NULL;
+        for(i = 0; i < sgct; i++)
+            bm_palette_set(pal, i, (palette[i].r << 16) | (palette[i].g << 8) | palette[i].b);
+
+        bm_set_palette(gif.bmp, pal);
+        bm_palette_release(pal);
+
     } else {
         /* what? */
         SET_ERROR("don't know what to do about GIF palette");
-        palette = NULL;
+        return NULL;
     }
 
     for(;;) {
         long pos = rd.ftell(rd.data);
-        if(!gif_read_image(rd, &gif, palette, sgct)) {
+        if(!gif_read_image(rd, &gif, pal)) {
             rd.fseek(rd.data, pos, SEEK_SET);
             break;
         }
     }
-
-    if(palette)
-        free(palette);
 
     /* Section 27. Trailer. */
     if((rd.fread(&trailer, 1, 1, rd.data) != 1) || trailer != 0x3B) {
@@ -1973,26 +1977,33 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
     unsigned char introducer, label;
 
     if((rd.fread(&introducer, 1, 1, rd.data) != 1) || introducer != 0x21) {
+        SET_ERROR("couldn't read GIF extension introducer");
         return 0;
     }
     if(rd.fread(&label, 1, 1, rd.data) != 1) {
+        SET_ERROR("couldn't read GIF extension label");
         return 0;
     }
 
     if(label == 0xF9) {
         /* 23. Graphic Control Extension. */
         if(rd.fread(gce, sizeof *gce, 1, rd.data) != 1) {
+            SET_ERROR("couldn't read GIF graphic control extension");
             return 0;
         }
     } else if(label == 0xFE) {
         /* Section 24. Comment Extension. */
         int len;
-        if(!gif_data_sub_blocks(rd, &len)) return 0;
+        if(!gif_data_sub_blocks(rd, &len)) {
+            SET_ERROR("couldn't read GIF comment extension");
+            return 0;
+        }
     } else if(label == 0x01) {
         /* Section 25. Plain Text Extension. */
         GIF_TXT_EXT te;
         int len;
         if(rd.fread(&te, sizeof te, 1, rd.data) != 1) {
+            SET_ERROR("couldn't read GIF plain text extension");
             return 0;
         }
         if(!gif_data_sub_blocks(rd, &len)) return 0;
@@ -2001,6 +2012,7 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
         GIF_APP_EXT ae;
         int len;
         if(rd.fread(&ae, sizeof ae, 1, rd.data) != 1) {
+            SET_ERROR("couldn't read GIF application extension");
             return 0;
         }
         if(!gif_data_sub_blocks(rd, &len)) return 0; /* Skip it */
@@ -2011,7 +2023,7 @@ static int gif_read_extension(BmReader rd, GIF_GCE *gce) {
 }
 
 /* Section 20. Image Descriptor. */
-static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct) {
+static int gif_read_image(BmReader rd, GIF *gif, BmPalette *pal) {
     GIF_GCE gce;
     GIF_ID gif_id;
     int rv = 1;
@@ -2033,10 +2045,12 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
     }
 
     if(rd.fread(&gif_id, sizeof gif_id, 1, rd.data) != 1) {
+        SET_ERROR("no more blocks to read");
         return 0; /* no more blocks to read */
     }
 
     if(gif_id.separator != 0x2C) {
+        SET_ERROR("GIF separator not 0x2C as expected");
         return 0;
     }
 
@@ -2044,25 +2058,33 @@ static int gif_read_image(BmReader rd, GIF *gif, struct rgb_triplet *ct, int sct
     slct = gif_id.fields & 0x07;
     if(lct) {
         /* Section 21. Local Color Table. */
+        struct rgb_triplet palette[256];
+        unsigned int i;
+
         /* raise 2 to the power of [slct+1] */
         slct = 1 << (slct + 1);
+        assert(slct <= 256);
 
-        ct = CAST(struct rgb_triplet*)(calloc(slct, sizeof *ct));
-
-        if(rd.fread(ct, sizeof *ct, slct, rd.data) != slct) {
-            free(ct);
+        if(rd.fread(palette, sizeof *palette, slct, rd.data) != slct) {
+            SET_ERROR("couldn't read GIF LCT");
             return 0;
         }
-        sct = slct;
+
+        pal = bm_create_palette(slct);
+        if(!pal)
+            return 0;
+        for(i = 0; i < slct; i++)
+            bm_palette_set(pal, i, (palette[i].r << 16) | (palette[i].g << 8) | palette[i].b);
     }
 
-    if(!gif_read_tbid(rd, gif, &gif_id, &gce, ct, sct)) {
+    if(!gif_read_tbid(rd, gif, &gif_id, &gce, pal)) {
         SET_ERROR("unable to read GIF TBID");
         rv = 0; /* what? */
     }
 
     if(lct) {
-        free(ct);
+        assert(pal != gif->bmp->palette);
+        bm_palette_release(pal);
     }
 
     return rv;
@@ -2118,7 +2140,7 @@ static unsigned char *gif_data_sub_blocks(BmReader rd, int *r_tsize) {
 }
 
 /* Section 22. Table Based Image Data. */
-static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, struct rgb_triplet *ct, int sct) {
+static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, BmPalette *pal) {
     int len, rv = 1;
     unsigned char *bytes, min_code_size;
 
@@ -2143,8 +2165,7 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
                 /* Mmmm, my bitmap module won't be able to handle
                     situations where different image blocks in the
                     GIF has different transparent colors */
-                struct rgb_triplet *bg = &ct[gce->trans_index];
-                SET_COLOR_RGB(gif->bmp, bg->r, bg->g, bg->b);
+                bm_set_color(gif->bmp, bm_palette_get(pal, gce->trans_index));
             }
         }
 
@@ -2193,16 +2214,18 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, st
                         assert(truey >= 0 && truey < gif->bmp->h);
                         for(x = 0; x < gif_id->width && rv; x++, i++) {
                             int c = decoded[i];
-                            if(c < sct) {
-                                struct rgb_triplet *rgb = &ct[c];
+                            if(c < bm_palette_count(pal)) {
+                                //struct rgb_triplet *rgb = &ct[c];
                                 assert(x + gif_id->left >= 0 && x + gif_id->left < gif->bmp->w);
-                                if(trans_flag && c == gce->trans_index) {
-                                    bm_set(gif->bmp, x + gif_id->left, truey, bm_rgba(rgb->r, rgb->g, rgb->b, 0x00));
+                                unsigned int col = bm_palette_get(pal, c);
+                                if(trans_flag && col == gce->trans_index) {
+                                    bm_set(gif->bmp, x + gif_id->left, truey, col & 0xFFFFFF);
                                 } else {
-                                    bm_set(gif->bmp, x + gif_id->left, truey, bm_rgb(rgb->r, rgb->g, rgb->b));
+                                    bm_set(gif->bmp, x + gif_id->left, truey, col | 0xFF000000);
                                 }
                             } else {
                                 /* Decode error */
+                                SET_ERROR("invalid color value encountered");
                                 rv = 0;
                             }
                         }
@@ -2555,10 +2578,8 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
             int q;
 
             pal = bm_create_palette(256);
-            if(!pal) {
-                SET_ERROR("out of memory");
+            if(!pal)
                 return 0;
-            }
 
             sgct = 256;
             gif.lsd.fields |= 0x07;
@@ -2577,6 +2598,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
                 bm_palette_set(pal, q, (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b);
             }
             bm_set_palette(b, pal);
+            bm_palette_release(pal);
         }
         /* Copy the image and dither it to match the palette */
         b = bm_copy(b);
@@ -2743,8 +2765,7 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
     struct pcx_header hdr;
     Bitmap *b = NULL;
     int y;
-
-    struct rgb_triplet rgb[256];
+    BmPalette *pal = NULL;
 
     if(rd.fread(&hdr, sizeof hdr, 1, rd.data) != 1) {
         SET_ERROR("couldn't read PCX header");
@@ -2762,8 +2783,9 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
     }
 
     if(hdr.planes == 1) {
-        long pos = rd.ftell(rd.data);
+        long pos = rd.ftell(rd.data), i;
         char pbyte;
+        struct rgb_triplet rgb[256];
 
         rd.fseek(rd.data, -769, SEEK_END);
         if(rd.fread(&pbyte, sizeof pbyte, 1, rd.data) != 1) {
@@ -2778,11 +2800,20 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
             SET_ERROR("error reading PCX palette");
             return NULL;
         }
+        pal = bm_create_palette(256);
+        if(!pal)
+            return NULL;
+        for(i = 0; i < 256; i++)
+            bm_palette_set(pal, i, (rgb[i].r << 16) | (rgb[i].g << 8) | rgb[i].b);
 
         rd.fseek(rd.data, pos, SEEK_SET);
     }
 
     b = bm_create(hdr.xmax - hdr.xmin + 1, hdr.ymax - hdr.ymin + 1);
+    if(!b)
+        return NULL;
+    bm_set_palette(b, pal);
+    bm_palette_release(pal);
 
     for(y = 0; y < b->h; y++) {
         int p;
@@ -2800,10 +2831,9 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
                         goto read_error;
                 }
                 if(hdr.planes == 1) {
-                    int c = (rgb[i].r << 16) | (rgb[i].g << 8) | rgb[i].b;
-                    while(cnt--) {
+                    unsigned int c = bm_palette_get(pal, i);
+                    while(cnt--)
                         bm_set(b, x++, y, c);
-                    }
                 } else {
                     while(cnt--) {
                         int c = bm_get(b, x, y);
@@ -2896,10 +2926,8 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
             int q;
 
             pal = bm_create_palette(256);
-            if(!pal) {
-                SET_ERROR("out of memory");
+            if(!pal)
                 return 0;
-            }
 
             ncolors = 0;
             for(ncolors = 0; ncolors < 256; ncolors++) {
@@ -2913,6 +2941,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
                 bm_palette_set(pal, q, (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b);
             }
             bm_set_palette(b, pal);
+            bm_palette_release(pal);
         }
         /* Copy the image and dither it to match the palette */
         b = bm_copy(b);
@@ -6326,14 +6355,17 @@ void bm_reduce_palette_OD8(Bitmap *b, BmPalette *pal) {
 BmPalette *bm_create_palette(unsigned int ncolors) {
     BmPalette *pal;
     pal = malloc(sizeof *pal);
-    if(!pal)
+    if(!pal) {
+        SET_ERROR("out of memory");
         return NULL;
+    }
     pal->ncolors = (int)ncolors;
     pal->acolors = 32;
     while(pal->acolors < (int)ncolors)
         pal->acolors <<= 1;
     pal->colors = calloc(pal->acolors, sizeof *pal->colors);
     if(!pal->colors) {
+        SET_ERROR("out of memory");
         free(pal);
         return NULL;
     }
@@ -6378,12 +6410,14 @@ int bm_palette_add(BmPalette *pal, unsigned int color) {
 }
 
 int bm_palette_set(BmPalette *pal, int index, unsigned int color) {
+    assert(pal);
     assert(index >= 0 && index < pal->ncolors);
     pal->colors[index] = color;
     return index;
 }
 
 unsigned int bm_palette_get(BmPalette *pal, int index) {
+    assert(pal);
     assert(index >= 0 && index < pal->ncolors);
     return pal->colors[index];
 }
