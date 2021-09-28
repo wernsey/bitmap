@@ -713,7 +713,8 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     struct bmpfile_magic magic;
     struct bmpfile_header hdr;
     struct bmpfile_dibinfo dib;
-    struct bmpfile_colinfo *palette = NULL;
+    //struct bmpfile_colinfo *palette = NULL;
+    BmPalette *pal = NULL;
 
     Bitmap *b = NULL;
 
@@ -765,18 +766,26 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     }
 
     if(dib.bitspp <= 8) {
+        struct bmpfile_colinfo palette[256];
+        unsigned int i;
         if(!dib.ncolors) {
             dib.ncolors = 1 << dib.bitspp;
         }
-        palette = CAST(struct bmpfile_colinfo*)(calloc(dib.ncolors, sizeof *palette));
-        if(!palette) {
-            SET_ERROR("out of memory");
-            goto error;
-        }
+        assert(dib.ncolors <= 256);
+
         if(rd.fread(palette, sizeof *palette, dib.ncolors, rd.data) != dib.ncolors) {
             SET_ERROR("fread on palette");
             goto error;
         }
+
+        pal = bm_create_palette(dib.ncolors);
+        if(!pal)
+            goto error;
+        for(i = 0; i < dib.ncolors; i++) {
+            unsigned int color = palette[i].a << 24 | palette[i].r << 16 | palette[i].g << 8 | palette[i].b;
+            bm_palette_set(pal, i, color);
+        }
+        bm_set_palette(b, pal);
     }
 
     /* standard bitmasks for 16 & 32 bpp, required when biCompression = BI_RGB */
@@ -847,7 +856,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 uint8_t p = data[byt];
 
                 assert(p < dib.ncolors);
-                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+                bm_set(b, i, j, bm_palette_get(pal, p));
             }
         }
     } else if(dib.bitspp == 4) {
@@ -857,7 +866,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 int byt = y * rs + (i >> 1);
                 uint8_t p = ( (i & 0x01) ? data[byt] : (data[byt] >> 4) ) & 0x0F;
                 assert(p < dib.ncolors);
-                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+                bm_set(b, i, j, bm_palette_get(pal, p));
             }
         }
     } else if (dib.bitspp == 1) {
@@ -869,7 +878,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
                 uint8_t p = (data[byt] & (1 << bit)) >> bit;
 
                 assert(p < dib.ncolors);
-                BM_SET_RGBA(b, i, j, palette[p].r, palette[p].g, palette[p].b, palette[p].a);
+                bm_set(b, i, j, bm_palette_get(pal, p));
             }
         }
     } else if (dib.bitspp == 32) {
@@ -900,8 +909,10 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     }
 
 end:
-    if(data) free(data);
-    if(palette != NULL) free(palette);
+    if(data)
+        free(data);
+    if(pal != NULL)
+        bm_palette_release(pal);
 
     return b;
 error:
