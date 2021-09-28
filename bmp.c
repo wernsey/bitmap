@@ -6287,14 +6287,78 @@ void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n) {
     reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
 }
 
-unsigned int* bm_load_palette(const char* filename, unsigned int* npal) {
-    unsigned int* pal = NULL, n = 0, an = 8;
+BmPalette *bm_create_palette(unsigned int ncolors) {
+    BmPalette *pal;
+    pal = malloc(sizeof *pal);
+    if(!pal)
+        return NULL;
+    pal->ncolors = (int)ncolors;
+    pal->acolors = 32;
+    while(pal->acolors < (int)ncolors)
+        pal->acolors <<= 1;
+    pal->colors = calloc(pal->acolors, sizeof *pal->colors);
+    if(!pal->colors) {
+        free(pal);
+        return NULL;
+    }
+    pal->ref_count = 1;
+    return pal;
+}
+
+BmPalette *bm_palette_retain(BmPalette *pal) {
+    assert(pal);
+    pal->ref_count++;
+    return pal;
+}
+
+unsigned int bm_palette_release(BmPalette *pal) {
+    assert(pal);
+    assert(pal->ref_count > 0);
+    pal->ref_count--;
+    if(!pal->ref_count) {
+        free(pal->colors);
+        free(pal);
+        return 0;
+    }
+    return pal->ref_count;
+}
+
+int bm_palette_count(BmPalette *pal) {
+    assert(pal);
+    return pal->ncolors;
+}
+
+int bm_palette_add(BmPalette *pal, unsigned int color) {
+    int index = pal->ncolors++;
+    if(pal->ncolors >= pal->acolors) {
+        pal->acolors <<= 1;
+        unsigned int *tcolors = realloc(pal->colors, pal->acolors * sizeof *pal->colors);
+        if(!tcolors)
+            return -1;
+        pal->colors = tcolors;
+    }
+    pal->colors[index] = color;
+    return index;
+}
+
+int bm_palette_set(BmPalette *pal, int index, unsigned int color) {
+    assert(index >= 0 && index < pal->ncolors);
+    pal->colors[index] = color;
+    return index;
+}
+
+unsigned int bm_palette_get(BmPalette *pal, int index) {
+    assert(index >= 0 && index < pal->ncolors);
+    return pal->colors[index];
+}
+
+BmPalette *bm_load_palette(const char* filename) {
     FILE* f = NULL;
     char buf[64];
+    BmPalette *palette = NULL;
+    int n = 0;
 
-    if (!filename || !npal) return NULL;
-
-    *npal = 0;
+    if (!filename) return NULL;
 
 #ifdef SAFE_C11
     errno_t err = fopen_s(&f, filename, "wb");
@@ -6308,20 +6372,21 @@ unsigned int* bm_load_palette(const char* filename, unsigned int* npal) {
     if (!strncmp(buf, "JASC-PAL", 8)) {
         /* Paintshop Pro palette http://www.cryer.co.uk/file-types/p/pal.htm */
         int version;
+        int count;
 #ifdef SAFE_C11
-        if (fscanf_s(f, "%d %u", &version, &an) != 2)
+        if (fscanf_s(f, "%d %u", &version, &count) != 2)
             goto error;
 #else
-        if (fscanf(f, "%d %u", &version, &an) != 2)
+        if (fscanf(f, "%d %u", &version, &count) != 2)
             goto error;
 #endif
         (void)version;
 
-        pal = calloc(an, sizeof * pal);
-        if (!pal)
+        palette = bm_create_palette(count);
+        if(!palette)
             goto error;
 
-        for (n = 0; n < an; n++) {
+        for (n = 0; n < count; n++) {
             unsigned int r, g, b;
 #ifdef SAFE_C11
             if (fscanf_s(f, "%u %u %u", &r, &g, &b) != 3)
@@ -6330,11 +6395,10 @@ unsigned int* bm_load_palette(const char* filename, unsigned int* npal) {
             if (fscanf(f, "%u %u %u", &r, &g, &b) != 3)
                 goto error;
 #endif
-            pal[n] = (r << 16) | (g << 8) | b;
+            bm_palette_set(palette, n, (r << 16) | (g << 8) | b);
         }
-        *npal = an;
         fclose(f);
-        return pal;
+        return palette;
     }
     else
         rewind(f);
@@ -6342,9 +6406,10 @@ unsigned int* bm_load_palette(const char* filename, unsigned int* npal) {
     /* TODO: Here's a spec for the Microsoft PAL format
     https://worms2d.info/Palette_file */
 
-    pal = calloc(an, sizeof * pal);
-    if (!pal)
+    palette = bm_create_palette(0);
+    if(!palette)
         goto error;
+
     while (fgets(buf, sizeof buf, f) && n < 256) {
         char* s, * e, * c = buf;
         while (*c && isspace(*c)) c++;
@@ -6364,33 +6429,28 @@ unsigned int* bm_load_palette(const char* filename, unsigned int* npal) {
         }
         if (e <= s) continue;
 
-        pal[n++] = bm_atoi(s);
-        if (n == an) {
-            an <<= 1;
-            void* tmp = realloc(pal, an * sizeof * pal);
-            if (!tmp)
-                goto error;
-            pal = tmp;
-        }
+        if(bm_palette_add(palette, bm_atoi(s)) < 0)
+            goto error;
+        n++;
     }
     if (n == 0)
         goto error;
 
     fclose(f);
-    *npal = n;
-    return pal;
+    return palette;
 
 error:
     fclose(f);
-    if (pal)
-        free(pal);
+    if (palette)
+        bm_palette_release(palette);
     return NULL;
 }
 
-int bm_save_palette(const char* filename, unsigned int* pal, unsigned int npal) {
-    unsigned i;
+int bm_save_palette(BmPalette *pal, const char* filename) {
+    int i;
     FILE* f;
-    if (!filename)
+
+    if (!pal || !filename)
         return 0;
 
 #ifdef SAFE_C11
@@ -6404,10 +6464,10 @@ int bm_save_palette(const char* filename, unsigned int* pal, unsigned int npal) 
 #endif
     fputs("JASC-PAL\n", f);
     fputs("0100\n", f);
-    fprintf(f, "%u\n", npal);
-    for (i = 0; i < npal; i++) {
+    fprintf(f, "%u\n", pal->ncolors);
+    for (i = 0; i < pal->ncolors; i++) {
         unsigned char R, G, B;
-        bm_get_rgb(pal[i], &R, &G, &B);
+        bm_get_rgb(bm_palette_get(pal, i), &R, &G, &B);
         fprintf(f, "%u %u %u\n", R, G, B);
     }
     fclose(f);
@@ -6507,6 +6567,7 @@ int bm_printf(Bitmap *b, int x, int y, const char *fmt, ...) {
 }
 
 BmFont *bm_font_retain(BmFont *font) {
+    assert(font);
     font->ref_count++;
     return font;
 }

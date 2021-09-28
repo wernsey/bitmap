@@ -125,6 +125,13 @@ typedef struct bitmap_font {
     void *data;
 } BmFont;
 
+typedef struct bitmap_palette {
+    unsigned int ref_count;
+    int ncolors;
+    int acolors;
+    unsigned int *colors;
+} BmPalette;
+
 /**
  * ### Creating and Destroying bitmaps
  */
@@ -916,14 +923,28 @@ void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], unsigned int n);
  */
 void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n);
 
+BmPalette *bm_create_palette(unsigned int ncolors);
+
+BmPalette *bm_palette_retain(BmPalette *pal);
+
+unsigned int bm_palette_release(BmPalette *pal);
+
+int bm_palette_count(BmPalette *pal);
+
+int bm_palette_add(BmPalette *pal, unsigned int color);
+
+int bm_palette_set(BmPalette *pal, int index, unsigned int color);
+
+unsigned int bm_palette_get(BmPalette *pal, int index);
+
 /**
- * #### `unsigned int *bm_load_palette(const char * filename, unsigned int *npal)`
+ * #### `BmPalette *bm_load_palette(const char * filename)`
  *
  * Loads a palette from a file named `filename`.
- * It returns an array of colours, or `NULL` on error. `npal` will contain the
- * number of entries read in the palette file.
  *
- * The returned array must be `free()`ed after use.
+ * It returns a `BmPalette` pointer, or `NULL` on error.
+ *
+ * The returned pointer must be `bm_palette_release()`ed after use.
  *
  * Two formats are supported:
  *
@@ -938,18 +959,18 @@ void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n);
  * [Psp-pal]: http://www.cryer.co.uk/file-types/p/pal.htm
  * [Pdn-pal]: https://www.getpaint.net/doc/latest/WorkingWithPalettes.html
  */
-unsigned int *bm_load_palette(const char * filename, unsigned int *npal);
+BmPalette *bm_load_palette(const char * filename);
 
 /**
- * #### `int bm_save_palette(const char * filename, unsigned int *pal, unsigned int *npal)`
+ * #### `int bm_save_palette(BmPalette *pal, const char* filename)`
  *
- * Saves a palette `pal`, containing `npal` entries, to a file named `filename`.
+ * Saves a palette `pal` to a file named `filename`.
  *
  * The file is always saved in the [Paintshop Pro palette format][Psp-pal].
  *
  * Returns 1 on success, 0 on failure.
  */
-int bm_save_palette(const char * filename, unsigned int *pal, unsigned int npal);
+int bm_save_palette(BmPalette *pal, const char* filename);
 
 /**
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`

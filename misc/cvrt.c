@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     const char *infile, *outfile;
     int opt, ow = -1, oh = -1, nn = 0;
     double perc = -1.0;
-    unsigned int *pal = NULL, npal = 0;
+    BmPalette *pal = NULL;
 
     while((opt = getopt(argc, argv, "w:h:np:P:?")) != -1) {
         switch(opt) {
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
                 perc = atof(optarg) / 100.0;
             } break;
             case 'P' : {
-                pal = bm_load_palette(optarg, &npal);
+                pal = bm_load_palette(optarg);
                 if(!pal) {
                     fprintf(stderr, "Unable to load palette %s\n", optarg);
                     return 1;
@@ -95,8 +95,8 @@ int main(int argc, char *argv[]) {
     }
 
     if(pal) {
-        bm_reduce_palette(b, pal, npal);
-        free(pal);
+        bm_reduce_palette(b, pal->colors, pal->ncolors);
+        bm_palette_release(pal);
     }
 
     bm_save(b, outfile);
