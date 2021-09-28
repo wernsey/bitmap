@@ -889,52 +889,38 @@ Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out);
 void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
 
 /**
- * #### `void bm_reduce_palette(Bitmap *b, unsigned int palette[], size_t n)`
- *
- * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying [Floyd-Steinberg dithering](http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
- *
- * `palette` is an array of integers containing the new palette and
- * `n` is the number of entries in the palette.
+ * #### ``
  */
-void bm_reduce_palette(Bitmap *b, unsigned int palette[], unsigned int n);
-
-/**
- * #### `void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], size_t n)`
- *
- * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
- * and a 4x4 Bayer matrix.
- *
- * `palette` is an array of integers containing the new palette and
- * `n` is the number of entries in the palette.
- */
-void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], unsigned int n);
-
-/**
- * #### `void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], size_t n)`
- *
- * Reduces the colors in the bitmap `b` to the colors in `palette`
- * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
- * and a 8x8 Bayer matrix.
- *
- * `palette` is an array of integers containing the new palette and
- * `n` is the number of entries in the palette.
- */
-void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n);
-
 BmPalette *bm_create_palette(unsigned int ncolors);
 
+/**
+ * #### ``
+ */
 BmPalette *bm_palette_retain(BmPalette *pal);
 
+/**
+ * #### ``
+ */
 unsigned int bm_palette_release(BmPalette *pal);
 
+/**
+ * #### ``
+ */
 int bm_palette_count(BmPalette *pal);
 
+/**
+ * #### ``
+ */
 int bm_palette_add(BmPalette *pal, unsigned int color);
 
+/**
+ * #### ``
+ */
 int bm_palette_set(BmPalette *pal, int index, unsigned int color);
 
+/**
+ * #### ``
+ */
 unsigned int bm_palette_get(BmPalette *pal, int index);
 
 /**
@@ -971,6 +957,42 @@ BmPalette *bm_load_palette(const char * filename);
  * Returns 1 on success, 0 on failure.
  */
 int bm_save_palette(BmPalette *pal, const char* filename);
+
+/**
+ * #### ``
+ */
+void bm_set_palette(Bitmap *b, BmPalette *pal);
+
+/**
+ * #### ``
+ */
+BmPalette *bm_get_palette(Bitmap *b);
+
+/**
+ * #### `void bm_reduce_palette(Bitmap *b, BmPalette *palette)`
+ *
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [Floyd-Steinberg dithering](http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
+ */
+void bm_reduce_palette(Bitmap *b, BmPalette *palette);
+
+/**
+ * #### `void bm_reduce_palette_OD4(Bitmap *b, BmPalette *palette)`
+ *
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
+ * and a 4x4 Bayer matrix.
+ */
+void bm_reduce_palette_OD4(Bitmap *b, BmPalette *palette);
+
+/**
+ * #### `void bm_reduce_palette_OD8(Bitmap *b, BmPalette *palette)`
+ *
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [ordered dithering](https://en.wikipedia.org/wiki/Ordered_dithering)
+ * and a 8x8 Bayer matrix.
+ */
+void bm_reduce_palette_OD8(Bitmap *b, BmPalette *palette);
 
 /**
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`

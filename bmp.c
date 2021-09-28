@@ -165,6 +165,9 @@ struct bitmap {
 
     /* Clipping rectangle */
     BmRect clip;
+
+    /* (optional) Palette associated with the bitmap */
+    BmPalette *palette;
 };
 
 #pragma pack(push, 1) /* Don't use any padding (Windows compilers) */
@@ -278,6 +281,8 @@ static Bitmap *bm_create_internal(int w, int h) {
     bm_reset_font(b);
 
     bm_set_color(b, 0xFFFFFFFF);
+
+    b->palette = NULL;
 
     b->ref_count = 0;
 
@@ -2543,30 +2548,43 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 
     nc = count_colors_build_palette(b, gct);
     if(nc < 0) {
-        unsigned int palette[256];
-        int q;
-
         /* Too many colors */
-        sgct = 256;
-        gif.lsd.fields |= 0x07;
+        BmPalette *pal = bm_get_palette(b);
 
-        /* color quantization - see bm_save_pcx() */
-        /* FIXME: The color quantization shouldn't depend on rand() :( */
-        nc = 0;
-        for(nc = 0; nc < 256; nc++) {
-            int c = bm_get(b, rand()%b->w, rand()%b->h);
-            gct[nc].r = (c >> 16) & 0xFF;
-            gct[nc].g = (c >> 8) & 0xFF;
-            gct[nc].b = (c >> 0) & 0xFF;
-        }
-        qsort(gct, nc, sizeof gct[0], comp_rgb);
-        for(q = 0; q < nc; q++) {
-            palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
+        if(!pal) {
+            int q;
+
+            pal = bm_create_palette(256);
+            if(!pal) {
+                SET_ERROR("out of memory");
+                return 0;
+            }
+
+            sgct = 256;
+            gif.lsd.fields |= 0x07;
+
+            /* color quantization - see bm_save_pcx() */
+            /* FIXME: The color quantization shouldn't depend on rand() :( */
+            nc = 0;
+            for(nc = 0; nc < 256; nc++) {
+                int c = bm_get(b, rand()%b->w, rand()%b->h);
+                gct[nc].r = (c >> 16) & 0xFF;
+                gct[nc].g = (c >> 8) & 0xFF;
+                gct[nc].b = (c >> 0) & 0xFF;
+            }
+            qsort(gct, nc, sizeof gct[0], comp_rgb);
+            for(q = 0; q < nc; q++) {
+                bm_palette_set(pal, q, (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b);
+            }
+            bm_set_palette(b, pal);
         }
         /* Copy the image and dither it to match the palette */
         b = bm_copy(b);
-        bm_reduce_palette(b, palette, nc);
+        bm_reduce_palette(b, pal);
     } else {
+
+        /* TODO: If a Bitmap has a palette, convert the colors anyway */
+
         if(nc > 128) {
             sgct = 256;
             gif.lsd.fields |= 0x07;
@@ -2861,6 +2879,8 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         return 0;
     }
 
+    /* TODO: If a Bitmap has a palette, convert the colors anyway */
+
     ncolors = count_colors_build_palette(b, rgb);
     if(ncolors < 0) {
         /* This is my poor man's color quantization hack:
@@ -2870,22 +2890,33 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
             http://rosettacode.org/wiki/Color_quantization#C
             http://rosettacode.org/wiki/Color_quantization/C
         */
-        unsigned int palette[256];
-        int q;
-        ncolors = 0;
-        for(ncolors = 0; ncolors < 256; ncolors++) {
-            unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
-            rgb[ncolors].r = (c >> 16) & 0xFF;
-            rgb[ncolors].g = (c >> 8) & 0xFF;
-            rgb[ncolors].b = (c >> 0) & 0xFF;
+        BmPalette *pal = bm_get_palette(b);
+
+        if(!pal) {
+            int q;
+
+            pal = bm_create_palette(256);
+            if(!pal) {
+                SET_ERROR("out of memory");
+                return 0;
+            }
+
+            ncolors = 0;
+            for(ncolors = 0; ncolors < 256; ncolors++) {
+                unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
+                rgb[ncolors].r = (c >> 16) & 0xFF;
+                rgb[ncolors].g = (c >> 8) & 0xFF;
+                rgb[ncolors].b = (c >> 0) & 0xFF;
+            }
+            qsort(rgb, ncolors, sizeof rgb[0], comp_rgb);
+            for(q = 0; q < ncolors; q++) {
+                bm_palette_set(pal, q, (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b);
+            }
+            bm_set_palette(b, pal);
         }
-        qsort(rgb, ncolors, sizeof rgb[0], comp_rgb);
-        for(q = 0; q < ncolors; q++) {
-            palette[q] = (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b;
-        }
-        b = bm_copy(b);
         /* Copy the image and dither it to match the palette */
-        bm_reduce_palette(b, palette, ncolors);
+        b = bm_copy(b);
+        bm_reduce_palette(b, pal);
     }
 
     for(y = 0; y < b->h; y++) {
@@ -3595,6 +3626,8 @@ Bitmap *bm_copy(Bitmap *b) {
 
     out->color = b->color;
     bm_set_font(out, b->font);
+
+    bm_set_palette(out, b->palette);
 
     memcpy(&out->clip, &b->clip, sizeof b->clip);
 
@@ -6144,17 +6177,17 @@ static unsigned int col_dist_sq(unsigned int color1, unsigned int color2) {
     return dr * dr + dg * dg + db * db;
 }
 
-static unsigned int closest_color(unsigned int c, unsigned int palette[], size_t n) {
-    unsigned int i, m = 0;
-    unsigned int md = col_dist_sq(c, palette[m]);
-    for(i = 1; i < n; i++) {
-        unsigned int d = col_dist_sq(c, palette[i]);
+static unsigned int closest_color(unsigned int c, BmPalette *pal) {
+    int i, m = 0;
+    unsigned int md = col_dist_sq(c, pal->colors[m]);
+    for(i = 1; i < pal->ncolors; i++) {
+        unsigned int d = col_dist_sq(c, pal->colors[i]);
         if(d < md) {
             md = d;
             m = i;
         }
     }
-    return palette[m];
+    return pal->colors[m];
 }
 
 static uint32_t count_trailing_zeroes(uint32_t v) {
@@ -6191,12 +6224,13 @@ static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f
     BM_SET_RGBA(b, x, y, R, G, B, 0);
 }
 
-void bm_reduce_palette(Bitmap *b, unsigned int palette[], unsigned int n) {
+void bm_reduce_palette(Bitmap *b, BmPalette *pal) {
     /* Floyd-Steinberg (error-diffusion) dithering
         http://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering */
     int x, y;
     if(!b)
         return;
+    assert(pal);
     for(y = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
             unsigned int r1, g1, b1;
@@ -6204,7 +6238,7 @@ void bm_reduce_palette(Bitmap *b, unsigned int palette[], unsigned int n) {
             unsigned int er, eg, eb;
             unsigned int newpixel, oldpixel = BM_GET(b, x, y);
 
-            newpixel = closest_color(oldpixel, palette, n);
+            newpixel = closest_color(oldpixel, pal);
 
             bm_set(b, x, y, newpixel);
 
@@ -6236,7 +6270,7 @@ static int bayer8x8[64] = { /*(1/65)*/
     11, 59,  7, 55, 10, 58,  6, 54,
     43, 27, 39, 23, 42, 26, 38, 22,
 };
-static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, int bayer[], int dim, int fac) {
+static void reduce_palette_bayer(Bitmap *b, BmPalette *pal, int bayer[], int dim, int fac) {
     /* Ordered dithering: https://en.wikipedia.org/wiki/Ordered_dithering
     The resulting image may be of lower quality than you would get with
     Floyd-Steinberg, but it does have some advantages:
@@ -6273,18 +6307,20 @@ static void reduce_palette_bayer(Bitmap *b, unsigned int palette[], size_t n, in
             if(B > 255)
                 B = 255;
             oldpixel = (R << 16) | (G << 8) | B;
-            newpixel = closest_color(oldpixel, palette, n);
+            newpixel = closest_color(oldpixel, pal);
             BM_SET(b, x, y, newpixel);
         }
     }
 }
 
-void bm_reduce_palette_OD4(Bitmap *b, unsigned int palette[], unsigned int n) {
-    reduce_palette_bayer(b, palette, n, bayer4x4, 4, 17);
+void bm_reduce_palette_OD4(Bitmap *b, BmPalette *pal) {
+    assert(pal);
+    reduce_palette_bayer(b, pal, bayer4x4, 4, 17);
 }
 
-void bm_reduce_palette_OD8(Bitmap *b, unsigned int palette[], unsigned int n) {
-    reduce_palette_bayer(b, palette, n, bayer8x8, 8, 65);
+void bm_reduce_palette_OD8(Bitmap *b, BmPalette *pal) {
+    assert(pal);
+    reduce_palette_bayer(b, pal, bayer8x8, 8, 65);
 }
 
 BmPalette *bm_create_palette(unsigned int ncolors) {
@@ -6472,6 +6508,18 @@ int bm_save_palette(BmPalette *pal, const char* filename) {
     }
     fclose(f);
     return 1;
+}
+
+void bm_set_palette(Bitmap *b, BmPalette *pal) {
+    if(pal)
+        bm_palette_retain(pal);
+    if(b->palette)
+        bm_palette_release(b->palette);
+    b->palette = pal;
+}
+
+BmPalette *bm_get_palette(Bitmap *b) {
+    return b->palette;
 }
 
 Bitmap *bm_swap_rb(Bitmap *b) {
