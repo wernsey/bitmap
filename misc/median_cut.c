@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 #include <assert.h>
 
 #include "../bmp.h"
@@ -14,6 +15,8 @@
 #define MAX_N 256
 
 int main(int argc, char *argv[]) {
+
+    srand(time(NULL));
 
     if(argc < 2) {
         fprintf(stderr, "error: no input file\n");
@@ -35,8 +38,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    //unsigned int pal[MAX_N];
     BmPalette *palette = bm_quantize(b, N);
+    // BmPalette *palette = bm_quantize_random(b, N);
+    // BmPalette *palette = bm_quantize_uniform(b, N);
 
     printf("%d colors\n", bm_palette_count(palette));
     for(i = 0; i < N; i++) {
@@ -61,6 +65,7 @@ int main(int argc, char *argv[]) {
 
 
     bm_free(b);
+    bm_palette_release(palette);
 
     return 0;
 }

@@ -973,9 +973,9 @@ int bm_save_palette(BmPalette *pal, const char* filename);
 BmPalette *bm_quantize(Bitmap *b, int n);
 
 /**
- * #### `BmPalette *bm_quantize_kmeans(Bitmap *b, unsigned int K) `
+ * #### `BmPalette *bm_quantize_kmeans(Bitmap *b, unsigned int K)`
  *
- * Creates a palette of `n` colors from the bitmap `b` using the
+ * Creates a palette of `K` colors from the bitmap `b` using the
  * [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering)
  * algorithm to choose the best colors.
  *
@@ -984,6 +984,25 @@ BmPalette *bm_quantize(Bitmap *b, int n);
  * you have a very specific reason.
  */
 BmPalette *bm_quantize_kmeans(Bitmap *b, int K);
+
+/**
+ * #### `BmPalette *bm_quantize_uniform(Bitmap *b, int K)`
+ *
+ * Creates a palette from the bitmap `b` by choosing sorting the
+ * pixels in the image, and then choosing `K` evenly spaced pixels.
+ */
+BmPalette *bm_quantize_uniform(Bitmap *b, int K);
+
+/**
+ * #### `BmPalette *bm_quantize_random(Bitmap *b, int K)`
+ *
+ * Creates a palette of `K` colors from the bitmap `b` by choosing
+ * `K` random pixels from the image.
+ *
+ * (It is much faster than the other algorithms, but it
+ * sacrifices a lot of quality)
+ */
+BmPalette *bm_quantize_random(Bitmap *b, int K);
 
 /**
  * #### ``

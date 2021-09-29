@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
     bm_free(o);
 
     bm_free(b);
+    bm_palette_release(palette);
 
     return 0;
 }

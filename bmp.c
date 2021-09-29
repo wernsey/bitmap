@@ -2559,6 +2559,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
         palette = bm_get_palette(b);
         assert(palette);
     }
+
     if(bm_palette_count(palette) > 256) {
         SET_ERROR("too many palette colors to save GIF");
         return 0;
@@ -3640,6 +3641,10 @@ void bm_free(Bitmap *b) {
     if((b->flags & FLAG_OWNS_DATA) && b->data)
         free(b->data);
     bm_font_release(b->font);
+
+    if(b->palette)
+        bm_palette_release(b->palette);
+
     free(b);
 }
 
@@ -6443,24 +6448,17 @@ int bm_make_palette(Bitmap *b) {
     BmPalette *palette;
     unsigned int colors[256];
     int ncolors = count_colors_build_palette(b, colors);
-    if(ncolors < 0) {
-        /* This is my poor man's color quantization hack:
-            Sample random pixels and generate a palette from them.
 
-            FIXME: The color quantization shouldn't depend on rand() :(
-
-            k-means/median cut/octree are algorithms to check out
-        */
-        for(ncolors = 0; ncolors < 256; ncolors++) {
-            colors[ncolors] = bm_get(b, rand()%b->w, rand()%b->h) & 0xFFFFFF;
-        }
+    if(ncolors > 0) {
+        palette = bm_palette_create(ncolors);
+        if(!palette)
+            return 0;
+        memcpy(palette->colors, colors, ncolors * sizeof colors[0]);
+    } else {
+        /* More than 256 colors in the image */
+        palette = bm_quantize_uniform(b, 256);
+        ncolors = palette->ncolors;
     }
-
-    palette = bm_palette_create(ncolors);
-    if(!palette)
-        return 0;
-
-    memcpy(palette->colors, colors, ncolors * sizeof colors[0]);
 
     bm_set_palette(b, palette);
     bm_palette_release(palette);
@@ -6731,7 +6729,6 @@ static void adjust(unsigned int *bytes, int np, int *cat, unsigned int *pal, int
     }
 }
 
-
 BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
     int np = bm_pixel_count(b);
     assert(K > 1 && K <= MAX_K);
@@ -6748,9 +6745,17 @@ BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
     if(!palette)
         return NULL;
 
+    unsigned int *pixels = malloc(np * sizeof *pixels);
+    if(!pixels) {
+        bm_palette_release(palette);
+        return NULL;
+    }
+
+    memcpy(pixels, bytes, np * sizeof *pixels);
+    qsort(pixels, np, sizeof *pixels, cnt_comp_noalpha);
     for(k = 0; k < K; k++) {
-        /* FIXME: Don't depend on `rand()` */
-        palette->colors[k] = bytes[rand() % np];
+        int x = k * (np - 1) / (K - 1);
+        palette->colors[k] = pixels[x];
     }
 
     for(i = 0; i < MAX_ITERATIONS; i++) {
@@ -6760,6 +6765,49 @@ BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
         adjust(bytes, np, cat, palette->colors, K, n);
     }
     free(cat);
+    free(pixels);
+    return palette;
+}
+
+BmPalette *bm_quantize_uniform(Bitmap *b, int K) {
+    int np = bm_pixel_count(b), i;
+    assert(K > 1 && K <= MAX_K);
+
+    unsigned int *pixels = malloc(np * sizeof *pixels);
+    if(!pixels)
+        return NULL;
+
+    memcpy(pixels, bm_raw_data(b), np * sizeof *pixels);
+    qsort(pixels, np, sizeof *pixels, cnt_comp_noalpha);
+
+    BmPalette *palette = bm_palette_create(K);
+    if(!palette) {
+        free(pixels);
+        return NULL;
+    }
+
+    for(i = 0; i < K; i++) {
+        int x = i * (np - 1) / (K - 1);
+        palette->colors[i] = pixels[x];
+    }
+
+    free(pixels);
+    return palette;
+}
+
+BmPalette *bm_quantize_random(Bitmap *b, int K) {
+    int np = bm_pixel_count(b), i;
+    assert(K > 1 && K <= MAX_K);
+
+    unsigned int *bytes = (unsigned int *)bm_raw_data(b);
+
+    BmPalette *palette = bm_palette_create(K);
+    if(!palette)
+        return NULL;
+
+    for(i = 0; i < K; i++) {
+        palette->colors[i] = bytes[rand() % np];
+    }
 
     return palette;
 }
