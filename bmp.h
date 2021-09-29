@@ -891,7 +891,7 @@ void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
 /**
  * #### ``
  */
-BmPalette *bm_create_palette(unsigned int ncolors);
+BmPalette *bm_palette_create(unsigned int ncolors);
 
 /**
  * #### ``
@@ -998,6 +998,15 @@ void bm_reduce_palette_OD4(Bitmap *b, BmPalette *palette);
  * and a 8x8 Bayer matrix.
  */
 void bm_reduce_palette_OD8(Bitmap *b, BmPalette *palette);
+
+/**
+ * #### `void bm_reduce_palette_nearest(Bitmap *b, BmPalette *palette)`
+ *
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by matching each color in the source image to the closest one in the
+ * palette.
+ */
+void bm_reduce_palette_nearest(Bitmap *b, BmPalette *palette);
 
 /**
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`

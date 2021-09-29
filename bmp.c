@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <limits.h>
 #include <ctype.h>
 #include <float.h>
 #include <assert.h>
@@ -778,7 +779,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             goto error;
         }
 
-        pal = bm_create_palette(dib.ncolors);
+        pal = bm_palette_create(dib.ncolors);
         if(!pal)
             goto error;
         for(i = 0; i < dib.ncolors; i++) {
@@ -1923,7 +1924,7 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
         SET_COLOR_RGB(gif.bmp, 0, 0, 0);
         bm_set_alpha(gif.bmp, 0);
 
-        pal = bm_create_palette(sgct);
+        pal = bm_palette_create(sgct);
         if(!pal)
             return NULL;
         for(i = 0; i < sgct; i++)
@@ -2053,7 +2054,7 @@ static int gif_read_image(BmReader rd, GIF *gif, BmPalette *pal) {
             return 0;
         }
 
-        pal = bm_create_palette(slct);
+        pal = bm_palette_create(slct);
         if(!pal)
             return 0;
         for(i = 0; i < slct; i++)
@@ -2768,7 +2769,7 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
             SET_ERROR("error reading PCX palette");
             return NULL;
         }
-        pal = bm_create_palette(256);
+        pal = bm_palette_create(256);
         if(!pal)
             return NULL;
         for(i = 0; i < 256; i++)
@@ -6312,7 +6313,32 @@ void bm_reduce_palette_OD8(Bitmap *b, BmPalette *pal) {
     reduce_palette_bayer(b, pal, bayer8x8, 8, 65);
 }
 
-BmPalette *bm_create_palette(unsigned int ncolors) {
+void bm_reduce_palette_nearest(Bitmap *b, BmPalette *pal) {
+    int i, k;
+    int np = bm_pixel_count(b), nc = bm_palette_count(pal);
+    unsigned int *bytes = (unsigned int *)bm_raw_data(b);
+    for(i = 0; i < np; i++) {
+        unsigned char iR, iG, iB;
+        bm_get_rgb(bytes[i], &iR, &iG, &iB);
+        int minD = INT_MAX;
+        int dk = 0;
+        for(k = 0; k < nc; k++) {
+            unsigned char pR, pG, pB;
+            bm_get_rgb(bm_palette_get(pal, k), &pR, &pG, &pB);
+            int dR = (int)iR - (int)pR;
+            int dG = (int)iG - (int)pG;
+            int dB = (int)iB - (int)pB;
+            int d = dR*dR + dG*dG + dB*dB;
+            if(d < minD) {
+                minD = d;
+                dk = k;
+            }
+        }
+        bytes[i] = bm_palette_get(pal, dk);
+    }
+}
+
+BmPalette *bm_palette_create(unsigned int ncolors) {
     BmPalette *pal;
     pal = malloc(sizeof *pal);
     if(!pal) {
@@ -6393,7 +6419,7 @@ static int cnt_comp_noalpha(const void*ap, const void*bp) {
  * It also ignores the alpha values of the pixels.
  */
 static int count_colors_build_palette(Bitmap *b, unsigned int colors[256]) {
-    int count = 1, i, c;
+    int count = 1, i;
     int npx = b->w * b->h;
     int *sort = CAST(int *)(ALLOCA(npx * sizeof *sort));
     if (!sort) return 0;
@@ -6401,12 +6427,11 @@ static int count_colors_build_palette(Bitmap *b, unsigned int colors[256]) {
     qsort(sort, npx, sizeof(int), cnt_comp_noalpha);
     colors[0] = sort[0] & 0x00FFFFFF;
     for(i = 1; i < npx; i++){
-        c = sort[i] & 0x00FFFFFF;
+        unsigned int c = sort[i] & 0x00FFFFFF;
         if(c != (sort[i-1] & 0x00FFFFFF)) {
-            if(count == 256) {
+            if(count == 256)
                 return -1;
-            }
-            colors[count] = (c >> 16) & 0xFF;
+            colors[count] = c;
             count++;
         }
     }
@@ -6417,31 +6442,25 @@ static int count_colors_build_palette(Bitmap *b, unsigned int colors[256]) {
 int bm_make_palette(Bitmap *b) {
     BmPalette *palette;
     unsigned int colors[256];
-    int ncolors = count_colors_build_palette(b, colors), q;
+    int ncolors = count_colors_build_palette(b, colors);
     if(ncolors < 0) {
         /* This is my poor man's color quantization hack:
             Sample random pixels and generate a palette from them.
 
             FIXME: The color quantization shouldn't depend on rand() :(
 
-            Rosettacode has a nice color quantization implementation.
-            http://rosettacode.org/wiki/Color_quantization#C
-            http://rosettacode.org/wiki/Color_quantization/C
+            k-means/median cut/octree are algorithms to check out
         */
-        ncolors = 0;
         for(ncolors = 0; ncolors < 256; ncolors++) {
             colors[ncolors] = bm_get(b, rand()%b->w, rand()%b->h) & 0xFFFFFF;
         }
     }
 
-    palette = bm_create_palette(256);
+    palette = bm_palette_create(ncolors);
     if(!palette)
         return 0;
 
-    qsort(colors, ncolors, sizeof colors[0], cnt_comp_noalpha);
-    for(q = 0; q < ncolors; q++) {
-        bm_palette_set(palette, q, colors[q]);
-    }
+    memcpy(palette->colors, colors, ncolors * sizeof colors[0]);
 
     bm_set_palette(b, palette);
     bm_palette_release(palette);
@@ -6457,14 +6476,18 @@ BmPalette *bm_load_palette(const char* filename) {
     if (!filename) return NULL;
 
 #ifdef SAFE_C11
-    errno_t err = fopen_s(&f, filename, "wb");
+    errno_t err = fopen_s(&f, filename, "r");
     if (err != 0) return NULL;
 #else
     f = fopen(filename, "r");
     if (!f) return NULL;
 #endif
 
-    fgets(buf, sizeof buf, f);
+    if(!fgets(buf, sizeof buf, f)) {
+        SET_ERROR("couldn't read palette first line");
+        goto error;
+    }
+
     if (!strncmp(buf, "JASC-PAL", 8)) {
         /* Paintshop Pro palette http://www.cryer.co.uk/file-types/p/pal.htm */
         int version;
@@ -6478,7 +6501,7 @@ BmPalette *bm_load_palette(const char* filename) {
 #endif
         (void)version;
 
-        palette = bm_create_palette(count);
+        palette = bm_palette_create(count);
         if(!palette)
             goto error;
 
@@ -6502,7 +6525,7 @@ BmPalette *bm_load_palette(const char* filename) {
     /* TODO: Here's a spec for the Microsoft PAL format
     https://worms2d.info/Palette_file */
 
-    palette = bm_create_palette(0);
+    palette = bm_palette_create(0);
     if(!palette)
         goto error;
 

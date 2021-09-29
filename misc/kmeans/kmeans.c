@@ -30,7 +30,7 @@
 
 #include "../../bmp.h"
 
-#define MAX_K           32
+#define MAX_K           256
 #define MAX_ITERATIONS  128
 
 #define SHOW_ITERATIONS 0
@@ -47,7 +47,6 @@ static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int
             int dR = (int)iR - (int)pR;
             int dG = (int)iG - (int)pG;
             int dB = (int)iB - (int)pB;
-            //double d = sqrt(dR*dR + dG*dG + dB*dB);
             int d = dR*dR + dG*dG + dB*dB;
             if(d < minD) {
                 minD = d;
@@ -60,7 +59,6 @@ static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int
     }
     return change;
 }
-
 
 static void adjust(unsigned int *bytes, int np, int *cat, unsigned int *pal, unsigned int K, unsigned int *n) {
     int i, k;
@@ -83,90 +81,36 @@ static void adjust(unsigned int *bytes, int np, int *cat, unsigned int *pal, uns
     }
 }
 
-#if SHOW_ITERATIONS
-static void show_iteration(Bitmap *b, int n, int np, int *cat, unsigned int *pal, unsigned int K) {
-    Bitmap *o = bm_create(b->w, b->h);
-    unsigned int *bytes = (unsigned int *)o->data;
-    int i;
-    for(i = 0; i < np; i++) {
-        assert(cat[i] < K);
-        bytes[i] = pal[cat[i]];
-    }
-    char filename[50];
-    sprintf(filename, "iter%d.bmp", n);
-    bm_save(o, filename);
-    bm_free(o);
-}
-#else
-#define show_iteration(b, n, np, cat, pal, K)
-#endif
-
-int cluster(Bitmap *b, unsigned int *pal, unsigned int K, unsigned int *nk) {
+BmPalette *cluster(Bitmap *b, unsigned int K) {
     int np = bm_pixel_count(b);
     assert(K <= MAX_K);
 
+    /* I'd really like to get rid of this, but how will you track whether
+    there were changes to the categories? */
     int *cat = calloc(np, sizeof *cat);
 
     unsigned int n[MAX_K];
-    if(!nk) nk = n;
-    unsigned int *bytes = bm_raw_data(b);
+    unsigned int *bytes = (unsigned int *)bm_raw_data(b);
     int i, k;
-#if 1
+
+    BmPalette *palette = bm_palette_create(K);
+    if(!palette)
+        return NULL;
+
     for(k = 0; k < K; k++) {
-        pal[k] = bytes[rand() % np];
+        /* FIXME: Don't depend on `rand()` */
+        palette->colors[k] = bytes[rand() % np];
     }
-#else
-    for(i = 0; i < np; i++) {
-        cat[i] = rand() % K;
-    }
-    adjust(bytes, np, cat, pal, K, nk);
-    show_iteration(b, a++, np, cat, pal, K);
-#endif
 
     for(i = 0; i < MAX_ITERATIONS; i++) {
-        int changes = categorize_pixels(bytes, np, cat, pal, K);
-        printf("iteration %d: %d changes\n", i, changes);
+        int changes = categorize_pixels(bytes, np, cat, palette->colors, K);
         if(!changes)
             break;
-        adjust(bytes, np, cat, pal, K, nk);
-        show_iteration(b, a++, np, cat, pal, K);
+        adjust(bytes, np, cat, palette->colors, K, n);
     }
     free(cat);
 
-    for(i = 0; i < K-1; i++) {
-        for(k = i+1; k < K; k++) {
-            if(nk[k] > nk[i]) {
-                unsigned int t = nk[k]; nk[k] = nk[i]; nk[i] = t;
-                t = pal[k]; pal[k] = pal[i]; pal[i] = t;
-            }
-        }
-    }
-    return i;
-}
-
-void bm_reduce_palette_nearest(Bitmap *b, unsigned int palette[], size_t n) {
-    int i, k;
-    int np = bm_pixel_count(b);
-    unsigned int *bytes = bm_raw_data(b);
-    for(i = 0; i < np; i++) {
-        unsigned char iR, iG, iB;
-        bm_get_rgb(bytes[i], &iR, &iG, &iB);
-        int minD = INT_MAX;
-        int dk = 0;
-        for(k = 0; k < n; k++) {
-            unsigned char pR, pG, pB;
-            bm_get_rgb(palette[k], &pR, &pG, &pB);
-            int dR = (int)iR - (int)pR;
-            int dG = (int)iG - (int)pG;
-            int dB = (int)iB - (int)pB;
-            int d = dR*dR + dG*dG + dB*dB;
-            if(d < minD) {
-                minD = d;
-                dk = k;
-            }
-        }
-        bytes[i] = palette[dk];
-    }
+    return palette;
 }
 
 int main(int argc, char *argv[]) {
@@ -192,40 +136,26 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    unsigned int pal[MAX_K];
-    unsigned int counts[MAX_K];
-
-    cluster(b, pal, K, counts);
+    BmPalette *palette = cluster(b, K);
 
     for(i = 0; i < K; i++) {
-        printf("#%06X : %u\n", pal[i] & 0xFFFFFF, counts[i]);
+        printf("#%06X\n", bm_palette_get(palette, i));
     }
 
     o = bm_copy(b);
-    bm_reduce_palette_nearest(o, pal, K);
-    bm_save(o, "final.bmp");
+    bm_reduce_palette_nearest(o, palette);
+    bm_save(o, "final.gif");
     bm_free(o);
 
-    bm_reduce_palette(b, pal, K);
-    //bm_reduce_palette_OD8(b, pal, k);
-    bm_save(b, "final-fs.bmp");
+    bm_reduce_palette(b, palette);
+    bm_save(b, "final-fs.gif");
 
-    int bw = bm_width(b), bh = bm_height(b);
-    int oh = bm_height(o);
-
-    o = bm_create(40, 200);
-    unsigned int t = bw * bh, y = 0;
+    o = bm_create(20, 20 * K);
     for(i = 0; i < K; i++) {
-        int h = (int)(((double)(counts[i] * oh) + 0.5) / t);
-        bm_set_color(o, pal[i]);
-        bm_fillrect(o, 0, y, bw - 1, y + h);
-        y += h;
+        bm_set_color(o, bm_palette_get(palette, i));
+        bm_fillrect(o, 0, i * 20, 20, i*20 + 20);
     }
-    if(y != oh) {
-        /* sometimes there's an artifact at the bottom due to rounding */
-        bm_fillrect(o, 0, y, bw - 1, oh - 1);
-    }
-    bm_save(o, "palette.bmp");
+    bm_save(o, "palette.gif");
     bm_free(o);
 
     bm_free(b);

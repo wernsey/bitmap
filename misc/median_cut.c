@@ -75,7 +75,8 @@ static void qrecurse(unsigned int *pixels, int start, int end, int n, unsigned i
     qrecurse(pixels, mid, end, n >> 1, pal, pindex);
 }
 
-int quantize(Bitmap *b, unsigned int n, unsigned int *pal) {
+BmPalette *quantize(Bitmap *b, unsigned int n) {
+    BmPalette *palette;
     int w = bm_width(b), h = bm_height(b);
 
     /* n must be a power of 2, up to 256 */
@@ -88,36 +89,15 @@ int quantize(Bitmap *b, unsigned int n, unsigned int *pal) {
 
     memcpy(data, bm_raw_data(b), w * h * sizeof *data);
 
+    palette = bm_palette_create(n);
+    if(!palette)
+        return NULL;
+
     int pindex = 0;
-    qrecurse(data, 0, w*h, n, pal, &pindex);
+    qrecurse(data, 0, w*h, n, palette->colors, &pindex);
 
     free(data);
-    return n;
-}
-
-void bm_reduce_palette_nearest(Bitmap *b, unsigned int palette[], size_t n) {
-    int i, k;
-    int np = bm_pixel_count(b);
-    unsigned int *bytes = (unsigned int *)bm_raw_data(b);
-    for(i = 0; i < np; i++) {
-        unsigned char iR, iG, iB;
-        bm_get_rgb(bytes[i], &iR, &iG, &iB);
-        int minD = INT_MAX;
-        int dk = 0;
-        for(k = 0; k < n; k++) {
-            unsigned char pR, pG, pB;
-            bm_get_rgb(palette[k], &pR, &pG, &pB);
-            int dR = (int)iR - (int)pR;
-            int dG = (int)iG - (int)pG;
-            int dB = (int)iB - (int)pB;
-            int d = dR*dR + dG*dG + dB*dB;
-            if(d < minD) {
-                minD = d;
-                dk = k;
-            }
-        }
-        bytes[i] = palette[dk];
-    }
+    return palette;
 }
 
 #define MAX_N 256
@@ -144,27 +124,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    unsigned int pal[MAX_N];
+    //unsigned int pal[MAX_N];
+    BmPalette *palette = quantize(b, N);
 
-    quantize(b, N, pal);
-
+    printf("%d colors\n", bm_palette_count(palette));
     for(i = 0; i < N; i++) {
-        printf("#%06X\n", pal[i] & 0xFFFFFF);
+        printf("#%06X\n", bm_palette_get(palette, i));
     }
 
-
     o = bm_copy(b);
-    bm_reduce_palette_nearest(o, pal, N);
+    bm_reduce_palette_nearest(o, palette);
     bm_save(o, "final.gif");
     bm_free(o);
 
-    bm_reduce_palette(b, pal, N);
-    //bm_reduce_palette_OD8(b, pal, k);
+    bm_reduce_palette(b, palette);
     bm_save(b, "final-fs.gif");
 
     o = bm_create(20, 20 * N);
     for(i = 0; i < N; i++) {
-        bm_set_color(o, pal[i]);
+        bm_set_color(o, bm_palette_get(palette, i));
         bm_fillrect(o, 0, i * 20, 20, i*20 + 20);
     }
     bm_save(o, "palette.gif");
