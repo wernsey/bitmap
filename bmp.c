@@ -6593,6 +6593,177 @@ int bm_save_palette(BmPalette *pal, const char* filename) {
     return 1;
 }
 
+static int q_sortByR(const void *pp, const void *qp) {
+    return (*(unsigned int *)pp & 0x00FF0000) - (*(unsigned int *)qp & 0x00FF0000);
+}
+static int q_sortByG(const void *pp, const void *qp) {
+    return (*(unsigned int *)pp & 0x0000FF00) - (*(unsigned int *)qp & 0x0000FF00);
+}
+static int q_sortByB(const void *pp, const void *qp) {
+    return (*(unsigned int *)pp & 0x000000FF) - (*(unsigned int *)qp & 0x000000FF);
+}
+
+static void qrecurse(unsigned int *pixels, int start, int end, int n, unsigned int *pal, int *pindex) {
+
+    int len = end - start, i;
+
+    if(n == 1) {
+        unsigned int aR = 0, aG = 0, aB = 0;
+        for(i = start; i < end; i++) {
+            unsigned char iR, iG, iB;
+            bm_get_rgb(pixels[i], &iR, &iG, &iB);
+            aR += iR;
+            aG += iG;
+            aB += iB;
+        }
+        aR /= len;
+        aG /= len;
+        aB /= len;
+
+        pal[(*pindex)++] = bm_rgb(aR, aG, aB);
+        return;
+    }
+
+    int minR = 256, minG = 256, minB = 256;
+    int maxR = 0, maxG = 0, maxB = 0;
+    for(i = start; i < end; i++) {
+        unsigned char iR, iG, iB;
+        bm_get_rgb(pixels[i], &iR, &iG, &iB);
+        if(iR < minR) minR = iR;
+        if(iR > maxR) maxR = iR;
+        if(iG < minG) minG = iG;
+        if(iG > maxG) maxG = iG;
+        if(iB < minB) minB = iB;
+        if(iB > maxB) maxB = iB;
+    }
+    int spreadR = maxR - minR;
+    int spreadG = maxG - minG;
+    int spreadB = maxB - minB;
+
+    if(spreadR > spreadG) {
+        if(spreadR > spreadB)
+            qsort(pixels + start, len, sizeof *pixels, q_sortByR);
+        else
+            qsort(pixels + start, len, sizeof *pixels, q_sortByB);
+    } else {
+        if(spreadG > spreadB)
+            qsort(pixels + start, len, sizeof *pixels, q_sortByG);
+        else
+            qsort(pixels + start, len, sizeof *pixels, q_sortByB);
+    }
+
+    int mid = (start + end)/2;
+    qrecurse(pixels, start, mid, n >> 1, pal, pindex);
+    qrecurse(pixels, mid, end, n >> 1, pal, pindex);
+}
+
+BmPalette *bm_quantize(Bitmap *b, int n) {
+    BmPalette *palette;
+    int w = bm_width(b), h = bm_height(b);
+
+    /* n must be a power of 2, up to 256 */
+    assert(n > 1 && n <= 256);
+    assert((n != 0) && ((n & (n - 1)) == 0)); // https://stackoverflow.com/a/600306/115589
+
+    unsigned int *data = malloc(w * h * sizeof *data);
+    if(!data)
+        return 0;
+
+    memcpy(data, bm_raw_data(b), w * h * sizeof *data);
+
+    palette = bm_palette_create(n);
+    if(!palette)
+        return NULL;
+
+    int pindex = 0;
+    qrecurse(data, 0, w*h, n, palette->colors, &pindex);
+
+    free(data);
+    return palette;
+}
+
+#define MAX_K           256
+#define MAX_ITERATIONS  128
+
+static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int *pal, int K) {
+    int i, k, change = 0;
+    for(i = 0; i < np; i++) {
+        unsigned char iR, iG, iB;
+        bm_get_rgb(bytes[i], &iR, &iG, &iB);
+        int minD = INT_MAX, dk = 0;
+        for(k = 0; k < K; k++) {
+            unsigned char pR, pG, pB;
+            bm_get_rgb(pal[k], &pR, &pG, &pB);
+            int dR = (int)iR - (int)pR;
+            int dG = (int)iG - (int)pG;
+            int dB = (int)iB - (int)pB;
+            int d = dR*dR + dG*dG + dB*dB;
+            if(d < minD) {
+                minD = d;
+                dk = k;
+            }
+        }
+        if(cat[i] != dk)
+            change++;
+        cat[i] = dk;
+    }
+    return change;
+}
+
+static void adjust(unsigned int *bytes, int np, int *cat, unsigned int *pal, int K, unsigned int *n) {
+    int i, k;
+
+    unsigned int sR[MAX_K], sG[MAX_K], sB[MAX_K];
+    for(k = 0; k < K; k++) {
+        n[k] = 0; sR[k] = 0; sG[k] = 0; sB[k] = 0;
+    }
+    for(i = 0; i < np; i++) {
+        unsigned char iR, iG, iB;
+        bm_get_rgb(bytes[i], &iR, &iG, &iB);
+        k = cat[i];
+        n[k]++;
+        sR[k] += iR; sG[k] += iG; sB[k] += iB;
+    }
+    for(k = 0; k < K; k++) {
+        if(n[k] == 0) continue;
+        sR[k] /= n[k]; sG[k] /= n[k]; sB[k] /= n[k];
+        pal[k] = bm_rgb(sR[k], sG[k], sB[k]);
+    }
+}
+
+
+BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
+    int np = bm_pixel_count(b);
+    assert(K > 1 && K <= MAX_K);
+
+    /* I'd really like to get rid of this, but how will you track whether
+    there were changes to the categories? */
+    int *cat = calloc(np, sizeof *cat);
+
+    unsigned int n[MAX_K];
+    unsigned int *bytes = (unsigned int *)bm_raw_data(b);
+    int i, k;
+
+    BmPalette *palette = bm_palette_create(K);
+    if(!palette)
+        return NULL;
+
+    for(k = 0; k < K; k++) {
+        /* FIXME: Don't depend on `rand()` */
+        palette->colors[k] = bytes[rand() % np];
+    }
+
+    for(i = 0; i < MAX_ITERATIONS; i++) {
+        int changes = categorize_pixels(bytes, np, cat, palette->colors, K);
+        if(!changes)
+            break;
+        adjust(bytes, np, cat, palette->colors, K, n);
+    }
+    free(cat);
+
+    return palette;
+}
+
 void bm_set_palette(Bitmap *b, BmPalette *pal) {
     if(pal)
         bm_palette_retain(pal);

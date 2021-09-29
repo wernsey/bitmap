@@ -964,6 +964,28 @@ BmPalette *bm_load_palette(const char * filename);
 int bm_save_palette(BmPalette *pal, const char* filename);
 
 /**
+ * #### `BmPalette *bm_quantize(Bitmap *b, unsigned int n)`
+ *
+ * Creates a palette of `n` colors from the bitmap `b` using the
+ * [Median Cut](https://en.wikipedia.org/wiki/Median_cut)
+ * algorithm to choose the best colors.
+ */
+BmPalette *bm_quantize(Bitmap *b, int n);
+
+/**
+ * #### `BmPalette *bm_quantize_kmeans(Bitmap *b, unsigned int K) `
+ *
+ * Creates a palette of `n` colors from the bitmap `b` using the
+ * [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering)
+ * algorithm to choose the best colors.
+ *
+ * This implementation is quite slow for larger values of K, and
+ * `bm_quantize(Bitmap *b, unsigned int n)` is recommended instead unless
+ * you have a very specific reason.
+ */
+BmPalette *bm_quantize_kmeans(Bitmap *b, int K);
+
+/**
  * #### ``
  */
 void bm_set_palette(Bitmap *b, BmPalette *pal);
