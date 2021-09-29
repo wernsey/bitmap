@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     }
 
     if(pal) {
-        bm_reduce_palette(b, pal->colors, pal->ncolors);
+        bm_reduce_palette(b, pal);
         bm_palette_release(pal);
     }
 

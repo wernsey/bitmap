@@ -1765,7 +1765,7 @@ static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]) {
     rgb[0].b = (c >> 0) & 0xFF;
     for(i = 1; i < npx; i++){
         c = sort[i] & 0x00FFFFFF;
-        if(c != (sort[i-1]& 0x00FFFFFF)) {
+        if(c != (sort[i-1] & 0x00FFFFFF)) {
             if(count == 256) {
                 return -1;
             }
@@ -2867,15 +2867,54 @@ read_error:
     return NULL;
 }
 
+
+struct palette_mapping {
+    unsigned int color;
+    int index;
+};
+
+static int mapping_color_comp(const void *ap, const void *bp) {
+    const struct palette_mapping *a = ap, *b = bp;
+    return (a->color & 0x00FFFFFF) - (b->color & 0x00FFFFFF);
+}
+
+static int make_palette_mapping(BmPalette *palette, struct palette_mapping mapping[256], int *count) {
+    int i;
+    *count = bm_palette_count(palette);
+    assert(*count > 0 && *count <= 256);
+    for(i = 0; i < *count; i++) {
+        mapping[i].color = bm_palette_get(palette, i);
+        mapping[i].index = i;
+    }
+    qsort(mapping, *count, sizeof mapping[0], mapping_color_comp);
+    return 1;
+}
+
+static int get_palette_mapping(struct palette_mapping mapping[256], unsigned int color, int count) {
+    struct palette_mapping key = {color, 0}, *found;
+    found = bsearch(&key, mapping, count, sizeof key, mapping_color_comp);
+    assert(found);
+    return found->index;
+}
+
 static int bm_save_pcx(Bitmap *b, const char *fname) {
     FILE *f;
-    struct rgb_triplet rgb[256];
-    int ncolors, x, y, rv = 1;
-    struct pcx_header hdr;
-    Bitmap *bo = b;
+    int i, x, y, rv = 1;
 
     if(!b)
         return 0;
+
+    BmPalette *palette = bm_get_palette(b);
+    if(!palette) {
+        if(!bm_make_palette(b))
+            return 0;
+        palette = bm_get_palette(b);
+        assert(palette);
+    }
+    if(bm_palette_count(palette) > 256) {
+        SET_ERROR("too many palette colors to save to PCX");
+        return 0;
+    }
 
 #ifdef SAFE_C11
     errno_t err = fopen_s(&f, fname, "wb");
@@ -2890,79 +2929,54 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         return 0;
     }
 #endif
-    memset(&hdr, 0, sizeof hdr);
 
-    hdr.manuf = 0x0A;
-    hdr.version = 5;
-    hdr.encoding = 1;
-    hdr.bpp = 8;
+    {
+        /* Write the header */
+        struct pcx_header hdr;
 
-    hdr.xmin = 0;
-    hdr.ymin = 0;
-    hdr.xmax = b->w - 1;
-    hdr.ymax = b->h - 1;
+        memset(&hdr, 0, sizeof hdr);
 
-    hdr.vert_dpi = b->h;
-    hdr.hori_dpi = b->w;
+        hdr.manuf = 0x0A;
+        hdr.version = 5;
+        hdr.encoding = 1;
+        hdr.bpp = 8;
 
-    hdr.reserved = 0;
-    hdr.planes = 1;
-    hdr.bytes_per_line = hdr.xmax - hdr.xmin + 1;
-    hdr.paltype = 1;
-    hdr.hscrsize = 0;
-    hdr.vscrsize = 0;
+        hdr.xmin = 0;
+        hdr.ymin = 0;
+        hdr.xmax = b->w - 1;
+        hdr.ymax = b->h - 1;
 
-    memset(&rgb, 0, sizeof rgb);
+        hdr.vert_dpi = b->h;
+        hdr.hori_dpi = b->w;
 
-    if(fwrite(&hdr, sizeof hdr, 1, f) != 1) {
-        SET_ERROR("error writing PCX header");
-        fclose(f);
-        return 0;
-    }
+        hdr.reserved = 0;
+        hdr.planes = 1;
+        hdr.bytes_per_line = hdr.xmax - hdr.xmin + 1;
+        hdr.paltype = 1;
+        hdr.hscrsize = 0;
+        hdr.vscrsize = 0;
 
-    /* TODO: If a Bitmap has a palette, convert the colors anyway */
-
-    ncolors = count_colors_build_palette(b, rgb);
-    if(ncolors < 0) {
-        /* This is my poor man's color quantization hack:
-            Sample random pixels and generate a palette from them.
-            FIXME: The color quantization shouldn't depend on rand() :(
-            Rosettacode has a nice color quantization implementation.
-            http://rosettacode.org/wiki/Color_quantization#C
-            http://rosettacode.org/wiki/Color_quantization/C
-        */
-        BmPalette *pal = bm_get_palette(b);
-
-        if(!pal) {
-            int q;
-
-            pal = bm_create_palette(256);
-            if(!pal)
-                return 0;
-
-            ncolors = 0;
-            for(ncolors = 0; ncolors < 256; ncolors++) {
-                unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
-                rgb[ncolors].r = (c >> 16) & 0xFF;
-                rgb[ncolors].g = (c >> 8) & 0xFF;
-                rgb[ncolors].b = (c >> 0) & 0xFF;
-            }
-            qsort(rgb, ncolors, sizeof rgb[0], comp_rgb);
-            for(q = 0; q < ncolors; q++) {
-                bm_palette_set(pal, q, (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b);
-            }
-            bm_set_palette(b, pal);
-            bm_palette_release(pal);
+        if(fwrite(&hdr, sizeof hdr, 1, f) != 1) {
+            SET_ERROR("error writing PCX header");
+            fclose(f);
+            return 0;
         }
-        /* Copy the image and dither it to match the palette */
-        b = bm_copy(b);
-        bm_reduce_palette(b, pal);
     }
+
+    /* Copy the image and dither it to match the palette */
+    b = bm_copy(b);
+    bm_reduce_palette(b, palette);
+
+    struct palette_mapping mapping[256];
+    int color_count;
+
+    if(!make_palette_mapping(palette, mapping, &color_count))
+        return 0;
 
     for(y = 0; y < b->h; y++) {
         x = 0;
         while(x < b->w) {
-            int i, cnt = 1;
+            int cnt = 1;
             unsigned int c = bm_get(b, x++, y);
             while(x < b->w && cnt < 63) {
                 unsigned int n = bm_get(b, x, y);
@@ -2971,8 +2985,9 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
                 x++;
                 cnt++;
             }
-            i = bsrch_palette_lookup(rgb, c, 0, ncolors - 1);
-            assert(i >= 0); /* At this point in time, the color MUST be in the palette */
+            i = get_palette_mapping(mapping, c, color_count);
+            assert(i < color_count);
+
             if(cnt == 1 && i < 192) {
                 fputc(i, f);
             } else {
@@ -2983,16 +2998,24 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
     }
 
     fputc(12, f);
-    if(fwrite(rgb, sizeof rgb[0], 256, f) != 256) {
-        SET_ERROR("error writing PCX palette");
-        rv = 0;
-    }
 
-    if(b != bo) {
-        bm_free(b);
+    {
+        /* Save the palette */
+        struct rgb_triplet rgb[256];
+        memset(rgb, 0, sizeof rgb);
+        for(i = 0; i < bm_palette_count(palette); i++) {
+            bm_get_rgb(bm_palette_get(palette, i), &rgb[i].r, &rgb[i].g, &rgb[i].b);
+        }
+        if(fwrite(rgb, sizeof rgb[0], 256, f) != 256) {
+            SET_ERROR("error writing PCX palette");
+            rv = 0;
+        }
     }
 
     fclose(f);
+
+    bm_free(b); /* Delete the copy */
+
     return rv;
 }
 
@@ -6367,7 +6390,7 @@ BmPalette *bm_create_palette(unsigned int ncolors) {
     BmPalette *pal;
     pal = malloc(sizeof *pal);
     if(!pal) {
-        SET_ERROR("out of memory");
+        SET_ERROR("out of memory creating palette");
         return NULL;
     }
     pal->ncolors = (int)ncolors;
@@ -6376,7 +6399,7 @@ BmPalette *bm_create_palette(unsigned int ncolors) {
         pal->acolors <<= 1;
     pal->colors = calloc(pal->acolors, sizeof *pal->colors);
     if(!pal->colors) {
-        SET_ERROR("out of memory");
+        SET_ERROR("out of memory creating palette");
         free(pal);
         return NULL;
     }
@@ -6431,6 +6454,43 @@ unsigned int bm_palette_get(BmPalette *pal, int index) {
     assert(pal);
     assert(index >= 0 && index < pal->ncolors);
     return pal->colors[index];
+}
+
+int bm_make_palette(Bitmap *b) {
+    BmPalette *palette;
+    struct rgb_triplet rgb[256];
+    int ncolors = count_colors_build_palette(b, rgb), q;
+    if(ncolors < 0) {
+        /* This is my poor man's color quantization hack:
+            Sample random pixels and generate a palette from them.
+
+            FIXME: The color quantization shouldn't depend on rand() :(
+
+            Rosettacode has a nice color quantization implementation.
+            http://rosettacode.org/wiki/Color_quantization#C
+            http://rosettacode.org/wiki/Color_quantization/C
+        */
+        ncolors = 0;
+        for(ncolors = 0; ncolors < 256; ncolors++) {
+            unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
+            rgb[ncolors].r = (c >> 16) & 0xFF;
+            rgb[ncolors].g = (c >> 8) & 0xFF;
+            rgb[ncolors].b = (c >> 0) & 0xFF;
+        }
+    }
+
+    palette = bm_create_palette(256);
+    if(!palette)
+        return 0;
+
+    qsort(rgb, ncolors, sizeof rgb[0], comp_rgb);
+    for(q = 0; q < ncolors; q++) {
+        bm_palette_set(palette, q, (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b);
+    }
+
+    bm_set_palette(b, palette);
+    bm_palette_release(palette);
+    return ncolors;
 }
 
 BmPalette *bm_load_palette(const char* filename) {

@@ -916,6 +916,11 @@ int bm_palette_add(BmPalette *pal, unsigned int color);
 /**
  * #### ``
  */
+int bm_make_palette(Bitmap *b);
+
+/**
+ * #### ``
+ */
 int bm_palette_set(BmPalette *pal, int index, unsigned int color);
 
 /**
