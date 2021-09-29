@@ -1740,70 +1740,42 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw) {
 
 /* These functions are used for the palettes in my GIF and PCX support: */
 
-static int cnt_comp_noalpha(const void*ap, const void*bp) {
-    int a = *(int*)ap, b = *(int*)bp;
-    return (a & 0x00FFFFFF) - (b & 0x00FFFFFF);
+struct palette_mapping {
+    unsigned int color;
+    int index;
+};
+
+static int mapping_color_comp(const void *ap, const void *bp) {
+    const struct palette_mapping *a = ap, *b = bp;
+    return (a->color & 0x00FFFFFF) - (b->color & 0x00FFFFFF);
 }
 
-/* Counts the colors in the image and builds an 8-bit palette while it is counting.
- * It returns -1 in case there are more than 256 colors in the palette, meaning the
- * image will have to be quantized first.
- * It also ignores the alpha values of the pixels.
- * It also has the side effect that the returned palette contains sorted colors, which
- * is useful for bsrch_palette_lookup().
- */
-static int count_colors_build_palette(Bitmap *b, struct rgb_triplet rgb[256]) {
-    int count = 1, i, c;
-    int npx = b->w * b->h;
-    int *sort = CAST(int *)(ALLOCA(npx * sizeof *sort));
-    if (!sort) return 0;
-    memcpy(sort, b->data, npx * sizeof *sort);
-    qsort(sort, npx, sizeof(int), cnt_comp_noalpha);
-    c = sort[0] & 0x00FFFFFF;
-    rgb[0].r = (c >> 16) & 0xFF;
-    rgb[0].g = (c >> 8) & 0xFF;
-    rgb[0].b = (c >> 0) & 0xFF;
-    for(i = 1; i < npx; i++){
-        c = sort[i] & 0x00FFFFFF;
-        if(c != (sort[i-1] & 0x00FFFFFF)) {
-            if(count == 256) {
-                return -1;
-            }
-            rgb[count].r = (c >> 16) & 0xFF;
-            rgb[count].g = (c >> 8) & 0xFF;
-            rgb[count].b = (c >> 0) & 0xFF;
-            count++;
-        }
+static int make_palette_mapping(BmPalette *palette, struct palette_mapping mapping[256], int *count) {
+    int i;
+    *count = bm_palette_count(palette);
+    assert(*count > 0 && *count <= 256);
+    for(i = 0; i < *count; i++) {
+        mapping[i].color = bm_palette_get(palette, i);
+        mapping[i].index = i;
     }
-    FREEA(sort);
-    return count;
+    qsort(mapping, *count, sizeof mapping[0], mapping_color_comp);
+    return 1;
 }
 
-/* Uses a binary search to find the index of a color in a palette.
-It (almost) goes without saying that the palette must be sorted. */
-static int bsrch_palette_lookup(struct rgb_triplet rgb[], int c, int imin, int imax) {
-    c &= 0x00FFFFFF; /* Ignore the alpha value */
-    while(imax >= imin) {
-        int imid = (imin + imax) >> 1, c2;
-        assert(imid <= 255);
-        c2 = (rgb[imid].r << 16) | (rgb[imid].g << 8) | rgb[imid].b;
-        if(c == c2)
-            return imid;
-        else if(c2 < c)
-            imin = imid + 1;
-        else
-            imax = imid - 1;
+static int get_palette_mapping(struct palette_mapping mapping[256], unsigned int color, int count) {
+    struct palette_mapping key = {color, 0}, *found;
+    found = bsearch(&key, mapping, count, sizeof key, mapping_color_comp);
+    if(!found)
+        return -1;
+    return found->index;
+}
+
+static void triplets_from_palette(BmPalette *palette, struct rgb_triplet rgb[256]){
+    int i;
+    memset(rgb, 0, 256 * sizeof *rgb);
+    for(i = 0; i < bm_palette_count(palette); i++) {
+        bm_get_rgb(bm_palette_get(palette, i), &rgb[i].r, &rgb[i].g, &rgb[i].b);
     }
-    return -1;
-}
-
-/* Comparison function for sorting an array of rgb_triplets with qsort() */
-static int comp_rgb(const void *ap, const void *bp) {
-    const struct rgb_triplet *ta = CAST(const struct rgb_triplet*)(ap),
-                             *tb = CAST(const struct rgb_triplet*)(bp);
-    int a = (ta->r << 16) | (ta->g << 8) | ta->b;
-    int b = (tb->r << 16) | (tb->g << 8) | tb->b;
-    return a - b;
 }
 
 /* GIF support
@@ -2226,7 +2198,6 @@ static int gif_read_tbid(BmReader rd, GIF *gif, GIF_ID *gif_id, GIF_GCE *gce, Bm
                         for(x = 0; x < gif_id->width && rv; x++, i++) {
                             int c = decoded[i];
                             if(c < bm_palette_count(pal)) {
-                                //struct rgb_triplet *rgb = &ct[c];
                                 assert(x + gif_id->left >= 0 && x + gif_id->left < gif->bmp->w);
                                 unsigned int col = bm_palette_get(pal, c);
                                 if(trans_flag && col == gce->trans_index) {
@@ -2543,10 +2514,12 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     GIF gif;
     GIF_GCE gce;
     GIF_ID gif_id;
-    int nc, sgct, bg;
-    struct rgb_triplet gct[256];
-    Bitmap *bo = b;
+    int sgct, bg;
     unsigned char code_size = 0x08;
+
+    BmPalette *palette;
+    struct palette_mapping mapping[256];
+    int color_count;
 
     /* For encoding */
     int len = 0, x, y, p;
@@ -2567,8 +2540,6 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     }
 #endif
 
-    memset(gct, 0, sizeof(gct));
-
     memcpy(gif.header.signature, "GIF", 3);
     memcpy(gif.header.version, "89a", 3);
     gif.version = gif_89a;
@@ -2580,68 +2551,48 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     /* Using global color table, color resolution = 8-bits */
     gif.lsd.fields = 0xF0;
 
-    nc = count_colors_build_palette(b, gct);
-    if(nc < 0) {
-        /* Too many colors */
-        BmPalette *pal = bm_get_palette(b);
+    palette = bm_get_palette(b);
+    if(!palette) {
+        if(!bm_make_palette(b))
+            return 0;
+        palette = bm_get_palette(b);
+        assert(palette);
+    }
+    if(bm_palette_count(palette) > 256) {
+        SET_ERROR("too many palette colors to save GIF");
+        return 0;
+    }
 
-        if(!pal) {
-            int q;
+    /* Copy the image and dither it to match the palette */
+    b = bm_copy(b);
+    bm_reduce_palette(b, palette);
 
-            pal = bm_create_palette(256);
-            if(!pal)
-                return 0;
+    if(!make_palette_mapping(palette, mapping, &color_count))
+        return 0;
 
-            sgct = 256;
-            gif.lsd.fields |= 0x07;
-
-            /* color quantization - see bm_save_pcx() */
-            /* FIXME: The color quantization shouldn't depend on rand() :( */
-            nc = 0;
-            for(nc = 0; nc < 256; nc++) {
-                int c = bm_get(b, rand()%b->w, rand()%b->h);
-                gct[nc].r = (c >> 16) & 0xFF;
-                gct[nc].g = (c >> 8) & 0xFF;
-                gct[nc].b = (c >> 0) & 0xFF;
-            }
-            qsort(gct, nc, sizeof gct[0], comp_rgb);
-            for(q = 0; q < nc; q++) {
-                bm_palette_set(pal, q, (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b);
-            }
-            bm_set_palette(b, pal);
-            bm_palette_release(pal);
-        }
-        /* Copy the image and dither it to match the palette */
-        b = bm_copy(b);
-        bm_reduce_palette(b, pal);
+    if(color_count > 128) {
+        sgct = 256;
+        gif.lsd.fields |= 0x07;
+    } else if(color_count > 64) {
+        sgct = 128;
+        gif.lsd.fields |= 0x06;
+        code_size = 7;
+    } else if(color_count > 32) {
+        sgct = 64;
+        gif.lsd.fields |= 0x05;
+        code_size = 6;
+    } else if(color_count > 16) {
+        sgct = 32;
+        gif.lsd.fields |= 0x04;
+        code_size = 5;
+    } else if(color_count > 8) {
+        sgct = 16;
+        gif.lsd.fields |= 0x03;
+        code_size = 4;
     } else {
-
-        /* TODO: If a Bitmap has a palette, convert the colors anyway */
-
-        if(nc > 128) {
-            sgct = 256;
-            gif.lsd.fields |= 0x07;
-        } else if(nc > 64) {
-            sgct = 128;
-            gif.lsd.fields |= 0x06;
-            code_size = 7;
-        } else if(nc > 32) {
-            sgct = 64;
-            gif.lsd.fields |= 0x05;
-            code_size = 6;
-        } else if(nc > 16) {
-            sgct = 32;
-            gif.lsd.fields |= 0x04;
-            code_size = 5;
-        } else if(nc > 8) {
-            sgct = 16;
-            gif.lsd.fields |= 0x03;
-            code_size = 4;
-        } else {
-            sgct = 8;
-            gif.lsd.fields |= 0x02;
-            code_size = 3;
-        }
+        sgct = 8;
+        gif.lsd.fields |= 0x02;
+        code_size = 3;
     }
 
     /* See if we can find the background color in the palette */
@@ -2650,7 +2601,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 #else
     bg = b->color;
 #endif
-    bg = bsrch_palette_lookup(gct, bg, 0, nc - 1);
+    bg = get_palette_mapping(mapping, bg, color_count);
     if(bg >= 0) {
         gif.lsd.background = bg;
     }
@@ -2660,22 +2611,29 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     for(y = 0, p = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
             int i, c = bm_get(b, x, y);
-            i = bsrch_palette_lookup(gct, c, 0, nc - 1);
+            i = get_palette_mapping(mapping, c, color_count);
             /* At this point in time, the color MUST be in the palette */
-            assert(i >= 0);
+            assert(i >= 0 && i < color_count);
             assert(i < sgct);
             pixels[p++] = i;
         }
     }
     assert(p == b->w * b->h);
 
-    if(fwrite(&gif.header, sizeof gif.header, 1, f) != 1 ||
-        fwrite(&gif.lsd, sizeof gif.lsd, 1, f) != 1 ||
-        fwrite(gct, sizeof *gct, sgct, f) != (unsigned)sgct) {
+    {
+        /* Save the header and global color table */
+        struct rgb_triplet gct[256];
+        triplets_from_palette(palette, gct);
 
-        SET_ERROR("couldn't write GIF header");
-        fclose(f);
-        return 0;
+        assert(sgct <= 256);
+
+        if(fwrite(&gif.header, sizeof gif.header, 1, f) != 1 ||
+            fwrite(&gif.lsd, sizeof gif.lsd, 1, f) != 1 ||
+            fwrite(gct, sizeof gct[0], sgct, f) != (unsigned)sgct) {
+            SET_ERROR("couldn't write GIF header");
+            fclose(f);
+            return 0;
+        }
     }
 
     /* Nothing of use here */
@@ -2738,8 +2696,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 
     fputc(0x3B, f); /* trailer byte */
 
-    if(bo != b)
-        bm_free(b);
+    bm_free(b);
 
     fclose(f);
     return 1;
@@ -2867,44 +2824,18 @@ read_error:
     return NULL;
 }
 
-
-struct palette_mapping {
-    unsigned int color;
-    int index;
-};
-
-static int mapping_color_comp(const void *ap, const void *bp) {
-    const struct palette_mapping *a = ap, *b = bp;
-    return (a->color & 0x00FFFFFF) - (b->color & 0x00FFFFFF);
-}
-
-static int make_palette_mapping(BmPalette *palette, struct palette_mapping mapping[256], int *count) {
-    int i;
-    *count = bm_palette_count(palette);
-    assert(*count > 0 && *count <= 256);
-    for(i = 0; i < *count; i++) {
-        mapping[i].color = bm_palette_get(palette, i);
-        mapping[i].index = i;
-    }
-    qsort(mapping, *count, sizeof mapping[0], mapping_color_comp);
-    return 1;
-}
-
-static int get_palette_mapping(struct palette_mapping mapping[256], unsigned int color, int count) {
-    struct palette_mapping key = {color, 0}, *found;
-    found = bsearch(&key, mapping, count, sizeof key, mapping_color_comp);
-    assert(found);
-    return found->index;
-}
-
 static int bm_save_pcx(Bitmap *b, const char *fname) {
     FILE *f;
     int i, x, y, rv = 1;
 
+    BmPalette *palette;
+    struct palette_mapping mapping[256];
+    int color_count;
+
     if(!b)
         return 0;
 
-    BmPalette *palette = bm_get_palette(b);
+    palette = bm_get_palette(b);
     if(!palette) {
         if(!bm_make_palette(b))
             return 0;
@@ -2912,7 +2843,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         assert(palette);
     }
     if(bm_palette_count(palette) > 256) {
-        SET_ERROR("too many palette colors to save to PCX");
+        SET_ERROR("too many palette colors to save PCX");
         return 0;
     }
 
@@ -2967,9 +2898,6 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
     b = bm_copy(b);
     bm_reduce_palette(b, palette);
 
-    struct palette_mapping mapping[256];
-    int color_count;
-
     if(!make_palette_mapping(palette, mapping, &color_count))
         return 0;
 
@@ -2986,7 +2914,8 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
                 cnt++;
             }
             i = get_palette_mapping(mapping, c, color_count);
-            assert(i < color_count);
+            /* At this point in time, the color MUST be in the palette */
+            assert(i >=0 && i < color_count);
 
             if(cnt == 1 && i < 192) {
                 fputc(i, f);
@@ -3002,10 +2931,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
     {
         /* Save the palette */
         struct rgb_triplet rgb[256];
-        memset(rgb, 0, sizeof rgb);
-        for(i = 0; i < bm_palette_count(palette); i++) {
-            bm_get_rgb(bm_palette_get(palette, i), &rgb[i].r, &rgb[i].g, &rgb[i].b);
-        }
+        triplets_from_palette(palette, rgb);
         if(fwrite(rgb, sizeof rgb[0], 256, f) != 256) {
             SET_ERROR("error writing PCX palette");
             rv = 0;
@@ -6456,10 +6382,42 @@ unsigned int bm_palette_get(BmPalette *pal, int index) {
     return pal->colors[index];
 }
 
+static int cnt_comp_noalpha(const void*ap, const void*bp) {
+    int a = *(int*)ap, b = *(int*)bp;
+    return (a & 0x00FFFFFF) - (b & 0x00FFFFFF);
+}
+
+/* Counts the colors in the image and builds an 8-bit palette while it is counting.
+ * It returns -1 in case there are more than 256 colors in the palette, meaning the
+ * image will have to be quantized first.
+ * It also ignores the alpha values of the pixels.
+ */
+static int count_colors_build_palette(Bitmap *b, unsigned int colors[256]) {
+    int count = 1, i, c;
+    int npx = b->w * b->h;
+    int *sort = CAST(int *)(ALLOCA(npx * sizeof *sort));
+    if (!sort) return 0;
+    memcpy(sort, b->data, npx * sizeof *sort);
+    qsort(sort, npx, sizeof(int), cnt_comp_noalpha);
+    colors[0] = sort[0] & 0x00FFFFFF;
+    for(i = 1; i < npx; i++){
+        c = sort[i] & 0x00FFFFFF;
+        if(c != (sort[i-1] & 0x00FFFFFF)) {
+            if(count == 256) {
+                return -1;
+            }
+            colors[count] = (c >> 16) & 0xFF;
+            count++;
+        }
+    }
+    FREEA(sort);
+    return count;
+}
+
 int bm_make_palette(Bitmap *b) {
     BmPalette *palette;
-    struct rgb_triplet rgb[256];
-    int ncolors = count_colors_build_palette(b, rgb), q;
+    unsigned int colors[256];
+    int ncolors = count_colors_build_palette(b, colors), q;
     if(ncolors < 0) {
         /* This is my poor man's color quantization hack:
             Sample random pixels and generate a palette from them.
@@ -6472,10 +6430,7 @@ int bm_make_palette(Bitmap *b) {
         */
         ncolors = 0;
         for(ncolors = 0; ncolors < 256; ncolors++) {
-            unsigned int c = bm_get(b, rand()%b->w, rand()%b->h);
-            rgb[ncolors].r = (c >> 16) & 0xFF;
-            rgb[ncolors].g = (c >> 8) & 0xFF;
-            rgb[ncolors].b = (c >> 0) & 0xFF;
+            colors[ncolors] = bm_get(b, rand()%b->w, rand()%b->h) & 0xFFFFFF;
         }
     }
 
@@ -6483,9 +6438,9 @@ int bm_make_palette(Bitmap *b) {
     if(!palette)
         return 0;
 
-    qsort(rgb, ncolors, sizeof rgb[0], comp_rgb);
+    qsort(colors, ncolors, sizeof colors[0], cnt_comp_noalpha);
     for(q = 0; q < ncolors; q++) {
-        bm_palette_set(palette, q, (rgb[q].r << 16) | (rgb[q].g << 8) | rgb[q].b);
+        bm_palette_set(palette, q, colors[q]);
     }
 
     bm_set_palette(b, palette);
