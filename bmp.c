@@ -3723,6 +3723,15 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c) {
     *p = c;
 }
 
+void bm_set_color(Bitmap *bm, unsigned int col) {
+    bm->color = col;
+}
+
+unsigned int bm_get_color(Bitmap *b) {
+    assert(b);
+    return b->color;
+}
+
 Bitmap *bm_from_Xbm(int w, int h, unsigned char *data) {
     int x,y;
 
@@ -4532,23 +4541,14 @@ void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int 
 
 }
 
-unsigned int bm_graypixel(unsigned int c) {
-    unsigned char R,G,B;
-    bm_get_rgb(c, &R, &G, &B);
-    return (2126 * R + 7152 * G + 722 * B)/10000;
-}
-
-void bm_grayscale(Bitmap *b) {
-    /* https://en.wikipedia.org/wiki/Grayscale */
-    int x, y;
-    for(y = 0; y < b->h; y++)
-        for(x = 0; x < b->w; x++) {
-            unsigned int c = BM_GET(b, x, y);
-            unsigned char R,G,B;
-            bm_get_rgb(c, &R, &G, &B);
-            c = (2126 * R + 7152 * G + 722 * B)/10000;
-            BM_SET(b, x, y, bm_rgb(c, c, c));
-        }
+Bitmap *bm_swap_rb(Bitmap *b) {
+    int i;
+    for(i = 0; i < b->w * b->h; i++) {
+        unsigned int *pixp = ((unsigned int *)b->data) + i;
+        unsigned int c = *pixp;
+        *pixp = (c & 0xFF00FF00) | ((c & 0xFF) << 16) | ((c >> 16) & 0xFF);
+    }
+    return b;
 }
 
 void bm_smooth(Bitmap *b) {
@@ -4632,20 +4632,6 @@ void bm_apply_kernel(Bitmap *b, int dim, float kernel[]) {
 
     memcpy(b->data, tmp->data, b->w * b->h * 4);
     bm_free(tmp);
-}
-
-void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest) {
-    /* Why does this function exist again? */
-    int x,y;
-#if IGNORE_ALPHA
-    src |= 0xFF000000; dest |= 0xFF000000;
-#endif
-    for(y = 0; y < b->h; y++)
-        for(x = 0; x < b->w; x++) {
-            if(BM_GET(b,x,y) == src) {
-                BM_SET(b, x, y, dest);
-            }
-        }
 }
 
 /*
@@ -5277,29 +5263,12 @@ void bm_get_hsl(unsigned int col, double *H, double *S, double *L) {
     *S *= 100;
 }
 
-void bm_set_color(Bitmap *bm, unsigned int col) {
-    bm->color = col;
-}
-
 unsigned int bm_byte_order(unsigned int col) {
 #if !ABGR
     return col;
 #else
     return (col & 0xFF00FF00) | ((col >> 16) & 0x000000FF) | ((col & 0x000000FF) << 16);
 #endif
-}
-
-unsigned int bm_get_color(Bitmap *b) {
-    assert(b);
-    return b->color;
-}
-
-unsigned int bm_picker(Bitmap *b, int x, int y) {
-    assert(b);
-    if(x < 0 || x >= b->w || y < 0 || y >= b->h)
-        return 0;
-    b->color = bm_get(b, x, y);
-    return b->color;
 }
 
 unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
@@ -5318,6 +5287,47 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t) {
     b3 = (int)(b1 + t * ((double)b2 - b1));
 
     return (r3 << 16) | (g3 << 8) | (b3 << 0);
+}
+
+unsigned int bm_graypixel(unsigned int c) {
+    unsigned char R,G,B;
+    bm_get_rgb(c, &R, &G, &B);
+    return (2126 * R + 7152 * G + 722 * B)/10000;
+}
+
+void bm_grayscale(Bitmap *b) {
+    /* https://en.wikipedia.org/wiki/Grayscale */
+    int x, y;
+    for(y = 0; y < b->h; y++)
+        for(x = 0; x < b->w; x++) {
+            unsigned int c = BM_GET(b, x, y);
+            unsigned char R,G,B;
+            bm_get_rgb(c, &R, &G, &B);
+            c = (2126 * R + 7152 * G + 722 * B)/10000;
+            BM_SET(b, x, y, bm_rgb(c, c, c));
+        }
+}
+
+void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest) {
+    /* Why does this function exist again? */
+    int x,y;
+#if IGNORE_ALPHA
+    src |= 0xFF000000; dest |= 0xFF000000;
+#endif
+    for(y = 0; y < b->h; y++)
+        for(x = 0; x < b->w; x++) {
+            if(BM_GET(b,x,y) == src) {
+                BM_SET(b, x, y, dest);
+            }
+        }
+}
+
+unsigned int bm_picker(Bitmap *b, int x, int y) {
+    assert(b);
+    if(x < 0 || x >= b->w || y < 0 || y >= b->h)
+        return 0;
+    b->color = bm_get(b, x, y);
+    return b->color;
 }
 
 int bm_width(Bitmap *b) {
@@ -6402,14 +6412,16 @@ int bm_palette_add(BmPalette *pal, unsigned int color) {
 
 int bm_palette_set(BmPalette *pal, int index, unsigned int color) {
     assert(pal);
-    assert(index >= 0 && index < pal->ncolors);
+    if(index < 0 || index >= pal->ncolors)
+        return -1;
     pal->colors[index] = color;
     return index;
 }
 
 unsigned int bm_palette_get(BmPalette *pal, int index) {
     assert(pal);
-    assert(index >= 0 && index < pal->ncolors);
+    if(index < 0 || index >= pal->ncolors)
+        return 0;
     return pal->colors[index];
 }
 
@@ -6521,7 +6533,9 @@ BmPalette *bm_load_palette(const char* filename) {
         rewind(f);
 
     /* TODO: Here's a spec for the Microsoft PAL format
-    https://worms2d.info/Palette_file */
+    https://worms2d.info/Palette_file
+    See also https://www.codeproject.com/Articles/1172812/Loading-Microsoft-RIFF-Palette-pal-Files-with-Csha
+    */
 
     palette = bm_palette_create(0);
     if(!palette)
@@ -6822,16 +6836,6 @@ void bm_set_palette(Bitmap *b, BmPalette *pal) {
 
 BmPalette *bm_get_palette(Bitmap *b) {
     return b->palette;
-}
-
-Bitmap *bm_swap_rb(Bitmap *b) {
-    int i;
-    for(i = 0; i < b->w * b->h; i++) {
-        unsigned int *pixp = ((unsigned int *)b->data) + i;
-        unsigned int c = *pixp;
-        *pixp = (c & 0xFF00FF00) | ((c & 0xFF) << 16) | ((c >> 16) & 0xFF);
-    }
-    return b;
 }
 
 int bm_stricmp(const char *p, const char *q) {

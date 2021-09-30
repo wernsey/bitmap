@@ -99,9 +99,11 @@ typedef struct BmRect {
  * #### `typedef struct bitmap_font BmFont;`
  *
  * Structure that represents the details about a font.
- * See the section on [Font Routines][] for more details.
+ *
+ * See the section on [Font Routines](#font-routines) for more details.
  *
  * It has these members:
+ *
  * * `const char *type` - a text description of the type of font
  * * `ref_count` - a reference count for the font - This should be set
  *      to `1` when the font is created.
@@ -125,6 +127,19 @@ typedef struct bitmap_font {
     void *data;
 } BmFont;
 
+/**
+ * #### `typedef struct bitmap_palette BmPalette;`
+ *
+ * Structure that contains a palette.
+ *
+ * See the section on [Palette Functions](#palette-functions) for more details.
+ *
+ * It has these members:
+ *
+ * * `ref_count` - a reference count for the palette - This is set
+ *      to `1` when the palette is created.
+ * * `colors` - An array of the actual colors in the palette
+ */
 typedef struct bitmap_palette {
     unsigned int ref_count;
     int ncolors;
@@ -666,6 +681,22 @@ unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t);
 unsigned int bm_graypixel(unsigned int c);
 
 /**
+ * #### `void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest)`
+ *
+ * Replaces all pixels of color `src` in bitmap `b` with the color `dest`.
+ */
+void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
+
+/**
+ * #### `Bitmap *bm_swap_rb(Bitmap *b)`
+ *
+ * Swaps the Red and Blue channels in a bitmap.
+ *
+ * (It is meant for certain use cases where a buffer is BGRA instead of RGBA)
+ */
+Bitmap *bm_swap_rb(Bitmap *b);
+
+/**
  * ### Blitting Functions
  */
 
@@ -882,49 +913,118 @@ Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out);
 Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out);
 
 /**
- * #### `void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest)`
+ * ### Palette Functions
  *
- * Replaces all pixels of color `src` in bitmap `b` with the color `dest`.
+ * `bmp.h` provides these methods for manipulating color palettes.
  */
-void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
 
 /**
- * #### ``
+ * #### `BmPalette *bm_palette_create(unsigned int ncolors)`
+ *
+ * Creates a palette object with space for `ncolors`.
+ *
+ * This palette will be used to reduce the colors in the image when
+ * saving to an 8-bit format like GIF or PCX.
+ *
+ * The reference count of the palette is set to `1` initially.
+ * Call `bm_palette_release()` when the palette is no longer in use
+ * which will destro.
+ *
+ * It returns `NULL` on error.
  */
 BmPalette *bm_palette_create(unsigned int ncolors);
 
 /**
- * #### ``
+ * #### `void bm_set_palette(Bitmap *b, BmPalette *pal)`
+ *
+ * Associates a palette `pal` with the bitmap `b`.
+ *
+ * `pal` may be `NULL` to dissociate a palette with the bitmap.
+ *
+ * It will increment the reference count of `pal` and decrement
+ * the reference counts of the previous palette assigned so that
+ * the palette's memory is reclaimed when it is no longer in use.
+ */
+void bm_set_palette(Bitmap *b, BmPalette *pal);
+
+/**
+ * #### `BmPalette *bm_get_palette(Bitmap *b)`
+ *
+ * Retrieves the palette object associated with a bitmap `b`.
+ *
+ * It may return `NULL` if the bitmap does not have a palette
+ * associated with it.
+ *
+ * It does not change the reference count of the palette object,
+ * so if you want to hang on to this pointer you need to call
+ * `bm_palette_retain()` on it and then call `bm_palette_release()`
+ * when you're done.
+ */
+BmPalette *bm_get_palette(Bitmap *b);
+
+/**
+ * #### `BmPalette *bm_palette_retain(BmPalette *pal)`
+ *
+ * Increments a palette's reference counter.
  */
 BmPalette *bm_palette_retain(BmPalette *pal);
 
 /**
- * #### ``
+ * #### `unsigned int bm_palette_release(BmPalette *pal)`
+ *
+ * Decrements a palette's reference counter, and if it's 0, destroys it.
+ *
+ * It returns the reference count of the palette, so 0 means the palette was destroyed.
  */
 unsigned int bm_palette_release(BmPalette *pal);
 
 /**
- * #### ``
- */
-int bm_palette_count(BmPalette *pal);
-
-/**
- * #### ``
- */
-int bm_palette_add(BmPalette *pal, unsigned int color);
-
-/**
- * #### ``
+ * #### `int bm_make_palette(Bitmap *b)`
+ *
+ * Generates a palette for a bitmap `b`:
+ *
+ * * If `b` has 256 colors or less, then the generated palette
+ *   contains only those colors.
+ * * If `b` has more than 256 colors, then a palette will be created
+ *   through `bm_quantize_uniform()`
+ *
+ * The generated palette can be retrieved through `bm_get_palette()`
  */
 int bm_make_palette(Bitmap *b);
 
 /**
- * #### ``
+ * #### `int bm_palette_count(BmPalette *pal)`
+ *
+ * Returns the number of colors in a palette `pal`
+ */
+int bm_palette_count(BmPalette *pal);
+
+/**
+ * #### `int bm_palette_add(BmPalette *pal, unsigned int color)`
+ *
+ * Adds a new color `color` to the palette `pal`.
+ *
+ * The new color is added to the end of the internal list of colors.
+ *
+ * It returns the index of the added color.
+ */
+int bm_palette_add(BmPalette *pal, unsigned int color);
+
+/**
+ * #### `int bm_palette_set(BmPalette *pal, int index, unsigned int color)`
+ *
+ * Changes the color in the palette `pal` at position `index` to the value `color`
+ *
+ * It returns the index, or -1 if the index is invalid.
  */
 int bm_palette_set(BmPalette *pal, int index, unsigned int color);
 
 /**
- * #### ``
+ * #### `unsigned int bm_palette_get(BmPalette *pal, int index)`
+ *
+ * Retrieves the color at position `index` in the palette `pal`.
+ *
+ * It returns black (#000000) if the index is invalid.
  */
 unsigned int bm_palette_get(BmPalette *pal, int index);
 
@@ -980,16 +1080,17 @@ BmPalette *bm_quantize(Bitmap *b, int n);
  * algorithm to choose the best colors.
  *
  * This implementation is quite slow for larger values of K, and
- * `bm_quantize(Bitmap *b, unsigned int n)` is recommended instead unless
- * you have a very specific reason.
+ * `bm_quantize()` is recommended instead except for specific reasons.
  */
 BmPalette *bm_quantize_kmeans(Bitmap *b, int K);
 
 /**
  * #### `BmPalette *bm_quantize_uniform(Bitmap *b, int K)`
  *
- * Creates a palette from the bitmap `b` by choosing sorting the
+ * Creates a palette from the bitmap `b` by sorting the
  * pixels in the image, and then choosing `K` evenly spaced pixels.
+ *
+ * It is fast, but the results aren't optimal.
  */
 BmPalette *bm_quantize_uniform(Bitmap *b, int K);
 
@@ -1003,16 +1104,6 @@ BmPalette *bm_quantize_uniform(Bitmap *b, int K);
  * sacrifices a lot of quality)
  */
 BmPalette *bm_quantize_random(Bitmap *b, int K);
-
-/**
- * #### ``
- */
-void bm_set_palette(Bitmap *b, BmPalette *pal);
-
-/**
- * #### ``
- */
-BmPalette *bm_get_palette(Bitmap *b);
 
 /**
  * #### `void bm_reduce_palette(Bitmap *b, BmPalette *palette)`
@@ -1050,16 +1141,8 @@ void bm_reduce_palette_OD8(Bitmap *b, BmPalette *palette);
 void bm_reduce_palette_nearest(Bitmap *b, BmPalette *palette);
 
 /**
- * #### `Bitmap *bm_swap_rb(Bitmap *b)`
- *
- * Swaps the Red and Blue channels in a bitmap.
- *
- * (It is meant for certain use cases where a buffer is BGRA instead of RGBA)
- */
-Bitmap *bm_swap_rb(Bitmap *b);
-
-/**
  * ### Drawing Primitives
+ *
  * `bmp.h` provides these methods for drawing graphics primitives.
  */
 
