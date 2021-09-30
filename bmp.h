@@ -1079,8 +1079,13 @@ BmPalette *bm_quantize(Bitmap *b, int n);
  * [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering)
  * algorithm to choose the best colors.
  *
- * This implementation is quite slow for larger values of K, and
- * `bm_quantize()` is recommended instead except for specific reasons.
+ * The colors in the palette are sorted so that the most common one
+ * is first, the second most common one is next and so on. This
+ * could be useful if you need to find dominant colors in an image.
+ *
+ * This implementation is quite slow for larger values of K, so the
+ * other algorithms might be better if you don't need the sorting
+ * functionality.
  */
 BmPalette *bm_quantize_kmeans(Bitmap *b, int K);
 
@@ -1100,8 +1105,8 @@ BmPalette *bm_quantize_uniform(Bitmap *b, int K);
  * Creates a palette of `K` colors from the bitmap `b` by choosing
  * `K` random pixels from the image.
  *
- * (It is much faster than the other algorithms, but it
- * sacrifices a lot of quality)
+ * It is much faster than the other algorithms, but it
+ * sacrifices a lot of quality.
  */
 BmPalette *bm_quantize_random(Bitmap *b, int K);
 

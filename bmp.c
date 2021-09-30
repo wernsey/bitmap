@@ -428,7 +428,7 @@ Bitmap *bm_load(const char *filename) {
 }
 
 Bitmap *bm_loadf(const char *fmt, ...) {
-	char fname[256];
+    char fname[256];
     va_list arg;
     va_start(arg, fmt);
     vsnprintf(fname, sizeof fname, fmt, arg);
@@ -978,7 +978,7 @@ int bm_save(Bitmap *b, const char *fname) {
 }
 
 int bm_savef(Bitmap *b, const char *fmt, ...) {
-	char fname[256];
+    char fname[256];
     va_list arg;
     assert(b);
     va_start(arg, fmt);
@@ -6697,7 +6697,17 @@ BmPalette *bm_quantize(Bitmap *b, int n) {
 #define MAX_K           256
 #define MAX_ITERATIONS  128
 
-static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int *pal, int K) {
+struct kmeans_bucket {
+    unsigned int color;
+    unsigned int count;
+};
+
+static int kmeans_bucket_cmp(const void*ap, const void*bp) {
+    const struct kmeans_bucket *a = ap, *b = bp;
+    return (b->count) - (a->count);
+}
+
+static int kmeans_categorize_pixels(unsigned int *bytes, int np, int *cat, struct kmeans_bucket buckets[MAX_K], int K) {
     int i, k, change = 0;
     for(i = 0; i < np; i++) {
         unsigned char iR, iG, iB;
@@ -6705,7 +6715,7 @@ static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int
         int minD = INT_MAX, dk = 0;
         for(k = 0; k < K; k++) {
             unsigned char pR, pG, pB;
-            bm_get_rgb(pal[k], &pR, &pG, &pB);
+            bm_get_rgb(buckets[k].color, &pR, &pG, &pB);
             int dR = (int)iR - (int)pR;
             int dG = (int)iG - (int)pG;
             int dB = (int)iB - (int)pB;
@@ -6722,24 +6732,27 @@ static int categorize_pixels(unsigned int *bytes, int np, int *cat, unsigned int
     return change;
 }
 
-static void adjust(unsigned int *bytes, int np, int *cat, unsigned int *pal, int K, unsigned int *n) {
+static void kmeans_adjust(unsigned int *bytes, int np, int *cat, struct kmeans_bucket buckets[MAX_K], int K) {
     int i, k;
 
     unsigned int sR[MAX_K], sG[MAX_K], sB[MAX_K];
     for(k = 0; k < K; k++) {
-        n[k] = 0; sR[k] = 0; sG[k] = 0; sB[k] = 0;
+        buckets[k].count = 0;
+        sR[k] = 0; sG[k] = 0; sB[k] = 0;
     }
     for(i = 0; i < np; i++) {
         unsigned char iR, iG, iB;
         bm_get_rgb(bytes[i], &iR, &iG, &iB);
         k = cat[i];
-        n[k]++;
+        buckets[k].count++;
         sR[k] += iR; sG[k] += iG; sB[k] += iB;
     }
     for(k = 0; k < K; k++) {
-        if(n[k] == 0) continue;
-        sR[k] /= n[k]; sG[k] /= n[k]; sB[k] /= n[k];
-        pal[k] = bm_rgb(sR[k], sG[k], sB[k]);
+        if(buckets[k].count == 0) continue;
+        sR[k] /= buckets[k].count;
+        sG[k] /= buckets[k].count;
+        sB[k] /= buckets[k].count;
+        buckets[k].color = bm_rgb(sR[k], sG[k], sB[k]);
     }
 }
 
@@ -6751,17 +6764,13 @@ BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
     there were changes to the categories? */
     int *cat = calloc(np, sizeof *cat);
 
-    unsigned int n[MAX_K];
+    struct kmeans_bucket buckets[MAX_K];
     unsigned int *bytes = (unsigned int *)bm_raw_data(b);
     int i, k;
 
-    BmPalette *palette = bm_palette_create(K);
-    if(!palette)
-        return NULL;
-
     unsigned int *pixels = malloc(np * sizeof *pixels);
     if(!pixels) {
-        bm_palette_release(palette);
+        free(cat);
         return NULL;
     }
 
@@ -6769,15 +6778,29 @@ BmPalette *bm_quantize_kmeans(Bitmap *b, int K) {
     qsort(pixels, np, sizeof *pixels, cnt_comp_noalpha);
     for(k = 0; k < K; k++) {
         int x = k * (np - 1) / (K - 1);
-        palette->colors[k] = pixels[x];
+        buckets[k].color = pixels[x];
     }
 
     for(i = 0; i < MAX_ITERATIONS; i++) {
-        int changes = categorize_pixels(bytes, np, cat, palette->colors, K);
+        int changes = kmeans_categorize_pixels(bytes, np, cat, buckets, K);
         if(!changes)
             break;
-        adjust(bytes, np, cat, palette->colors, K, n);
+        kmeans_adjust(bytes, np, cat, buckets, K);
     }
+
+    /* for(i = 0; i < K; i++) printf("#%06X %u\n", buckets[i].color, buckets[i].count); */
+
+    qsort(buckets, K, sizeof buckets[0], kmeans_bucket_cmp);
+    while(K > 0 && buckets[K-1].count == 0)
+        K--;
+
+    BmPalette *palette = bm_palette_create(K);
+    if(!palette)
+        return NULL;
+    for(i = 0; i < K; i++) {
+        bm_palette_set(palette, i, buckets[i].color);
+    }
+
     free(cat);
     free(pixels);
     return palette;

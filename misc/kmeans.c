@@ -28,7 +28,7 @@
 #include <time.h>
 #include <assert.h>
 
-#include "../../bmp.h"
+#include "../bmp.h"
 
 #define SHOW_ITERATIONS 0
 
@@ -56,7 +56,15 @@ int main(int argc, char *argv[]) {
     }
 
     BmPalette *palette = bm_quantize_kmeans(b, K);
+    if(!palette) {
+        fprintf(stderr, "couldn't create palette: %s", bm_get_error());
+        return 1;
+    }
 
+    /* The palette may actually have less than K colors */
+    K = bm_palette_count(palette);
+
+    printf("%d colors\n", K);
     for(i = 0; i < K; i++) {
         printf("#%06X\n", bm_palette_get(palette, i));
     }
