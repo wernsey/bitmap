@@ -2831,6 +2831,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
     int i, x, y, rv = 1;
 
     BmPalette *palette;
+
     struct palette_mapping mapping[256];
     int color_count;
 
@@ -2915,9 +2916,15 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
                 x++;
                 cnt++;
             }
+
             i = get_palette_mapping(mapping, c, color_count);
             /* At this point in time, the color MUST be in the palette */
             assert(i >=0 && i < color_count);
+
+            /*
+            i = bm_palette_nearest_index(palette, c);
+            assert(i >=0 && i < palette->ncolors);
+            */
 
             if(cnt == 1 && i < 192) {
                 fputc(i, f);
@@ -6187,6 +6194,7 @@ static unsigned int closest_color(unsigned int c, BmPalette *pal) {
     unsigned int md = col_dist_sq(c, pal->colors[m]);
     for(i = 1; i < pal->ncolors; i++) {
         unsigned int d = col_dist_sq(c, pal->colors[i]);
+        //if(!d) return pal->colors[i];
         if(d < md) {
             md = d;
             m = i;
@@ -6244,6 +6252,9 @@ void bm_reduce_palette(Bitmap *b, BmPalette *pal) {
             unsigned int newpixel, oldpixel = BM_GET(b, x, y);
 
             newpixel = closest_color(oldpixel, pal);
+            /* Turns out the KD-trees doesn't improve performance as I hoped
+            newpixel = bm_palette_nearest_color(pal, oldpixel);
+            */
 
             bm_set(b, x, y, newpixel);
 
