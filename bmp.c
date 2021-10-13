@@ -6353,6 +6353,8 @@ void bm_reduce_palette_nearest(Bitmap *b, BmPalette *pal) {
     }
 }
 
+static void kd_tree_fill(BmPalette *pal);
+
 BmPalette *bm_palette_create(unsigned int ncolors) {
     BmPalette *pal;
     pal = malloc(sizeof *pal);
@@ -6370,6 +6372,15 @@ BmPalette *bm_palette_create(unsigned int ncolors) {
         free(pal);
         return NULL;
     }
+    pal->tree = calloc(pal->acolors, sizeof *pal->tree);
+    if(!pal->tree) {
+        SET_ERROR("out of memory creating palette");
+        free(pal->colors);
+        free(pal);
+        return NULL;
+    }
+    pal->nnodes = 0;
+
     pal->ref_count = 1;
     return pal;
 }
@@ -6386,6 +6397,7 @@ unsigned int bm_palette_release(BmPalette *pal) {
     pal->ref_count--;
     if(!pal->ref_count) {
         free(pal->colors);
+        free(pal->tree);
         free(pal);
         return 0;
     }
@@ -6399,14 +6411,22 @@ int bm_palette_count(BmPalette *pal) {
 
 int bm_palette_add(BmPalette *pal, unsigned int color) {
     int index = pal->ncolors++;
+    color &= 0xFFFFFF;
     if(pal->ncolors >= pal->acolors) {
         pal->acolors <<= 1;
         unsigned int *tcolors = realloc(pal->colors, pal->acolors * sizeof *pal->colors);
         if(!tcolors)
             return -1;
         pal->colors = tcolors;
+        KdNode *ttree = realloc(pal->tree, pal->acolors * sizeof *pal->tree);
+        if(!ttree)
+            return -1;
+        pal->tree = ttree;
     }
     pal->colors[index] = color;
+
+    pal->nnodes = 0;
+
     return index;
 }
 
@@ -6415,6 +6435,10 @@ int bm_palette_set(BmPalette *pal, int index, unsigned int color) {
     if(index < 0 || index >= pal->ncolors)
         return -1;
     pal->colors[index] = color;
+
+    /* Set nnodes to 0 so the kd-tree is recreated when you attempt to use it */
+    pal->nnodes = 0;
+
     return index;
 }
 
@@ -6422,6 +6446,155 @@ unsigned int bm_palette_get(BmPalette *pal, int index) {
     assert(pal);
     if(index < 0 || index >= pal->ncolors)
         return 0;
+    return pal->colors[index];
+}
+
+/*
+I use kd-trees to speed up searches in palettes. Here are some relevant links:
+
+* <https://kanoki.org/2020/08/05/find-nearest-neighbor-using-kd-tree/>
+* <http://andrewd.ces.clemson.edu/courses/cpsc805/references/nearest_search.pdf> - Lecture notes containing pseudo code and examples of constructing and searching the tree
+* <https://www.cs.cmu.edu/~ckingsf/bioinfo-lectures/kdtrees.pdf> - another set of lecture notes with pseudo code, including code for maintaining the tree
+* <http://stanford.edu/class/archive/cs/cs106l/cs106l.1162/handouts/assignment-3-kdtree.pdf> - Set of lecture notes/assginments that explains the theory as well.
+* <https://towardsdatascience.com/understanding-k-dimensional-trees-1cdbf6075f22>
+
+(I also looked at [octrees][], but it seems kd-trees are the way to go.
+Here's an [article on CodeProject][octree-search] that you can look at for more information)
+
+[k-d trees]: https://en.wikipedia.org/wiki/K-d_tree
+[nearest neighbor]: https://en.wikipedia.org/wiki/Nearest_neighbor_search
+[octrees]: https://en.wikipedia.org/wiki/Octree
+[octree-search]: https://www.codeproject.com/Tips/1046574/OctTree-Based-Nearest-Color-Search
+*/
+static unsigned int kd_add_node(BmPalette *pal, unsigned int index, unsigned int split) {
+    assert(pal->nnodes < pal->ncolors);
+    KdNode *kd = &pal->tree[pal->nnodes];
+    kd->index = index;
+    kd->left = 0;
+    kd->right = 0;
+    return pal->nnodes++;
+}
+
+static unsigned int kd_tree_insert(BmPalette *pal, unsigned int node, unsigned int index, int dim) {
+    KdNode *kd = &pal->tree[node];
+    assert(index < pal->ncolors);
+    unsigned int value = (pal->colors[index] >> (8*dim)) & 0xFF;
+    if(!pal->nnodes)
+        return kd_add_node(pal, index, value);
+    if(kd->index == index) // Technically an error -> you have duplicate nodes in your tree
+        return node;
+    unsigned int split = (pal->colors[kd->index] >> (8*dim)) & 0xFF;
+    if(value < split) {
+        if(!kd->left) {
+            kd->left = kd_add_node(pal, index, value);
+            return kd->left;
+        }
+        return kd_tree_insert(pal, kd->left, index, (dim + 1) % 3);
+    } else {
+        if(!kd->right) {
+            kd->right = kd_add_node(pal, index, value);
+            return kd->right;
+        }
+        return kd_tree_insert(pal, kd->right, index, (dim + 1) % 3);
+    }
+}
+
+#define LFSR_MASK 0x30u
+#define LFSR_PERIOD 63
+
+static void kd_tree_fill(BmPalette *pal)
+{
+    /*
+    If the colors in the palette are sorted, the tree would be somewhat
+    unbalanced.
+
+    To get an optimal balance, you need to sort the colors according to
+    the channel that has the most _spread_ at each level, and then split
+    at the median.
+
+    Due to the overhead and complexity in that, I've opted instead to
+    go through the palette in a pseudo-random order using a [LFSR][]
+    to insert the colors in the tree, which _might_ make it more
+    balanced (but is not guaranteed).
+
+    [LFSR]: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+    */
+    unsigned short lfsr =  0x03u;
+
+    int counter = 0, offmul = 0;
+
+    do
+    {
+        unsigned lsb = lfsr & 1u;
+        lfsr >>= 1;
+        if (lsb)
+            lfsr ^= LFSR_MASK;
+
+        int index = (lfsr - 1) + offmul * LFSR_PERIOD;
+        if(index >= pal->ncolors)
+            continue;
+
+        kd_tree_insert(pal, 0, index, 0);
+
+        counter++;
+        if(counter >= (offmul + 1) * LFSR_PERIOD)
+            offmul++;
+    }
+    while (counter < pal->ncolors);
+}
+
+static void _nearest_color(BmPalette *pal, unsigned int color, unsigned char aR, unsigned char aG, unsigned char aB, unsigned int node, int dim, unsigned int *guess, unsigned int *bestDist) {
+    KdNode *kd = &pal->tree[node];
+    unsigned char bR, bG, bB;
+
+    if(pal->colors[kd->index] == color) {
+        /* Exact match */
+        *bestDist = 0;
+        *guess = node;
+        return;
+    }
+
+    bm_get_rgb(pal->colors[kd->index], &bR, &bG, &bB);
+    int dR = aR - bR, dG = aG - bG, dB = aB - bB;
+    unsigned int distSq = dR*dR + dG*dG + dB*dB;
+
+    if(distSq < *bestDist) {
+        *bestDist = distSq;
+        *guess = node;
+    }
+
+    unsigned int value = (color >> (8*dim)) & 0xFF;
+    unsigned int split = (pal->colors[kd->index] >> (8*dim)) & 0xFF;
+    unsigned int other;
+    if(value < split) {
+        if(kd->left)
+            _nearest_color(pal, color, aR, aG, aB, kd->left, (dim + 1) % 3, guess, bestDist);
+        other = kd->right;
+    } else {
+        if(kd->right)
+            _nearest_color(pal, color, aR, aG, aB, kd->right, (dim + 1) % 3, guess, bestDist);
+        other = kd->left;
+    }
+    if(abs(value - split) < *bestDist && other)
+        _nearest_color(pal, color, aR, aG, aB, other, (dim + 1) % 3, guess, bestDist);
+}
+
+unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color) {
+    unsigned int guess = 0;
+    unsigned int bestDist = 0xFFFFFFFF;
+    unsigned char aR, aG, aB;
+    assert(pal->ncolors > 0);
+
+    if(!pal->nnodes)
+        kd_tree_fill(pal); /* Rebuild the kd-tree */
+
+    bm_get_rgb(color, &aR, &aG, &aB);
+    _nearest_color(pal, color & 0xFFFFFF, aR, aG, aB, 0, 0, &guess, &bestDist);
+    return pal->tree[guess].index;
+}
+
+unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color) {
+    unsigned int index = bm_palette_nearest_index(pal, color);
     return pal->colors[index];
 }
 

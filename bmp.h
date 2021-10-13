@@ -140,11 +140,20 @@ typedef struct bitmap_font {
  *      to `1` when the palette is created.
  * * `colors` - An array of the actual colors in the palette
  */
+
+typedef struct {
+    unsigned int index;
+    unsigned int left, right;
+} KdNode;
+
 typedef struct bitmap_palette {
     unsigned int ref_count;
     int ncolors;
     int acolors;
     unsigned int *colors;
+
+    int nnodes;
+    KdNode *tree;
 } BmPalette;
 
 /**
@@ -1027,6 +1036,22 @@ int bm_palette_set(BmPalette *pal, int index, unsigned int color);
  * It returns black (#000000) if the index is invalid.
  */
 unsigned int bm_palette_get(BmPalette *pal, int index);
+
+/**
+ * #### `unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color)`
+ *
+ * Finds the index of the color in the palette `pal` that is closest to `color`.
+ */
+unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color);
+
+/**
+ * #### `unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color)`
+ *
+ * Finds the color in the palette `pal` that is closest to `color`.
+ *
+ * It is functionally equivalent to `bm_palette_get(pal, bm_palette_nearest_index(pal, color));`
+ */
+unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color);
 
 /**
  * #### `BmPalette *bm_load_palette(const char * filename)`
