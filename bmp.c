@@ -171,6 +171,21 @@ struct bitmap {
     BmPalette *palette;
 };
 
+struct bitmap_palette {
+
+    /* Reference count */
+    unsigned int ref_count;
+
+    /* Number of colors allocated */
+    int acolors;
+
+    /* Actual number of colors; <= acolors */
+    int ncolors;
+
+    /* Array of colors */
+    unsigned int *colors;
+};
+
 #pragma pack(push, 1) /* Don't use any padding (Windows compilers) */
 
 /* Data structures for the header of BMP files. */

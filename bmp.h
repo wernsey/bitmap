@@ -133,19 +133,8 @@ typedef struct bitmap_font {
  * Structure that contains a palette.
  *
  * See the section on [Palette Functions](#palette-functions) for more details.
- *
- * It has these members:
- *
- * * `ref_count` - a reference count for the palette - This is set
- *      to `1` when the palette is created.
- * * `colors` - An array of the actual colors in the palette
  */
-typedef struct bitmap_palette {
-    unsigned int ref_count;
-    int ncolors;
-    int acolors;
-    unsigned int *colors;
-} BmPalette;
+typedef struct bitmap_palette  BmPalette;
 
 /**
  * ### Creating and Destroying bitmaps
