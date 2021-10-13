@@ -140,20 +140,11 @@ typedef struct bitmap_font {
  *      to `1` when the palette is created.
  * * `colors` - An array of the actual colors in the palette
  */
-
-typedef struct {
-    unsigned int index;
-    unsigned int left, right;
-} KdNode;
-
 typedef struct bitmap_palette {
     unsigned int ref_count;
     int ncolors;
     int acolors;
     unsigned int *colors;
-
-    int nnodes;
-    KdNode *tree;
 } BmPalette;
 
 /**
