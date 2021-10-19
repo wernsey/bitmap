@@ -97,8 +97,6 @@ typedef struct {
 
 /* Already defined in bmp.c for the GIF and PCX code, but duplicated here because I
     need to reconsider the API */
-static int cnt_comp_mask(const void*ap, const void*bp);
-static int count_colors_build_palette(Bitmap *b, struct gif_triplet rgb[256]);
 static int bsrch_palette_lookup(struct gif_triplet rgb[], int c, int imin, int imax);
 static int comp_rgb(const void *ap, const void *bp);
 
@@ -840,6 +838,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
     struct gif_triplet gct[256];
     unsigned char code_size = 0x08;
     Bitmap *b = g->n > 0 ? g->frames[0].image : NULL;
+    int q;
 
     if(!b) return 0;
 
@@ -854,39 +853,24 @@ static int gif_save_fp(GIF *g, FILE *f) {
     /* Using global color table, color resolution = 8-bits */
     file.lsd.fields = 0xF0;
 
-    unsigned int palette[256], q;
-    if(g->palette) {
-        nc = g->palette_size;
-        assert(nc > 0); /* You must have at least some colors in your palette */
-        bg = bm_get_color(b) & 0x00FFFFFF;
-        for(q = 0; q < nc; q++) {
-            bm_get_rgb(g->palette[q], &gct[q].r, &gct[q].g, &gct[q].b);
+    if(!g->pal) {
+        if(!bm_get_palette(b)) {
+            if(!bm_make_palette(b)) return 0;
         }
-		qsort(gct, nc, sizeof gct[0], comp_rgb);
-        for(q = 0; q < nc; q++) {
-            palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
-        }
-    } else {
-        nc = count_colors_build_palette(b, gct);
-        if(nc < 0) {
-            /* Too many colors */
-            sgct = 256;
-            file.lsd.fields |= 0x07;
-            for(nc = 0; nc < 256; nc++) {
-                /* FIXME: Octree color quantization
-                My color quantization method is to just choose random pixels,
-                and hope for the best. */
-                int c = bm_get(b, rand() % bm_width(b), rand() % bm_height(b));
-                gct[nc].r = (c >> 16) & 0xFF;
-                gct[nc].g = (c >> 8) & 0xFF;
-                gct[nc].b = (c >> 0) & 0xFF;
-            }
-        }
-        qsort(gct, nc, sizeof gct[0], comp_rgb);
-        for(q = 0; q < nc; q++) {
-            palette[q] = (gct[q].r << 16) | (gct[q].g << 8) | gct[q].b;
-        }
+        g->pal = bm_palette_retain(bm_get_palette(b));
     }
+    if(bm_palette_count(g->pal) > 256) {
+        return 0;
+    }
+
+    nc = bm_palette_count(g->pal);
+    assert(nc > 0); /* You must have at least some colors in your palette */
+    bg = bm_get_color(b) & 0x00FFFFFF;
+    for(q = 0; q < nc; q++) {
+        unsigned int pc = bm_palette_get(g->pal, q);
+        bm_get_rgb(pc, &gct[q].r, &gct[q].g, &gct[q].b);
+    }
+    qsort(gct, nc, sizeof gct[0], comp_rgb);
 
     if(nc > 128) {
         sgct = 256;
@@ -972,7 +956,7 @@ static int gif_save_fp(GIF *g, FILE *f) {
         b = g->frames[fi].image;
         assert(bm_width(b) == g->w && bm_height(b) == g->h);
 
-        bm_reduce_palette(b, palette, nc);
+        bm_reduce_palette(b, g->pal);
 
         /* Map the pixels in the image to their palette indices */
         int x, y, p = 0;
@@ -1070,8 +1054,7 @@ GIF *gif_create(int w, int h) {
     gif->frames = calloc(gif->a, sizeof *gif->frames);
     gif->default_delay = 2;
 
-    gif->palette = 0;
-    gif->palette_size = 0;
+    gif->pal = NULL;
 
     return gif;
 }
@@ -1081,6 +1064,8 @@ void gif_free(GIF *gif) {
     for(i = 0; i < gif->n; i++) {
         bm_free(gif->frames[i].image);
     }
+    if(gif->pal)
+        bm_palette_release(gif->pal);
     free(gif->frames);
     free(gif);
 }
@@ -1122,58 +1107,15 @@ GIF_FRAME *gif_new_frame(GIF *g) {
     return &g->frames[g->n++];
 }
 
-void gif_set_palette(GIF *gif, unsigned int *palette, unsigned int palette_size) {
-    gif->palette = palette;
-    if(palette_size > 256)
-        palette_size = 256;
-    gif->palette_size = palette_size;
+void gif_set_palette(GIF *gif, BmPalette *pal) {
+    if(pal)
+        bm_palette_retain(pal);
+    if(gif->pal)
+        bm_palette_release(gif->pal);
+    gif->pal = pal;
 }
 
 #if 1
-/*****
-FIXME: These functions are already defined as static in bmp.c.
-I'd like to modify the API at some stage to expose the functionality
-via bmp.h, but the function prototypes would need some thought.
-Ideally, I should have a bm_quantize() function that takes care of
-quantizing the image and creating a palette.
-Rosettacode has a nice color quantization implementation based on octrees.
-http://rosettacode.org/wiki/Color_quantization#C
-*****/
-static int cnt_comp_mask(const void*ap, const void*bp) {
-    int a = *(int*)ap, b = *(int*)bp;
-    return (a & 0x00FFFFFF) - (b & 0x00FFFFFF);
-}
-/* Variation on bm_count_colors() that builds an 8-bit palette while it is counting.
- * It returns -1 in case there are more than 256 colours in the palette, meaning the
- * image will have to be quantized first.
- * It also ignores the alpha values of the pixels.
- */
-static int count_colors_build_palette(Bitmap *b, struct gif_triplet rgb[256]) {
-    int count = 1, i, c;
-    int npx = bm_width(b) * bm_height(b);
-    int *sort = malloc(npx * sizeof *sort);
-    memcpy(sort, bm_raw_data(b), npx * sizeof *sort);
-    qsort(sort, npx, sizeof(int), cnt_comp_mask);
-    c = sort[0] & 0x00FFFFFF;
-    rgb[0].r = (c >> 16) & 0xFF;
-    rgb[0].g = (c >> 8) & 0xFF;
-    rgb[0].b = (c >> 0) & 0xFF;
-    for(i = 1; i < npx; i++){
-        c = sort[i] & 0x00FFFFFF;
-        if(c != (sort[i-1]& 0x00FFFFFF)) {
-            if(count == 256) {
-                return -1;
-            }
-            rgb[count].r = (c >> 16) & 0xFF;
-            rgb[count].g = (c >> 8) & 0xFF;
-            rgb[count].b = (c >> 0) & 0xFF;
-            count++;
-        }
-    }
-    free(sort);
-    return count;
-}
-
 /* Uses a binary search to find the index of a colour in a palette.
 It almost goes without saying that the palette must be sorted */
 static int bsrch_palette_lookup(struct gif_triplet rgb[], int c, int imin, int imax) {
@@ -1205,9 +1147,6 @@ static int comp_rgb(const void *ap, const void *bp) {
 #ifdef TEST
 int main(int argc, char *argv[]) {
 
-    /* FIXME: The color quantization shouldn't depend on rand() :( */
-    srand(time(NULL));
-
     gif_verbose = 1;
 
     if(argc < 2) {
@@ -1216,8 +1155,12 @@ int main(int argc, char *argv[]) {
     }
     assert(sizeof(unsigned short) == 2);
 
+    BmPalette *pal = NULL;
+    pal = bm_load_palette("../dual.pal");
+
     GIF *gif = gif_load(argv[1]);
     if(gif) {
+        gif_set_palette(gif, pal);
         char buffer[50];
         int i;
         for(i = 0; i < gif->n; i++) {
@@ -1236,6 +1179,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Couldn't read GIF\n");
         return 1;
     }
+    if(pal)
+        bm_palette_release(pal);
     return 0;
 }
 #endif

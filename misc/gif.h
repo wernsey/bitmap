@@ -61,8 +61,7 @@ typedef struct GIF {
 
     unsigned char default_delay;
 
-    unsigned int *palette;
-    unsigned int palette_size;
+    BmPalette *pal;
 
     /* The actual frames */
     GIF_FRAME *frames;
@@ -94,14 +93,13 @@ GIF *gif_create(int w, int h);
 void gif_free(GIF *gif);
 
 /**
- * ### `void gif_set_palette(GIF *gif, unsigned int *palette, unsigned int palette_size)`
- * Sets a custom `palette` of the specified `palette_size` for the GIF.
+ * ### `void gif_set_palette(GIF *gif, BmPalette *palette)`
+ * Sets a custom `palette` for the GIF.
+ *
  * If a palette is not specified, one is created from the first frame in the GIF when
  * the file is saved.
- *
- * The colours in `palette` should be in the `0xAARRGGBB` format.
  */
-void gif_set_palette(GIF *gif, unsigned int *palette, unsigned int palette_size);
+void gif_set_palette(GIF *gif, BmPalette *palette);
 
 /**
  * ### `GIF *gif_load(const char *filename);`
