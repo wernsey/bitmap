@@ -1042,10 +1042,12 @@ unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color);
  *
  * The returned pointer must be `bm_palette_release()`ed after use.
  *
- * Two formats are supported:
+ * These formats are supported:
  *
  * - If the first line in the file is `JASC-PAL`, the file is read as a
  *   [Paintshop Pro-type palette][Psp-pal].
+ * - If the first line in the file is `GIMP Palette`, the file is read as a
+ *   [GIMP palette][gimp-pal].
  * - Otherwise the file is read as a text file with a colour on each
  *   line. Blank lines are ignored and semicolons indicate comments.
  *   The format is similar to [Paint.NET palette files][Pdn-pal] except
@@ -1053,6 +1055,7 @@ unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color);
  *   and up to 256 colours can be defined.
  *
  * [Psp-pal]: http://www.cryer.co.uk/file-types/p/pal.htm
+ * [gimp-pal]: https://docs.gimp.org/en/gimp-concepts-palettes.html
  * [Pdn-pal]: https://www.getpaint.net/doc/latest/WorkingWithPalettes.html
  */
 BmPalette *bm_load_palette(const char * filename);

@@ -2,8 +2,8 @@
 ; Try it with the -P option of the `cvrt` utility.
 ; This palette is from http://androidarts.com/palette/16pal.htm
   ; comments are indicated with semicolons, colors can be in
-  ; any format supported by `bm_atoi()` 
-  
+  ; any format supported by `bm_atoi()`
+
 #000000 ; Void (black)
 #9D9D9D ; Gray
 #FFFFFF ; White
@@ -11,12 +11,12 @@
 #E06F8B ; Meat
       #493C2B ; Darkbrown
 #A46422 ; Brown
-       
+
 #EB8931 ; Orange
 #F7E26B ; Yellow
 #2F484E ; Darkgreen
 #44891A ; Green
-#A3CE27        
+#A3CE27
 ; Slimegreen
 #1B2632 ; Nightblue
 #005784 ; Seablue

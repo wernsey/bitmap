@@ -4983,6 +4983,13 @@ static const struct color_map_entry {
 unsigned int bm_atoi(const char *text) {
     unsigned int col = 0;
 
+    /* Caveat: If you have 8 hex digits preceded by a #, then
+    it is treated as a #RRGGBBAA as in CSS;
+    If you have 8 hex digits not preceded by a #, then it
+    is treated as AARRGGBB
+    */
+    int swap_alpha = 0;
+
     if(!text) return 0;
 
     while(isspace(text[0]))
@@ -5118,6 +5125,7 @@ unsigned int bm_atoi(const char *text) {
         /* Drop through: You may be dealing with a color like 'a6664c' */
     } else if(text[0] == '#') {
         text++;
+        swap_alpha = 1;
         if(strlen(text) == 3) {
             /* Special case of #RGB that should be treated as #RRGGBB */
             while(text[0]) {
@@ -5148,7 +5156,6 @@ unsigned int bm_atoi(const char *text) {
     }
 
     if(strlen(text) == 8) {
-        /* CSS specifies colors as #RRGGBBAA, but I store it internally as ARGB (or ABGR) */
         while(isxdigit(text[0])) {
             int c = tolower(text[0]);
             if(c >= 'a' && c <= 'f') {
@@ -5158,7 +5165,9 @@ unsigned int bm_atoi(const char *text) {
             }
             text++;
         }
-        col = ((col & 0xFF) << 24) | ((col & 0xFFFFFF00) >> 8);
+        if(swap_alpha) {
+            col = ((col & 0xFF) << 24) | ((col & 0xFFFFFF00) >> 8);
+        }
     } else if(strlen(text) == 6) {
         while(isxdigit(text[0])) {
             int c = tolower(text[0]);
@@ -6517,11 +6526,50 @@ int bm_make_palette(Bitmap *b) {
     return ncolors;
 }
 
+static char *read_pal_line(FILE *f, char *buffer, size_t buf_len) {
+    char *c = NULL;
+    do {
+        if(!fgets(buffer, buf_len, f))
+            return NULL;
+        c = buffer;
+        while (*c && isspace(*c)) c++;
+    } while(*c == '\0');
+    return c;
+}
+
+int tokenize_pal_line(char **cp, unsigned int *component) {
+    char *c = *cp, *s;
+    while(isspace(*c)) c++;
+    s = c;
+    while(isdigit(*c)) c++;
+    if(!*c) {
+        SET_ERROR("bad value in palette");
+        return 0;
+    }
+    if(*c != '\0') {
+        *c = '\0';
+        c++;
+    }
+    *cp = c;
+    *component = atoi(s);
+    return 1;
+}
+
+static int read_pal_rgb(char *line, unsigned int *r, unsigned int *g, unsigned int *b) {
+    char *c = line;
+    if(!tokenize_pal_line(&c, r)) return 0;
+    if(!tokenize_pal_line(&c, g)) return 0;
+    if(!tokenize_pal_line(&c, b)) return 0;
+    return 1;
+}
+
 BmPalette *bm_load_palette(const char* filename) {
     FILE* f = NULL;
     char buf[64];
     BmPalette *palette = NULL;
     int n = 0;
+    char *s, *e, *c;
+    unsigned int r, g, b;
 
     if (!filename) return NULL;
 
@@ -6556,60 +6604,103 @@ BmPalette *bm_load_palette(const char* filename) {
             goto error;
 
         for (n = 0; n < count; n++) {
-            unsigned int r, g, b;
-#ifdef SAFE_C11
-            if (fscanf_s(f, "%u %u %u", &r, &g, &b) != 3)
+            c = read_pal_line(f, buf, sizeof buf);
+            if(!read_pal_rgb(c, &r, &g, &b))
                 goto error;
-#else
-            if (fscanf(f, "%u %u %u", &r, &g, &b) != 3)
-                goto error;
-#endif
             bm_palette_set(palette, n, (r << 16) | (g << 8) | b);
         }
         fclose(f);
         return palette;
-    }
-    else
+    } else if (!strncmp(buf, "GIMP Palette", 12)) {
+        /* TODO: Support GIMP Palettes...
+        It seems there are two versions. Both has "GIMP Palette" on the first line.
+
+        The newer version of the format has two lines that start with "Name: " and
+        "Columns: " repsectively. If these lines are omitted, then it is the older format.
+
+        The `Name` and `Columns` aren't relevant for my purposes - they're used to
+        present the palette within GIMP itself.
+
+        Either way, the file then contains lines with n colors. The line has three decimal
+        values for the R, G and B channels respectively. Optionally the channels are followed
+        by a name for the color.
+        (The values are officially separated by tabs, but I might as well support any
+        whitespace between the values)
+
+        example: 255 0 0 red
+
+        Lines that start with `#` are comments, and are ignored. Empty lines are also ignored.
+
+        + The source: https://gitlab.gnome.org/GNOME/gimp/-/blob/gimp-2-10/app/core/gimppalette-load.c#L39
+        + https://stackoverflow.com/a/60920172/115589
+
+        */
+
+        do {
+            c = read_pal_line(f, buf, sizeof buf);
+            if(!c) {
+                SET_ERROR("bad GIMP palette");
+                goto error;
+            }
+        } while(*c == '#' || !strncmp("Name: ", c, 6) || !strncmp("Columns: ", c, 9));
+
+        palette = bm_palette_create(0);
+        if(!palette)
+            goto error;
+
+        do {
+            if(!read_pal_rgb(c, &r, &g, &b))
+                goto error;
+            bm_palette_add(palette, (r << 16) | (g << 8) | b);
+            c = read_pal_line(f, buf, sizeof buf);
+        } while(c);
+
+        fclose(f);
+        return palette;
+    } else if(!strncmp(buf, "RIFF", 4)) {
+        /* TODO: Here's a spec for the Microsoft PAL format
+        https://worms2d.info/Palette_file (of all places!)
+        See also https://www.codeproject.com/Articles/1172812/Loading-Microsoft-RIFF-Palette-pal-Files-with-Csha
+        */
+        rewind(f);
+        SET_ERROR("RIFF palettes are not supported");
+        goto error;
+    } else {
         rewind(f);
 
-    /* TODO: Here's a spec for the Microsoft PAL format
-    https://worms2d.info/Palette_file
-    See also https://www.codeproject.com/Articles/1172812/Loading-Microsoft-RIFF-Palette-pal-Files-with-Csha
-    */
-
-    palette = bm_palette_create(0);
-    if(!palette)
-        goto error;
-
-    while (fgets(buf, sizeof buf, f) && n < 256) {
-        char* s, * e, * c = buf;
-        while (*c && isspace(*c)) c++;
-        s = c;
-        if (!*s) continue;
-        while (*c) {
-            if (*c == ';') {
-                *c = '\0';
-                break;
-            }
-            c++;
-        }
-        e = c - 1;
-        while (e > s && isspace(*e)) {
-            *e = '\0';
-            e--;
-        }
-        if (e <= s) continue;
-
-        if(bm_palette_add(palette, bm_atoi(s)) < 0)
+        palette = bm_palette_create(0);
+        if(!palette)
             goto error;
-        n++;
+
+        while ((c = read_pal_line(f, buf, sizeof buf)) && n < 256) {
+            s = c;
+            if (!*s) continue;
+            while (*c) {
+                if (*c == ';') {
+                    *c = '\0';
+                    break;
+                }
+                c++;
+            }
+            e = c - 1;
+            while (e > s && isspace(*e)) {
+                *e = '\0';
+                e--;
+            }
+            if (e <= s) continue;
+
+            if(bm_palette_add(palette, bm_atoi(s)) < 0)
+                goto error;
+            n++;
+        }
+        if (n == 0) {
+            SET_ERROR("no colors in palette");
+            goto error;
+        }
+
+        fclose(f);
+        return palette;
     }
-    if (n == 0)
-        goto error;
-
-    fclose(f);
-    return palette;
-
 error:
     fclose(f);
     if (palette)
