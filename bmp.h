@@ -937,7 +937,7 @@ BmPalette *bm_palette_create(unsigned int ncolors);
 void bm_set_palette(Bitmap *b, BmPalette *pal);
 
 /**
- * #### `BmPalette *bm_get_palette(Bitmap *b)`
+ * #### `BmPalette *bm_get_palette(const Bitmap *b)`
  *
  * Retrieves the palette object associated with a bitmap `b`.
  *
@@ -949,7 +949,7 @@ void bm_set_palette(Bitmap *b, BmPalette *pal);
  * `bm_palette_retain()` on it and then call `bm_palette_release()`
  * when you're done.
  */
-BmPalette *bm_get_palette(Bitmap *b);
+BmPalette *bm_get_palette(const Bitmap *b);
 
 /**
  * #### `BmPalette *bm_palette_retain(BmPalette *pal)`

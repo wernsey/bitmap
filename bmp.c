@@ -1945,14 +1945,16 @@ static Bitmap *bm_load_gif_rd(BmReader rd) {
         for(i = 0; i < sgct; i++)
             bm_palette_set(pal, i, (palette[i].r << 16) | (palette[i].g << 8) | palette[i].b);
 
-        bm_set_palette(gif.bmp, pal);
-        bm_palette_release(pal);
-
     } else {
         /* what? */
         SET_ERROR("don't know what to do about GIF palette");
-        return NULL;
+        pal = bm_palette_create(sgct);
+        if(!pal)
+            return NULL;
     }
+
+    bm_set_palette(gif.bmp, pal);
+    bm_palette_release(pal);
 
     for(;;) {
         long pos = rd.ftell(rd.data);
@@ -4675,6 +4677,7 @@ Bitmap *bm_resample_into(const Bitmap *in, Bitmap *out) {
             assert(sx < in->w && sy < in->h);
             BM_SET(out, x, y, BM_GET(in,sx,sy));
         }
+    bm_set_palette(out, bm_get_palette(in));
     return out;
 }
 
@@ -4723,6 +4726,7 @@ Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out) {
             BM_SET_RGBA(out, x, y, C[0], C[1], C[2], C[3]);
 #endif
         }
+    bm_set_palette(out, bm_get_palette(in));
     return out;
 }
 
@@ -4786,6 +4790,7 @@ Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out) {
         BM_SET_RGBA(out, x, y, sum[0]/denom[0], sum[1]/denom[1], sum[2]/denom[2], sum[3]/denom[3]);
 #endif
     }
+    bm_set_palette(out, bm_get_palette(in));
     return out;
 }
 
@@ -6279,7 +6284,13 @@ static int bayer8x8[64] = { /*(1/65)*/
     11, 59,  7, 55, 10, 58,  6, 54,
     43, 27, 39, 23, 42, 26, 38, 22,
 };
-static void reduce_palette_bayer(Bitmap *b, BmPalette *pal, int bayer[], int dim, int fac) {
+
+/*
+TODO: (maybe) - here's a guy with a 16x16 matrix
+https://stackoverflow.com/a/68192472/115589
+*/
+
+static void reduce_palette_bayer(Bitmap *b, BmPalette *pal, int bayer[], int dim, unsigned int fac) {
     /* Ordered dithering: https://en.wikipedia.org/wiki/Ordered_dithering
     The resulting image may be of lower quality than you would get with
     Floyd-Steinberg, but it does have some advantages:
@@ -6290,31 +6301,32 @@ static void reduce_palette_bayer(Bitmap *b, BmPalette *pal, int bayer[], int dim
     */
     int x, y;
     int af = dim - 1; /* mod factor */
-    int sub = (dim * dim) / 2 - 1; /* 7 if dim = 4, 31 if dim = 8 */
     if(!b)
         return;
     for(y = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
-            unsigned int R, G, B;
+            int R, G, B;
             unsigned int newpixel, oldpixel = BM_GET(b, x, y);
 
             R = (oldpixel >> 16) & 0xFF; G = (oldpixel >> 8) & 0xFF; B = (oldpixel >> 0) & 0xFF;
 
-            /* The "- sub" below is because otherwise colors are only adjusted upwards,
-                causing the resulting image to be brighter than the original.
-                This seems to be the same problem this guy http://stackoverflow.com/q/4441388/115589
-                ran into, but I can't find anyone else on the web solving it like I did. */
-            int f = (bayer[(y & af) * dim + (x & af)] - sub);
+            unsigned int f = bayer[(y & af) * dim + (x & af)];
 
-            R += R * f / fac;
+            R += R * f / fac - fac/2;
             if(R > 255)
                 R = 255;
-            G += G * f / fac;
+            if(R < 0)
+                R = 0;
+            G += G * f / fac - fac/2;
             if(G > 255)
                 G = 255;
-            B += B * f / fac;
+            if(G < 0)
+                G = 0;
+            B += B * f / fac - fac/2;
             if(B > 255)
                 B = 255;
+            if(B < 0)
+                B = 0;
             oldpixel = (R << 16) | (G << 8) | B;
             newpixel = bm_palette_nearest_color(pal, oldpixel);
             BM_SET(b, x, y, newpixel);
@@ -6988,7 +7000,7 @@ void bm_set_palette(Bitmap *b, BmPalette *pal) {
     b->palette = pal;
 }
 
-BmPalette *bm_get_palette(Bitmap *b) {
+BmPalette *bm_get_palette(const Bitmap *b) {
     return b->palette;
 }
 
