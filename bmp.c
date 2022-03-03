@@ -4344,7 +4344,80 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
     http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337
     See also http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm
     */
+    int x,y;
 
+    int minx = dst->clip.x1, miny = dst->clip.y1;
+    int maxx = dst->clip.x0, maxy = dst->clip.y0;
+
+    double sinAngle = sin(angle);
+    double cosAngle = cos(angle);
+
+    double dx, dy;
+    /* Compute the position of where each corner on the source bitmap
+    will be on the destination to get a bounding box for scanning */
+    dx = -cosAngle * px * scale + sinAngle * py * scale + ox;
+    dy = -sinAngle * px * scale - cosAngle * py * scale + oy;
+    if(dx < minx) minx = (int)dx;
+    if(dx > maxx) maxx = (int)dx;
+    if(dy < miny) miny = (int)dy;
+    if(dy > maxy) maxy = (int)dy;
+
+    dx = cosAngle * ((double)src->w - px) * scale + sinAngle * py * scale + ox;
+    dy = sinAngle * ((double)src->w - px) * scale - cosAngle * py * scale + oy;
+    if(dx < minx) minx = (int)dx;
+    if(dx > maxx) maxx = (int)dx;
+    if(dy < miny) miny = (int)dy;
+    if(dy > maxy) maxy = (int)dy;
+
+    dx = cosAngle * ((double)src->w - px) * scale - sinAngle * ((double)src->h - py) * scale + ox;
+    dy = sinAngle * ((double)src->w - px) * scale + cosAngle * ((double)src->h - py) * scale + oy;
+    if(dx < minx) minx = (int)dx;
+    if(dx > maxx) maxx = (int)dx;
+    if(dy < miny) miny = (int)dy;
+    if(dy > maxy) maxy = (int)dy;
+
+    dx = -cosAngle * px * scale - sinAngle * ((double)src->h - py) * scale + ox;
+    dy = -sinAngle * px * scale + cosAngle * ((double)src->h - py) * scale + oy;
+    if(dx < minx) minx = (int)dx;
+    if(dx > maxx) maxx = (int)dx;
+    if(dy < miny) miny = (int)dy;
+    if(dy > maxy) maxy = (int)dy;
+
+    /* Clipping */
+    if(minx < dst->clip.x0) minx = dst->clip.x0;
+    if(maxx > dst->clip.x1 - 1) maxx = dst->clip.x1 - 1;
+    if(miny < dst->clip.y0) miny = dst->clip.y0;
+    if(maxy > dst->clip.y1 - 1) maxy = dst->clip.y1 - 1;
+
+    double dvCol = cos(angle) / scale;
+    double duCol = sin(angle) / scale;
+
+    double duRow = dvCol;
+    double dvRow = -duCol;
+
+    double startu = px - (ox * dvCol + oy * duCol);
+    double startv = py - (ox * dvRow + oy * duRow);
+
+    double rowu = startu + miny * duCol;
+    double rowv = startv + miny * dvCol;
+
+    for(y = miny; y <= maxy; y++) {
+        double u = rowu + minx * duRow;
+        double v = rowv + minx * dvRow;
+        for(x = minx; x <= maxx; x++) {
+            if(u >= 0 && u < src->w && v >= 0 && v < src->h) {
+                unsigned int c = BM_GET(src, (int)u, (int)v);
+                BM_SET(dst, x, y, c);
+            }
+            u += duRow;
+            v += dvRow;
+        }
+        rowu += duCol;
+        rowv += dvCol;
+    }
+}
+
+void bm_rotate_maskedblit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale) {
 #if IGNORE_ALPHA
     unsigned int maskc = bm_get_color(src) & 0x00FFFFFF;
 #else

@@ -774,6 +774,20 @@ unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, in
 void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);
 
 /**
+ * #### `void bm_rotate_maskedblit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`
+ *
+ * Rotates a source bitmap `src` around a pivot point `px,py` and blits it onto a destination bitmap `dst`.
+ *
+ * The bitmap is positioned such that the point `px,py` on the source is at the offset `ox,oy` on the destination.
+ *
+ * The `angle` is clockwise, in radians. The bitmap is also scaled by the factor `scale`.
+ *
+ * Pixels on the `src` bitmap that matches the `src` bitmap color are not blitted.
+ * The alpha value of the pixels on the `src` bitmap is not taken into account.
+ */
+void bm_rotate_maskedblit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);
+
+/**
  * #### `void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4])`
  *
  * Stretches a bitmap `src` onto the quadrilateral defined by the four points `P`

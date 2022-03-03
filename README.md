@@ -23,6 +23,10 @@ int main(int argc, char *argv[]) {
 The code is licensed under the terms of the MIT License. See the file
 [LICENSE](LICENSE) for details.
 
+**TODO** - change to the MIT-0 license
+
+[MIT-0]: https://en.wikipedia.org/wiki/MIT_License#MIT_No_Attribution_License
+
 Features:
 * Supported formats:
   * Windows BMP: loads 4-, 8- and 24-bit uncompressed BMP files, saves as 24-bit.
