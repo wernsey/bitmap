@@ -916,6 +916,24 @@ Bitmap *bm_resample_blin_into(const Bitmap *in, Bitmap *out);
 Bitmap *bm_resample_bcub_into(const Bitmap *in, Bitmap *out);
 
 /**
+ * #### `Bitmap *bm_rotate_cw(const Bitmap *in)`
+ *
+ * Creates a new bitmap from `in` that is rotated 90&deg; clockwise.
+ *
+ * It takes the clipping region of `in` into account.
+ */
+Bitmap *bm_rotate_cw(const Bitmap *in);
+
+/**
+ * #### `Bitmap *bm_rotate_ccw(const Bitmap *in)`
+ *
+ * Creates a new bitmap from `in` that is rotated 90&deg; counter-clockwise.
+ *
+ * It takes the clipping region of `in` into account.
+ */
+Bitmap *bm_rotate_ccw(const Bitmap *in);
+
+/**
  * ### Palette Functions
  *
  * `bmp.h` provides these methods for manipulating color palettes.

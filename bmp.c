@@ -4874,6 +4874,40 @@ Bitmap *bm_resample_bcub(const Bitmap *in, int nw, int nh) {
     return bm_resample_bcub_into(in, out);
 }
 
+Bitmap *bm_rotate_cw(const Bitmap *in) {
+    int cw = in->clip.x1 - in->clip.x0;
+    int ch = in->clip.y1 - in->clip.y0;
+    int oy = in->clip.y0, ox = in->clip.x0;
+    int x, y;
+    Bitmap *out = bm_create(ch, cw);
+    if(!out)
+        return NULL;
+    for(y = oy; y < in->clip.y1; y++) {
+        for(x = ox; x < in->clip.x1; x++) {
+            unsigned int c = BM_GET(in, x, y);
+            BM_SET(out,ch - (y - oy) - 1, x - ox, c);
+        }
+    }
+    return out;
+}
+
+Bitmap *bm_rotate_ccw(const Bitmap *in) {
+    int cw = in->clip.x1 - in->clip.x0;
+    int ch = in->clip.y1 - in->clip.y0;
+    int oy = in->clip.y0, ox = in->clip.x0;
+    int x, y;
+    Bitmap *out = bm_create(ch, cw);
+    if(!out)
+        return NULL;
+    for(y = oy; y < in->clip.y1; y++) {
+        for(x = ox; x < in->clip.x1; x++) {
+            unsigned int c = BM_GET(in, x, y);
+            BM_SET(out, y - oy, cw - (x - ox) - 1, c);
+        }
+    }
+    return out;
+}
+
 void bm_set_alpha(Bitmap *bm, int a) {
     if(a < 0) a = 0;
     if(a > 255) a = 255;
