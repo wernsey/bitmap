@@ -20,10 +20,10 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-The code is licensed under the terms of the MIT License. See the file
+The code is licensed under the terms of the [MIT-0][] License. See the file
 [LICENSE](LICENSE) for details.
 
-**TODO** - change to the MIT-0 license
+Attribution is appreciated, but not required.
 
 [MIT-0]: https://en.wikipedia.org/wiki/MIT_License#MIT_No_Attribution_License
 
@@ -183,3 +183,11 @@ The `Makefile` generates HTML documentation from `bmp.h` through the
   * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>; `SaikyoBlack.png` comes from here
 
 [sfont]: http://www.linux-games.com/sfont/
+
+## TODO
+
+* If I'm going to have `bm_rotate_cw()` and `bm_rotate_ccw()` functions, then I ought to have
+  flip horizontal and vertical functions as well for completeness.
+* Since `bm_rotate_cw()` and `bm_rotate_ccw()` functions take the clipping rect into account,
+  I should consider doing the same for some of the other API functions for consistency, like
+  `bm_resample()` and co. Also the flip functions suggested above.
