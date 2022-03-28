@@ -7175,8 +7175,9 @@ int bm_text_width(Bitmap *b, const char *s) {
             if(width > max_width)
                 max_width = width;
             width = 0;
-        }
-        else {
+        } else if(codepoint == '\t') {
+            width += b->font->width(b->font, ' ') * 4;
+        } else {
             width += b->font->width(b->font, codepoint);
         }
     }
@@ -7200,8 +7201,7 @@ int bm_text_height(Bitmap *b, const char *s) {
 	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
         if(codepoint == '\n') {
             lines++;
-        }
-        else {
+        } else {
             height = b->font->height(b->font, codepoint);
             if(height > max_height)
                 max_height = height;

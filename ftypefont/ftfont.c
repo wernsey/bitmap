@@ -108,7 +108,6 @@ static void bmft_measure(struct bitmap_font *font, const char *s, int *width, in
 	const char *ptr = s;
 	unsigned int codepoint = 0;
 	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
-		
 		if(codepoint == '\n') {
 			if(cur_line_width > max_line_width) {
 				max_line_width = cur_line_width;
@@ -117,6 +116,10 @@ static void bmft_measure(struct bitmap_font *font, const char *s, int *width, in
 			num_extra_lines++;
 			continue;
 		}
+        if(codepoint == '\t') {
+            cur_line_width += face->size->metrics.max_advance >> 6;
+            continue;
+        }
 
 		if(FT_Load_Char(face, codepoint, FT_LOAD_NO_BITMAP))
 			continue;
@@ -314,6 +317,10 @@ static int bmft_puts(Bitmap *bmp, int pen_x, int pen_y, const char *text) {
 		if(codepoint == '\n') {
 			pen_x = x_start;
 			pen_y += size;
+			continue;
+		}
+		if(codepoint == '\t') {
+			pen_x += face->size->metrics.max_advance >> 6;
 			continue;
 		}
 		
