@@ -7137,22 +7137,19 @@ const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
 		return NULL;
 
 	unsigned int cp = 0;
-	if ((*in & 0xE0) == 0xC0) { // two-byte
+	if((*in & 0xE0) == 0xC0) { // two-byte
 		cp += (*in++ & 0x1F) << 6;
 		if (*in != 0) cp += (*in++ & 0x3F);
-	}
-	else if ((*in & 0xF0) == 0xE0) { // three-byte
+	} else if((*in & 0xF0) == 0xE0) { // three-byte
       cp += (*in++ & 0x0F) << 12;
       if (*in != 0) cp += (*in++ & 0x3F) << 6;
       if (*in != 0) cp += (*in++ & 0x3F);
-	}
-	else if ((*in & 0xF8) == 0xF0) { // four-byte
+	} else if((*in & 0xF8) == 0xF0) { // four-byte
 		cp += (*in++ & 0x07) << 18;
 		if (*in != 0) cp += (*in++ & 0x3F) << 12;
 		if (*in != 0) cp += (*in++ & 0x3F) << 6;
 		if (*in != 0) cp += (*in++ & 0x3F);
-	}
-	else {
+	} else {
 		cp = *in++;
 	}
 
