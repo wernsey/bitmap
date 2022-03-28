@@ -7334,6 +7334,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     font->puts = rf_puts;
     font->width = rf_width;
     font->height = rf_height;
+    font->measure = NULL;
     font->dtor = rf_free_font;
     RasterFontData *data = CAST(RasterFontData *)(malloc(sizeof *data));
     if (!data) {
@@ -7449,6 +7450,7 @@ BmFont *bm_make_sfont(const char *file) {
     font->puts = sf_puts;
     font->width = sf_width;
     font->height = sf_height;
+    font->measure = NULL;
     font->dtor = sf_dtor;
     data = CAST(SFontData *)(malloc(sizeof *data));
     if(!data) {
@@ -7710,6 +7712,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
     font->puts = xbmf_puts;
     font->width = xbmf_width;
     font->height = xbmf_height;
+    font->measure = NULL;
     font->dtor = xbmf_free;
     font->data = info;
 
