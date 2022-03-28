@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 	BmFont *font;
 	BmFont *bfont_circuit = bm_make_xbm_font(circuit_bits, 7);
 	Bitmap *bmp = bm_create(320, 240);
-	const char * txt_utf = "Unicode? ひらがな";
+	const char * txt_utf = "Unicode? Ελλάδα";
 	const char* txt_multiline = "Lorem Îpsum\ndolor sit amet";
 	const char* txt_centered = "Centered";
 	
@@ -54,14 +54,14 @@ int main(int argc, char *argv[]) {
 	bmft_init();
 
 #ifdef USESDL
-	rw = SDL_RWFromFile("arial/arial.ttf", "rb");
+	rw = SDL_RWFromFile("noto/NotoSans-Regular.ttf", "rb");
 	/*rw = SDL_RWFromFile("lcarsfont/lcars.ttf", "rb");*/
 	if(!rw){
 		fprintf(outfile, "Unable to open font file RW\n");
 	}
 	font = bmft_load_font_rw(rw, "lcars");
 #else
-	font = bmft_load_font("arial/arial.ttf");
+	font = bmft_load_font("noto/NotoSans-Regular.ttf");
 #endif
 
 	if(!font) {
