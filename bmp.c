@@ -7129,44 +7129,99 @@ BmFont *bm_get_font(Bitmap *b) {
     return b->font;
 }
 
+const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
+	if (in == NULL)
+		return NULL;
+
+	if (*in == 0x00)
+		return NULL;
+
+	unsigned int cp = 0;
+	if((*in & 0xE0) == 0xC0) { // two-byte
+		cp += (*in++ & 0x1F) << 6;
+		if (*in != 0) cp += (*in++ & 0x3F);
+	} else if((*in & 0xF0) == 0xE0) { // three-byte
+      cp += (*in++ & 0x0F) << 12;
+      if (*in != 0) cp += (*in++ & 0x3F) << 6;
+      if (*in != 0) cp += (*in++ & 0x3F);
+	} else if((*in & 0xF8) == 0xF0) { // four-byte
+		cp += (*in++ & 0x07) << 18;
+		if (*in != 0) cp += (*in++ & 0x3F) << 12;
+		if (*in != 0) cp += (*in++ & 0x3F) << 6;
+		if (*in != 0) cp += (*in++ & 0x3F);
+	} else {
+		cp = *in++;
+	}
+
+	*codepoint = cp;
+	return in;
+}
+
 int bm_text_width(Bitmap *b, const char *s) {
-    int len = 0, max_len = 0;
-    int glyph_width;
+    int max_width = 0;
+    int width = 0;
 
     assert(b);
     if(!b->font || !b->font->width)
         return 0;
 
-    glyph_width = b->font->width(b->font);
-    while(*s) {
-        if(*s == '\n') {
-            if(len > max_len)
-                max_len = len;
-            len = 0;
-        } else if(*s == '\t') {
-            len+=4;
-        } else if(isprint(*s)) {
-            len++;
+    const char *ptr = s;
+	unsigned int codepoint = 0;
+	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+        if(codepoint == '\n') {
+            if(width > max_width)
+                max_width = width;
+            width = 0;
+        } else if(codepoint == '\t') {
+            width += b->font->width(b->font, ' ') * 4;
+        } else {
+            width += b->font->width(b->font, codepoint);
         }
-        s++;
     }
-    if(len > max_len)
-        max_len = len;
-    return max_len * glyph_width;
+
+    if(width > max_width)
+        max_width = width;
+    return max_width;
 }
 
 int bm_text_height(Bitmap *b, const char *s) {
-    int height = 1;
-    int glyph_height;
+    int max_height = 0;
+    int height = 0;
+    int lines = 1;
+
     assert(b);
     if(!b->font || !b->font->height)
         return 0;
-    glyph_height = b->font->height(b->font);
-    while(*s) {
-        if(*s == '\n') height++;
-        s++;
+
+    const char *ptr = s;
+	unsigned int codepoint = 0;
+	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+        if(codepoint == '\n') {
+            lines++;
+        } else {
+            height = b->font->height(b->font, codepoint);
+            if(height > max_height)
+                max_height = height;
+        }
     }
-    return height * glyph_height;
+
+    return lines * max_height;
+}
+
+void bm_text_measure(Bitmap *b, const char *s, int *w, int* h, int* dx, int* dy) {
+    assert(b);
+
+    if(!b->font)
+        return;
+
+    if(b->font->measure) {
+        b->font->measure(b->font, s, w, h, dx, dy);
+    } else {
+        *dx = 0;
+        *dy = 0; // assuming this fonts bm_puts() starts top/left
+        *w = bm_text_width(b, s);
+        *h = bm_text_height(b, s);
+    }
 }
 
 int bm_putc(Bitmap *b, int x, int y, char c) {
@@ -7247,12 +7302,12 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
     return 1;
 }
 
-static int rf_width(BmFont *font) {
+static int rf_width(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "RASTER_FONT"));
     RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->width;
 }
-static int rf_height(BmFont *font) {
+static int rf_height(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "RASTER_FONT"));
     RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->height;
@@ -7276,6 +7331,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     font->puts = rf_puts;
     font->width = rf_width;
     font->height = rf_height;
+    font->measure = NULL;
     font->dtor = rf_free_font;
     RasterFontData *data = CAST(RasterFontData *)(malloc(sizeof *data));
     if (!data) {
@@ -7357,12 +7413,12 @@ static int sf_puts(Bitmap *b, int x, int y, const char *s) {
     }
     return 1;
 }
-static int sf_width(BmFont *font) {
+static int sf_width(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "SFONT"));
     SFontData *data = CAST(SFontData *)(font->data);
     return data->width;
 }
-static int sf_height(BmFont *font) {
+static int sf_height(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "SFONT"));
     SFontData *data = CAST(SFontData *)(font->data);
     return data->height;
@@ -7391,6 +7447,7 @@ BmFont *bm_make_sfont(const char *file) {
     font->puts = sf_puts;
     font->width = sf_width;
     font->height = sf_height;
+    font->measure = NULL;
     font->dtor = sf_dtor;
     data = CAST(SFontData *)(malloc(sizeof *data));
     if(!data) {
@@ -7611,12 +7668,12 @@ static int xbmf_puts(Bitmap *b, int x, int y, const char *text) {
     return 1;
 }
 
-static int xbmf_width(BmFont *font) {
+static int xbmf_width(BmFont *font, unsigned int codepoint) {
     XbmFontInfo *info = CAST(XbmFontInfo *)(font->data);
     if(!info) return 6;
     return info->spacing;
 }
-static int xbmf_height(BmFont *font) {
+static int xbmf_height(BmFont *font, unsigned int codepoint) {
     (void)font;
     return 8;
 }
@@ -7652,6 +7709,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
     font->puts = xbmf_puts;
     font->width = xbmf_width;
     font->height = xbmf_height;
+    font->measure = NULL;
     font->dtor = xbmf_free;
     font->data = info;
 

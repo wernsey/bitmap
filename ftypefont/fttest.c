@@ -20,11 +20,15 @@ Alternatively: $ make ftypefont/fttest
 FILE *outfile;
 
 int main(int argc, char *argv[]) {
-	int x,w;
+	int x,y;
+	int w, h, dx, dy;
 	BmFont *font;
-	BmFont *bfont_circuit = bm_make_xbm_font(circuit_bits, 7);;
+	BmFont *bfont_circuit = bm_make_xbm_font(circuit_bits, 7);
 	Bitmap *bmp = bm_create(320, 240);
-	const char * str = "Hello World";
+	const char * txt_utf = "Unicode? Ελλάδα";
+	const char* txt_multiline = "Lorem Îpsum\ndolor sit amet";
+	const char* txt_centered = "Centered";
+	
 
 #ifdef USESDL
 	SDL_RWops *rw;
@@ -41,36 +45,52 @@ int main(int argc, char *argv[]) {
 	bm_set_font(bmp, bfont_circuit);
 	bm_printf(bmp, 10, 20, "Another built-in font");
 
+	bm_text_measure(bmp, "Text background", &w, &h, &dx, &dy);
+	bm_set_color(bmp, bm_atoi("#FFFFFF"));
+	bm_fillrect(bmp, 10 + dx, 30 + dy, 10 + dx + w, 30 + dy + h);
+	bm_set_color(bmp, bm_atoi("#F58D31"));
+	bm_printf(bmp, 10, 30, "Text background");
+
 	bmft_init();
 
-	/*font = bmft_load_font("lcarsfont/lcars.ttf");*/
 #ifdef USESDL
-	rw = SDL_RWFromFile("lcarsfont/lcars.ttf", "rb");
+	rw = SDL_RWFromFile("noto/NotoSans-Regular.ttf", "rb");
 	/*rw = SDL_RWFromFile("lcarsfont/lcars.ttf", "rb");*/
 	if(!rw){
 		fprintf(outfile, "Unable to open font file RW\n");
 	}
 	font = bmft_load_font_rw(rw, "lcars");
 #else
-	font = bmft_load_font("lcarsfont/lcars.ttf");
+	font = bmft_load_font("noto/NotoSans-Regular.ttf");
 #endif
 
 	if(!font) {
 		fprintf(outfile, "Unable to load font\n");
 		return 1;
 	}
-
-	bmft_set_size(font, 20);
-
 	bm_set_font(bmp, font);
+	
+	/* Print UTF-8 encoded text */
+	x = 10;
+	y = 60;
+	bmft_set_size(font, 20);
+	bm_printf(bmp, x, y, txt_utf);
 
-	w = bm_text_width(bmp, str);
-	x = (bm_width(bmp) - w) / 2;
+	/* Multiline text with bounding box to demonstrate text measurement */
+	y += 30;
+	bmft_set_size(font, 14);
+	bm_text_measure(bmp, txt_multiline, &w, &h, &dx, &dy);
+	bm_set_color(bmp, bm_atoi("#FFFFFF"));
+	bm_rect(bmp, x + dx, y + dy, x + dx + w, y + dy + h);
+	bm_set_color(bmp, bm_atoi("#F58D31"));
+	bm_printf(bmp, x, y, txt_multiline);
 
-	bm_printf(bmp, x, 120, "%s", str);
-
+	/* Display centered text to demonstrate other use of text measurement */
 	bmft_set_size(font, 30);
-	bm_printf(bmp, x, 150, "Lorem Ipsum");
+	bm_text_measure(bmp, txt_centered, &w, &h, &dx, &dy);
+	x = (bm_width(bmp) - w) / 2;
+	y = 160;
+	bm_printf(bmp, x, y, txt_centered);
 
 	bm_set_color(bmp, 1);
 	bm_save(bmp, "out.gif");

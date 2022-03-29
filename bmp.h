@@ -116,8 +116,9 @@ typedef struct bitmap_font {
     const char *type;
     unsigned int ref_count;
     int (*puts)(Bitmap *b, int x, int y, const char *text);
-    int (*width)(struct bitmap_font *font);
-    int (*height)(struct bitmap_font *font);
+    int (*width)(struct bitmap_font *font, unsigned int codepoint);
+    int (*height)(struct bitmap_font *font, unsigned int codepoint);
+    void (*measure)(struct bitmap_font *font, const char *text, int *w, int* h, int* dx, int* dy);
     void (*dtor)(struct bitmap_font *font);
     void *data;
 } BmFont;
@@ -1362,9 +1363,18 @@ int bm_text_width(Bitmap *b, const char *s);
 /**
  * #### `int bm_text_height(Bitmap *b, const char *s)`
  *
- * returns the height in pixels of a string of text.
+ * Returns the height in pixels of a string of text.
  */
 int bm_text_height(Bitmap *b, const char *s);
+
+/**
+ * #### `void bm_text_measure(Bitmap *b, const char *s)`
+ *
+ * Returns the width and height in pixels of a text.
+ * 
+ * `dx` and `dy` help position the rectangle `<w,h>` around the text.
+ */
+void bm_text_measure(Bitmap *b, const char *s, int *w, int* h, int* dx, int* dy);
 
 /**
  * #### `void bm_putc(Bitmap *b, int x, int y, char c)`
