@@ -7130,31 +7130,31 @@ BmFont *bm_get_font(Bitmap *b) {
 }
 
 const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
-	if (in == NULL)
-		return NULL;
+    if (in == NULL)
+        return NULL;
 
-	if (*in == 0x00)
-		return NULL;
+    if (*in == 0x00)
+        return NULL;
 
-	unsigned int cp = 0;
-	if((*in & 0xE0) == 0xC0) { // two-byte
-		cp += (*in++ & 0x1F) << 6;
-		if (*in != 0) cp += (*in++ & 0x3F);
-	} else if((*in & 0xF0) == 0xE0) { // three-byte
+    unsigned int cp = 0;
+    if((*in & 0xE0) == 0xC0) { // two-byte
+        cp += (*in++ & 0x1F) << 6;
+        if (*in != 0) cp += (*in++ & 0x3F);
+    } else if((*in & 0xF0) == 0xE0) { // three-byte
       cp += (*in++ & 0x0F) << 12;
       if (*in != 0) cp += (*in++ & 0x3F) << 6;
       if (*in != 0) cp += (*in++ & 0x3F);
-	} else if((*in & 0xF8) == 0xF0) { // four-byte
-		cp += (*in++ & 0x07) << 18;
-		if (*in != 0) cp += (*in++ & 0x3F) << 12;
-		if (*in != 0) cp += (*in++ & 0x3F) << 6;
-		if (*in != 0) cp += (*in++ & 0x3F);
-	} else {
-		cp = *in++;
-	}
+    } else if((*in & 0xF8) == 0xF0) { // four-byte
+        cp += (*in++ & 0x07) << 18;
+        if (*in != 0) cp += (*in++ & 0x3F) << 12;
+        if (*in != 0) cp += (*in++ & 0x3F) << 6;
+        if (*in != 0) cp += (*in++ & 0x3F);
+    } else {
+        cp = *in++;
+    }
 
-	*codepoint = cp;
-	return in;
+    *codepoint = cp;
+    return in;
 }
 
 int bm_text_width(Bitmap *b, const char *s) {
@@ -7166,8 +7166,8 @@ int bm_text_width(Bitmap *b, const char *s) {
         return 0;
 
     const char *ptr = s;
-	unsigned int codepoint = 0;
-	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+    unsigned int codepoint = 0;
+    while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
         if(codepoint == '\n') {
             if(width > max_width)
                 max_width = width;
@@ -7194,8 +7194,8 @@ int bm_text_height(Bitmap *b, const char *s) {
         return 0;
 
     const char *ptr = s;
-	unsigned int codepoint = 0;
-	while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+    unsigned int codepoint = 0;
+    while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
         if(codepoint == '\n') {
             lines++;
         } else {
@@ -7304,11 +7304,13 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
 
 static int rf_width(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "RASTER_FONT"));
+    (void)codepoint;
     RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->width;
 }
 static int rf_height(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "RASTER_FONT"));
+    (void)codepoint;
     RasterFontData *data = CAST(RasterFontData *)(font->data);
     return data->height;
 }
@@ -7413,16 +7415,21 @@ static int sf_puts(Bitmap *b, int x, int y, const char *s) {
     }
     return 1;
 }
+
 static int sf_width(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "SFONT"));
+    (void)codepoint;
     SFontData *data = CAST(SFontData *)(font->data);
     return data->width;
 }
+
 static int sf_height(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "SFONT"));
+    (void)codepoint;
     SFontData *data = CAST(SFontData *)(font->data);
     return data->height;
 }
+
 static void sf_dtor(BmFont *font) {
     if(!font || strcmp(font->type, "SFONT"))
         return;
@@ -7670,11 +7677,13 @@ static int xbmf_puts(Bitmap *b, int x, int y, const char *text) {
 
 static int xbmf_width(BmFont *font, unsigned int codepoint) {
     XbmFontInfo *info = CAST(XbmFontInfo *)(font->data);
+    (void)codepoint;
     if(!info) return 6;
     return info->spacing;
 }
+
 static int xbmf_height(BmFont *font, unsigned int codepoint) {
-    (void)font;
+    (void)font; (void)codepoint;
     return 8;
 }
 
@@ -7717,7 +7726,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
 }
 
 void bm_reset_font(Bitmap *b) {
-    static BmFont font = {"XBM",1,xbmf_puts,xbmf_width,xbmf_height,NULL,NULL};
+    static BmFont font = {"XBM",1,xbmf_puts,xbmf_width,xbmf_height,NULL,NULL,NULL};
     bm_set_font(b, &font);
 }
 
