@@ -17,7 +17,7 @@
  * License
  * -------
  *
- * ```txt
+ * ```
  * MIT No Attribution
  *
  * Copyright (c) 2017 Werner Stoop <wstoop@gmail.com>
@@ -847,7 +847,7 @@ void bm_smooth(Bitmap *b);
  *
  * Applies a `dim` &times; `dim` kernel to the image.
  *
- * ```c
+ * ```
  * float smooth_kernel[] = { 0.0, 0.1, 0.0,
  *                           0.1, 0.6, 0.1,
  *                           0.0, 0.1, 0.0};

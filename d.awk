@@ -28,10 +28,11 @@
 # - `-vTheme=n` with n either 0 to disable CSS or 1 to enable; Default = 1
 # - `-vTopLinks=1` to have links to the top of the doc next to headers.
 # - `-vMaxWidth=1080px` specifies the Maximum width of the HTML output.
-# - `-vPretty=1` enable Syntax highlighting with Google's code prettify
-#        https://github.com/google/code-prettify
+# - `-vPretty=0` disable syntax highlighting with Google's [code prettify][].
+# - `-vMermaid=0` disable [Mermaid][] diagrams.
 # - `-vHideToCLevel=n` specifies the level of the ToC that should be collapsed by default.
 # - `-vLang=n` specifies the value of the `lang` attribute of the <html> tag; Default = "en"
+# - `-vTables=0` disables support for [GitHub-style tables][github-tables]
 # - `-vclassic_underscore=1` words_with_underscores behave like old markdown where the
 #        underscores in the word counts as emphasis. The default behaviour is to have
 #        `words_like_this` not contain any emphasis.
@@ -45,6 +46,10 @@
 # or `-W traditional` settings with Gawk.
 # Mawk v1.3.4 worked correctly but v1.3.3 choked on it.
 #
+# [code prettify]: https://github.com/google/code-prettify
+# [Mermaid]: https://github.com/mermaid-js/mermaid
+# [github-tables]: https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet#tables
+#
 # ## Extensions
 #
 # - Insert a Table of Contents by using `\![toc]`.
@@ -53,6 +58,7 @@
 #   - Use `\\![toc-]` for a collapsed ToC.
 # - Github-style ```` ``` ```` code blocks supported.
 # - Github-style `~~strikethrough~~` supported.
+# - [Github-style tables][github-tables] are supported.
 # - GitHub-style task lists `- [x]` are supported for documenting bugs and todo lists in code.
 # - The `id` attribute of anchor tags `<a>` are treated as in GitHub:
 #   The tag's id should be the title, in lower case stripped of non-alphanumeric characters
@@ -91,15 +97,18 @@
 #     are permitted in any medium without royalty provided the copyright
 #     notice and this notice are preserved. This file is offered as-is,
 #     without any warranty.
+#
 
 BEGIN {
 
     # Configuration options
     if(Title== "") Title = "Documentation";
     if(Theme== "") Theme = 1;
-    if(Pretty== "") Pretty = 0;
+    if(Pretty== "") Pretty = 1;
+    if(Mermaid== "") Mermaid = 1;
     if(HideToCLevel== "") HideToCLevel = 3;
     if(Lang == "") Lang = "en";
+    if(Tables == "") Tables = 1;
     #TopLinks = 1;
     #classic_underscore = 1;
     if(MaxWidth=="") MaxWidth="1080px";
@@ -137,6 +146,8 @@ Multi && /\*\// {
         while(ListLevel > 1)
             Buf = Buf "\n</" Open[ListLevel--] ">";
         Out = Out tag(Mode, Buf "\n");
+    } else if(Mode == "table") {
+        Out = Out end_table();
     } else {
         Buf = trim(scrub(Buf));
         if(Buf)
@@ -196,6 +207,8 @@ END {
         while(ListLevel > 1)
             Buf = Buf "\n</" Open[ListLevel--] ">";
         Out = Out tag(Mode, Buf "\n");
+    } else if(Mode == "table") {
+        Out = Out end_table();
     } else {
         Buf = trim(scrub(Buf));
         if(Buf)
@@ -226,8 +239,6 @@ END {
             "    }\n" \
             "}\n" \
             "//-->\n</script>";
-    if(Pretty && HasCode)
-        print "<script src=\"https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js\"></script>";
     print "</head><body>";
     if(Out) {
         Out = fix_footnotes(Out);
@@ -240,6 +251,14 @@ END {
             footnotes = fix_links(footnotes);
             print "<hr><ol class=\"footnotes\">\n" footnotes "</ol>";
         }
+    }
+
+    if(Pretty && HasPretty) {
+        print "<script src=\"https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js\"></script>";
+    }
+    if(Mermaid && HasMermaid) {
+        print "<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>";
+        print "<script>mermaid.initialize({ startOnLoad: true });</script>";
     }
     print "</body></html>"
 }
@@ -259,7 +278,7 @@ function trim(st) {
     sub(/[[:space:]]+$/, "", st);
     return st;
 }
-function filter(st,       res,tmp, linkdesc, url, delim, edelim, name, def, plang) {
+function filter(st,       res,tmp, linkdesc, url, delim, edelim, name, def, plang, mmaid, cols, i) {
     if(Mode == "p") {
         if(match(st, /^[[:space:]]*\[[-._[:alnum:][:space:]]+\]:/)) {
             linkdesc = ""; LastLink = 0;
@@ -334,7 +353,14 @@ function filter(st,       res,tmp, linkdesc, url, delim, edelim, name, def, plan
             if(Buf) res = tag("p", scrub(Buf));
             Buf = scrub(trim(substr(st, RSTART+RLENGTH)));
             push("blockquote");
-        } else if(match(st, /^[[:space:]]*([*+-]|[[:digit:]]+\.)[[:space:]]/)) {
+        } else if(Tables && match(st, /.*\|(.*\|)+/)) {
+            if(Buf) res = tag("p", scrub(Buf));
+            Row = 1;
+            for(i = 1; i <= MaxCols; i++)
+                Align[i] = "";
+            process_table_row(st);
+            push("table");
+		} else if(match(st, /^[[:space:]]*([*+-]|[[:digit:]]+\.)[[:space:]]/)) {
             if(Buf) res = tag("p", scrub(Buf));
             Buf="";
             match(st, /^[[:space:]]*/);
@@ -362,21 +388,40 @@ function filter(st,       res,tmp, linkdesc, url, delim, edelim, name, def, plan
             res = res filter(st);
         } else
             Buf = Buf st;
+    } else if(Mode == "table") {
+        if(match(st, /.*\|(.*\|)+/)) {
+            process_table_row(st);
+        } else {
+            res = end_table();
+            pop();
+            res = res filter(st);
+        }
     } else if(Mode == "pre") {
         if(!Preterm && match(st, /^((    )| *\t)/) || Preterm && !match(st, /^[[:space:]]*```+/))
             Buf = Buf ((Buf)?"\n":"") substr(st, RSTART+RLENGTH);
         else {
             gsub(/\t/,"    ",Buf);
             if(length(trim(Buf)) > 0) {
-                plang = "";
+                plang = ""; mmaid=0;
                 if(match(Preterm, /^[[:space:]]*```+/)) {
                     plang = trim(substr(Preterm, RSTART+RLENGTH));
                     if(plang) {
-                        plang = "class=\"prettyprint lang-" plang "\"";
-                        HasCode=1;
+                        if(plang == "mermaid") {
+                            mmaid = 1;
+                            HasMermaid = 1;
+                        } else {
+                            HasPretty = 1;
+                            if(plang == "auto")
+                                plang = "class=\"prettyprint\"";
+                            else
+                                plang = "class=\"prettyprint lang-" plang "\"";
+                        }
                     }
                 }
-                res = tag("pre", tag("code", escape(Buf), plang));
+                if(mmaid && Mermaid)
+                    res = tag("div", Buf, "class=\"mermaid\"");
+                else
+                    res = tag("pre", tag("code", escape(Buf), plang));
             }
             pop();
             if(Preterm) sub(/^[[:space:]]*```+[[:alnum:]]*/,"",st);
@@ -523,13 +568,24 @@ function scrub(st,    mp, ms, me, r, p, tg, a) {
             }
             tg = substr(st, 1, p - 1);
             if(match(tg,/^[[:alpha:]]+[[:space:]]/)) {
-                a = substr(tg,RSTART+RLENGTH-1);
+                a = trim(substr(tg,RSTART+RLENGTH-1));
                 tg = substr(tg,1,RLENGTH-1);
             } else
                 a = "";
 
             if(match(tolower(tg), "^/?(a|abbr|div|span|blockquote|pre|img|code|p|em|strong|sup|sub|del|ins|s|u|b|i|br|hr|ul|ol|li|table|thead|tfoot|tbody|tr|th|td|caption|column|col|colgroup|figure|figcaption|dl|dd|dt|mark|cite|q|var|samp|small|details|summary)$")) {
-                r = r "<" tg a ">";
+                if(!match(tg, /\//)) {
+                    if(match(a, /class="/)) {
+                        sub(/class="/, "class=\"dawk-ex ", a);
+                    } else {
+                        if(a)
+                            a = a " class=\"dawk-ex\""
+                        else
+                            a = "class=\"dawk-ex\""
+                    }
+                    r = r "<" tg " " a ">";
+                } else
+                    r = r "<" tg ">";
             } else if(match(tg, "^[[:alpha:]]+://[[:graph:]]+$")) {
                 if(!a) a = tg;
                 r = r "<a class=\"normal\" href=\"" tg "\">" a "</a>";
@@ -588,6 +644,52 @@ function heading(level, st,       res, href, u, text,svg) {
     ToC = ToC "<li class=\"toc-" level "\"><a class=\"toc toc-" level "\" href=\"#" href "\">" st "</a>\n";
     ToCLevel = level;
     return res;
+}
+function process_table_row(st       ,cols, i) {
+    if(match(st, /^[[:space:]]*\|/))
+        st = substr(st, RSTART+RLENGTH);
+    if(match(st, /\|[[:space:]]*$/))
+        st = substr(st, 1, RSTART - 1);
+    st = trim(st);
+
+    if(match(st, /^([[:space:]:|]|---+)*$/)) {
+        IsHeaders[Row-1] = 1;
+        cols = split(st, A, /[[:space:]]*\|[[:space:]]*/)
+        for(i = 1; i <= cols; i++) {
+            if(match(A[i], /^:-*:$/))
+                Align[i] = "center";
+            else if(match(A[i], /^-*:$/))
+                Align[i] = "right";
+            else if(match(A[i], /^:-*$/))
+                Align[i] = "left";
+        }
+        return;
+    }
+
+    cols = split(st, A, /[[:space:]]*\|[[:space:]]*/);
+    for(i = 1; i <= cols; i++) {
+        Table[Row, i] = A[i];
+    }
+    NCols[Row] = cols;
+    if(cols > MaxCols)
+        MaxCols = cols;
+    IsHeaders[Row] = 0;
+    Row++;
+}
+function end_table(         r,c,t,a,s) {
+    for(r = 1; r < Row; r++) {
+        t = IsHeaders[r] ? "th" : "td"
+        s = s "<tr>"
+        for(c = 1; c <= NCols[r]; c++) {
+            a = Align[c];
+            if(a)
+                s = s "<" t " align=\"" a "\">" scrub(Table[r,c]) "</" t ">"
+            else
+                s = s "<" t ">" scrub(Table[r,c]) "</" t ">"
+        }
+        s = s "</tr>\n"
+    }
+    return tag("table", s, "class=\"da\"");
 }
 function make_toc(st,              r,p,dis,t,n) {
     if(!ToC) return st;
@@ -778,17 +880,21 @@ function init_css(Theme,             css,ss,hr,c1,c2,c3,c4,c5,bg1,bg2,bg3,bg4,ff
     css["code"] = "color:%color2%;font-weight:bold;";
     css["blockquote"] = "margin-left:1em;color:%color2%;border-left:0.2em solid %color3%;padding:0.25em 0.5em;overflow-x:auto;";
     css["pre"] = "color:%color2%;background:%color5%;border:1px solid;border-radius:2px;line-height:1.25em;margin:0.25em 0.5em;padding:0.75em;overflow-x:auto;";
-    css["table"] = "border-collapse:collapse;margin:0.5em;";
-    css["th,td"] = "padding:0.5em 0.75em;border:1px solid %color4%;";
-    css["th"] = "color:%color2%;border:1px solid %color3%;border-bottom:2px solid %color3%;";
-    css["tr:nth-child(odd)"] = "background-color:%color5%;";
-    css["div"] = "padding:0.5em;";
-    css["caption"] = "padding:0.5em;font-style:italic;";
-    css["dl"] = "margin:0.5em;";
-    css["dt"] = "font-weight:bold;";
-    css["dd"] = "padding:0.3em;";
-    css["mark"] = "color:%color5%;background-color:%color4%;";
-    css["del,s"] = "color:%color4%;";
+    css["table.dawk-ex"] = "border-collapse:collapse;margin:0.5em;";
+    css["th.dawk-ex,td.dawk-ex"] = "padding:0.5em 0.75em;border:1px solid %color4%;";
+    css["th.dawk-ex"] = "color:%color2%;border:1px solid %color3%;border-bottom:2px solid %color3%;";
+    css["tr.dawk-ex:nth-child(odd)"] = "background-color:%color5%;";
+    css["table.da"] = "border-collapse:collapse;margin:0.5em;";
+    css["table.da th,td"] = "padding:0.5em 0.75em;border:1px solid %color4%;";
+    css["table.da th"] = "color:%color2%;border:1px solid %color3%;border-bottom:2px solid %color3%;";
+    css["table.da tr:nth-child(odd)"] = "background-color:%color5%;";
+    css["div.dawk-ex"] = "padding:0.5em;";
+    css["caption.dawk-ex"] = "padding:0.5em;font-style:italic;";
+    css["dl.dawk-ex"] = "margin:0.5em;";
+    css["dt.dawk-ex"] = "font-weight:bold;";
+    css["dd.dawk-ex"] = "padding:0.3em;";
+    css["mark.dawk-ex"] = "color:%color5%;background-color:%color4%;";
+    css["del.dawk-ex,s.dawk-ex"] = "color:%color4%;";
     css["a.toc-button"] = "color:%color2%;cursor:pointer;font-size:small;padding: 0.3em 0.5em 0.5em 0.5em;font-family:monospace;border-radius:3px;";
     css["a.toc-button:hover"] = "color:%color4%;background:%color5%;";
     css["div#table-of-contents"] = "padding:0;font-size:smaller;";
@@ -798,8 +904,8 @@ function init_css(Theme,             css,ss,hr,c1,c2,c3,c4,c5,bg1,bg2,bg3,bg4,ff
     css["a.footnote-back"] = "text-decoration:initial;font-size:x-small;";
     css[".fade"] = "color:%color5%;";
     css[".highlight"] = "color:%color2%;background-color:%color5%;";
-	css["summary"] = "cursor:pointer;";
-	css["ul.toc"] = "list-style-type:none;";
+    css["summary"] = "cursor:pointer;";
+    css["ul.toc"] = "list-style-type:none;";
 
     if(NumberHeadings)  {
         if(NumberH1s) {
