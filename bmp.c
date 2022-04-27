@@ -2629,7 +2629,7 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     pixels = CAST(unsigned char*)(malloc(b->w * b->h));
     for(y = 0, p = 0; y < b->h; y++) {
         for(x = 0; x < b->w; x++) {
-            int i, c = bm_get(b, x, y);
+            int i, c = BM_GET(b, x, y);
             i = get_palette_mapping(mapping, c, color_count);
             /* At this point in time, the color MUST be in the palette */
             assert(i >= 0 && i < color_count);
@@ -2823,7 +2823,7 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
                         bm_set(b, x++, y, c);
                 } else {
                     while(cnt--) {
-                        int c = bm_get(b, x, y);
+                        int c = BM_GET(b, x, y);
                         switch(p) {
                         case 0: c |= (i << 16); break;
                         case 1: c |= (i << 8); break;
@@ -2925,9 +2925,9 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         x = 0;
         while(x < b->w) {
             int cnt = 1;
-            unsigned int c = bm_get(b, x++, y);
+            unsigned int c = BM_GET(b, x++, y);
             while(x < b->w && cnt < 63) {
-                unsigned int n = bm_get(b, x, y);
+                unsigned int n = BM_GET(b, x, y);
                 if(c != n)
                     break;
                 x++;
@@ -3202,19 +3202,19 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
         y = i / b->w;
         y = b->h - 1 - y;
         x = i % b->w;
-        unsigned int c = bm_get(b, x, y);
+        unsigned int c = BM_GET(b, x, y);
 #if TGA_SAVE_RLE
         uint8_t n = 1;
         size_t nb = 4;
         bm_get_rgb(c, &bytes[3], &bytes[2], &bytes[1]);
-        if(x < b->w - 1 && bm_get(b, x + 1, y) == c) {
-            while(n < 128 && x + n < b->w && bm_get(b, x + n, y) == c)
+        if(x < b->w - 1 && BM_GET(b, x + 1, y) == c) {
+            while(n < 128 && x + n < b->w && BM_GET(b, x + n, y) == c)
                 n++;
             bytes[0] = 0x80 | (n - 1);
         } else {
             while(n < 128 && x + n < b->w) {
-                c = bm_get(b, x + n, y);
-                if(x + n + 1 < b->w && bm_get(b, x + n + 1, y) == c)
+                c = BM_GET(b, x + n, y);
+                if(x + n + 1 < b->w && BM_GET(b, x + n + 1, y) == c)
                     break;
                 bm_get_rgb(c, &bytes[nb + 2], &bytes[nb + 1], &bytes[nb + 0]);
                 nb += 3;
@@ -4260,21 +4260,21 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
 
 unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
     (void)dx;(void)dy;
-    if(bm_colcmp(src->color, bm_get(src, sx, sy))) {
+    if(bm_colcmp(src->color, BM_GET(src, sx, sy))) {
         if(sx > src->clip.x0) {
-            if(!bm_colcmp(src->color, bm_get(src, sx-1, sy)))
+            if(!bm_colcmp(src->color, BM_GET(src, sx-1, sy)))
                 return dst->color;
         }
         if(sx < src->clip.x1-1) {
-            if(!bm_colcmp(src->color, bm_get(src, sx+1, sy)))
+            if(!bm_colcmp(src->color, BM_GET(src, sx+1, sy)))
                 return dst->color;
         }
         if(sy > src->clip.y0) {
-            if(!bm_colcmp(src->color, bm_get(src, sx, sy-1)))
+            if(!bm_colcmp(src->color, BM_GET(src, sx, sy-1)))
                 return dst->color;
         }
         if(sy < src->clip.y1-1) {
-            if(!bm_colcmp(src->color, bm_get(src, sx, sy+1)))
+            if(!bm_colcmp(src->color, BM_GET(src, sx, sy+1)))
                 return dst->color;
         }
     } else {
@@ -4288,28 +4288,28 @@ unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, in
 
 unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
     (void)dx;(void)dy;
-    if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
+    if(!bm_colcmp(src->color, BM_GET(src, sx, sy))) {
 
         if(sx > src->clip.x0) {
-            if(bm_colcmp(src->color, bm_get(src, sx-1, sy)))
+            if(bm_colcmp(src->color, BM_GET(src, sx-1, sy)))
                 return dst->color;
         } else
             return dst->color;
 
         if(sx < src->clip.x1-1) {
-            if(bm_colcmp(src->color, bm_get(src, sx+1, sy)))
+            if(bm_colcmp(src->color, BM_GET(src, sx+1, sy)))
                 return dst->color;
         } else
             return dst->color;
 
         if(sy > src->clip.y0) {
-            if(bm_colcmp(src->color, bm_get(src, sx, sy-1)))
+            if(bm_colcmp(src->color, BM_GET(src, sx, sy-1)))
                 return dst->color;
         } else
             return dst->color;
 
         if(sy < src->clip.y1-1) {
-            if(bm_colcmp(src->color, bm_get(src, sx, sy+1)))
+            if(bm_colcmp(src->color, BM_GET(src, sx, sy+1)))
                 return dst->color;
         } else
             return dst->color;
@@ -4320,7 +4320,7 @@ unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int
 
 unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
     (void)dx;(void)dy;
-    if(!bm_colcmp(src->color, bm_get(src, sx, sy))) {
+    if(!bm_colcmp(src->color, BM_GET(src, sx, sy))) {
         return dst->color;
     }
     return dest_color;
@@ -4328,7 +4328,7 @@ unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int
 
 unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color) {
     (void)dst;(void)dx;(void)dy;
-    unsigned int c = bm_get(src, sx, sy);
+    unsigned int c = BM_GET(src, sx, sy);
     if(bm_colcmp(src->color, c))
         return dest_color;
 
@@ -5469,7 +5469,7 @@ unsigned int bm_picker(Bitmap *b, int x, int y) {
     assert(b);
     if(x < 0 || x >= b->w || y < 0 || y >= b->h)
         return 0;
-    b->color = bm_get(b, x, y);
+    b->color = BM_GET(b, x, y);
     return b->color;
 }
 
@@ -5662,7 +5662,7 @@ void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1) {
             if(y < b->clip.x0 || y >= b->clip.x1)
                 continue;
 
-            c0 = bm_get(b, y, x);
+            c0 = BM_GET(b, y, x);
             bm_set(b, y, x, bm_lerp(c0, c1, 1.0 - FPART(intery)));
 
             y++;
@@ -5670,7 +5670,7 @@ void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1) {
             if(y < b->clip.x0 || y >= b->clip.x1)
                 continue;
 
-            c0 = bm_get(b, y, x);
+            c0 = BM_GET(b, y, x);
             bm_set(b, y, x, bm_lerp(c0, c1, FPART(intery)));
         }
     } else {
@@ -5684,13 +5684,13 @@ void bm_line_aa(Bitmap *b, int x0, int y0, int x1, int y1) {
             y = (int)intery;
             if(y < b->clip.y0 || y >= b->clip.y1)
                 continue;
-            c0 = bm_get(b, x, y);
+            c0 = BM_GET(b, x, y);
             bm_set(b, x, y, bm_lerp(c0, c1, 1.0 - FPART(intery)));
 
             y++;
             if(y < b->clip.y0 || y >= b->clip.y1)
                 continue;
-            c0 = bm_get(b, x, y);
+            c0 = BM_GET(b, x, y);
             bm_set(b, x, y, bm_lerp(c0, c1, FPART(intery)));
         }
     }
@@ -6329,7 +6329,7 @@ static void fs_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb, int f
     int c, R, G, B;
     if(x < 0 || x >= b->w || y < 0 || y >= b->h)
         return;
-    c = bm_get(b, x, y);
+    c = BM_GET(b, x, y);
 
     R = ((c >> 16) & 0xFF) + ((f * er) >> 4);
     G = ((c >> 8) & 0xFF) + ((f * eg) >> 4);
@@ -7349,7 +7349,7 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     }
     /* The top-left character is a space, so we can safely assume that that pixel
        is the transparent color. */
-    bg = bm_get(data->bmp, 0, 0);
+    bg = BM_GET(data->bmp, 0, 0);
     bm_set_color(data->bmp, bg);
     /* The width/height depends on the bitmap being laid out as prescribed */
     data->width = data->bmp->w / 16;
@@ -7467,8 +7467,8 @@ BmFont *bm_make_sfont(const char *file) {
     b = data->bmp;
 
     /* Find the marker color */
-    mark = bm_get(data->bmp, 0, 0);
-    for(x = 1; (bg = bm_get(b, x, 0)) == mark; x++) {
+    mark = BM_GET(data->bmp, 0, 0);
+    for(x = 1; (bg = BM_GET(b, x, 0)) == mark; x++) {
         if(x >= b->w) {
             SET_ERROR("invalid SFont");
             goto error;
@@ -7478,7 +7478,7 @@ BmFont *bm_make_sfont(const char *file) {
     /* Use a small state machine to extract all the
     characters' offsets and widths */
     for(x = 0; x < b->w; x++) {
-        unsigned int col = bm_get(b, x, 0);
+        unsigned int col = BM_GET(b, x, 0);
         if(cnt == 94)
             break;
         if(state == 0) {
