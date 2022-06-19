@@ -211,6 +211,88 @@ void draw_legend(const char *outfile) {
     bm_free(b);
 }
 
+static void cp437_putc(Bitmap *b, int x, int y, unsigned short c) {
+    int i, j;
+    int row, col, byte;
+    row = (c >> 4) & 0x0F;
+    col = c & 0x0F;
+    byte = (row * 128 + col);
+    BmRect clip = bm_get_clip(b);
+    unsigned int fgc = bm_get_color(b);
+    for(j = 0; j < 8; j++) {
+        if(y + j < clip.y0) continue;
+        else if(y + j >= clip.y1) break;
+        for(i = 0; i < 8; i++) {
+            if(x + i < clip.x0) continue;
+            else if(x + i >= clip.x1) break;
+            if(!(cp437_bits[byte] & (1 << i)))
+                bm_set(b, x + i, y + j, fgc);
+        }
+        byte += 128/8;
+    }
+}
+
+static int cp437_puts(Bitmap *b, int x, int y, const char *text) {
+    int xs = x, spacing;
+
+    spacing = 7;
+
+    while(text[0]) {
+        if(text[0] == '\n') {
+            y += 8;
+            x = xs;
+        } else if(text[0] == '\t') {
+            /* I briefly toyed with the idea of having tabs line up,
+             * but it doesn't really make sense because
+             * this isn't exactly a character based terminal.
+             */
+            x += 4 * spacing;
+        } else if(text[0] == '\r') {
+            /* why would anyone find this useful? */
+            x = xs;
+        } else {
+            cp437_putc(b, x, y, text[0]);
+            x += spacing;
+        }
+        text++;
+        if(y > bm_height(b)) {
+            /* I used to check x >= b->w as well,
+            but it doesn't take \n's into account */
+            return 1;
+        }
+    }
+    return 1;
+}
+
+static int cp437_fwidth(BmFont *font, unsigned int codepoint) {
+    (void)font; (void)codepoint;
+    return 8;
+}
+
+static int cp437_fheight(BmFont *font, unsigned int codepoint) {
+    (void)font; (void)codepoint;
+    return 8;
+}
+
+BmFont *bm_cp437_font() {
+    BmFont *font;
+    font = malloc(sizeof *font);
+    if(!font) {
+        return NULL;
+    }
+
+    font->type = "CP427";
+    font->ref_count = 0;
+    font->puts = cp437_puts;
+    font->width = cp437_fwidth;
+    font->height = cp437_fheight;
+    font->measure = NULL;
+    font->dtor = NULL;
+    font->data = NULL;
+
+    return font;
+}
+
 #ifdef CP437_MAIN
 
 #define GRID_W 20

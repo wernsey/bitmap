@@ -48,3 +48,5 @@ int gr_puts(Grid *g, int x, int y, const char *s);
 int gr_printf(Grid *g, int x, int y, const char *fmt, ...);
 
 void draw_legend(const char *outfile);
+
+BmFont *bm_cp437_font();
