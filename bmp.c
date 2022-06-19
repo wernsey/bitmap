@@ -465,6 +465,7 @@ static Bitmap *bm_load_png_fp(FILE *f);
 #endif
 #ifdef USEJPG
 static Bitmap *bm_load_jpg_fp(FILE *f);
+static Bitmap *bm_load_jpg_mem(const unsigned char *inbuffer, size_t insize);
 #endif
 
 Bitmap *bm_load_fp(FILE *f) {
@@ -597,9 +598,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
 
     if(isjpg) {
 #ifdef USEJPG
-        /* FIXME: JPG support */
-        SET_ERROR("JPEG not supported by bm_load_mem()");
-        return NULL;
+        return bm_load_jpg_mem(buffer, len);
 #elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
@@ -1352,6 +1351,60 @@ static Bitmap *bm_load_jpg_fp(FILE *f) {
 
     return bmp;
 }
+
+static Bitmap *bm_load_jpg_mem(const unsigned char *inbuffer, size_t insize) {
+    struct jpeg_decompress_struct cinfo;
+    struct jpg_err_handler jerr;
+    Bitmap *bmp = NULL;
+    int i, row_stride;
+    unsigned int j;
+    unsigned char *data;
+    JSAMPROW row_pointer[1];
+
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = jpg_on_error;
+    if(setjmp(jerr.jbuf)) {
+        SET_ERROR("JPEG loading failed");
+        jpeg_destroy_decompress(&cinfo);
+        return NULL;
+    }
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo, inbuffer, insize);
+
+    jpeg_read_header(&cinfo, TRUE);
+    cinfo.out_color_space = JCS_RGB;
+
+    bmp = bm_create(cinfo.image_width, cinfo.image_height);
+    if(!bmp) {
+        SET_ERROR("out of memory");
+        return NULL;
+    }
+    row_stride = bmp->w * 3;
+
+    data = ALLOCA(row_stride);
+    if(!data) {
+        SET_ERROR("out of memory");
+        return NULL;
+    }
+    memset(data, 0x00, row_stride);
+    row_pointer[0] = data;
+
+    jpeg_start_decompress(&cinfo);
+
+    for(j = 0; j < cinfo.output_height; j++) {
+        jpeg_read_scanlines(&cinfo, row_pointer, 1);
+        for(i = 0; i < bmp->w; i++) {
+            unsigned char *ptr = &(data[i * 3]);
+            BM_SET_RGBA(bmp, i, j, ptr[0], ptr[1], ptr[2], 0xFF);
+        }
+    }
+    FREEA(data);
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+
+    return bmp;
+}
+
 static int bm_save_jpg(Bitmap *b, const char *fname) {
     struct jpeg_compress_struct cinfo;
     struct jpg_err_handler jerr;

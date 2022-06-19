@@ -130,7 +130,7 @@ typedef struct bitmap_font {
  *
  * See the section on [Palette Functions](#palette-functions) for more details.
  */
-typedef struct bitmap_palette  BmPalette;
+typedef struct bitmap_palette BmPalette;
 
 /**
  * ### Creating and Destroying bitmaps
@@ -814,7 +814,7 @@ void bm_stretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
 void bm_destretch(Bitmap *dst, Bitmap *src, BmPoint P[4]);
 
 /**
- * #### `void bm_draw_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int xbm_w, int xbm_h, unsigned char xbm_data[]);`
+ * #### `void bm_blit_xbm(Bitmap *dst, int dx, int dy, int sx, int sy, int w, int h, int xbm_w, int xbm_h, unsigned char xbm_data[]);`
  *
  * Blits an area of `w` &times; `h` pixels at `sx,sy` in [XBM image data][XBM] to
  * `dx,dy` on the destination bitmap `dst`.
