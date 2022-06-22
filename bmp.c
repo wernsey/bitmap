@@ -462,6 +462,7 @@ static Bitmap *bm_load_tga_rd(BmReader rd);
 static Bitmap *bm_load_ppm_rd(BmReader rd);
 #ifdef USEPNG
 static Bitmap *bm_load_png_fp(FILE *f);
+static Bitmap *bm_load_png_mem(const unsigned char *inbuffer, size_t insize);
 #endif
 #ifdef USEJPG
 static Bitmap *bm_load_jpg_fp(FILE *f);
@@ -615,9 +616,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     }
     if(ispng) {
 #ifdef USEPNG
-        /* FIXME: PNG support */
-        SET_ERROR("PNG not supported by bm_load_mem()");
-        return NULL;
+        return bm_load_png_mem(buffer, len);
 #elif defined(USESTB)
         int x, y, n;
         stbi_uc *data = stbi_load_from_memory(buffer, len, &x, &y, &n, 4);
@@ -1120,6 +1119,145 @@ static Bitmap *bm_load_png_fp(FILE *f) {
 
     png_init_io(png, f);
     png_set_sig_bytes(png, 8);
+
+    error_message = "png_read_info failed";
+    png_read_info(png, info);
+
+    w = png_get_image_width(png, info);
+    h = png_get_image_height(png, info);
+    bpp = png_get_bit_depth(png, info);
+    ct = png_get_color_type(png, info);
+    il = png_get_interlace_type(png, info);
+
+    if(bpp == 16) {
+#ifdef PNG_READ_SCALE_16_TO_8_SUPPORTED
+        png_set_scale_16(png);
+#else
+        png_set_strip_16(png);
+#endif
+    }
+
+    if(ct == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png);
+    } else if (ct == PNG_COLOR_TYPE_GRAY && bpp < 8) {
+        png_set_expand_gray_1_2_4_to_8(png);
+    } else if(ct == PNG_COLOR_TYPE_RGBA)
+        has_alpha = 1;
+
+    if(ct == PNG_COLOR_TYPE_GRAY || ct == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png);
+        has_alpha = (ct == PNG_COLOR_TYPE_GRAY_ALPHA);
+    }
+
+    if(png_get_valid(png, info, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png);
+
+    if(il)
+        png_set_interlace_handling(png);
+
+    error_message = "png_read_update_info failed";
+
+    png_read_update_info(png, info);
+
+    bmp = bm_create(w,h);
+
+    error_message = "png_read_image failed";
+
+    rows = ALLOCA(h * sizeof *rows);
+    for(y = 0; y < h; y++)
+        rows[y] = malloc(png_get_rowbytes(png,info));
+
+    png_read_image(png, rows);
+
+    /* Convert to my internal representation */
+    if(has_alpha) {
+        for(y = 0; y < h; y++) {
+            png_byte *row = rows[y];
+            for(x = 0; x < w; x++) {
+                png_byte *ptr = &(row[x * 4]);
+                BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
+        }
+    } else {
+        for(y = 0; y < h; y++) {
+            png_byte *row = rows[y];
+            for(x = 0; x < w; x++) {
+                png_byte *ptr = &(row[x * 3]);
+                BM_SET_RGBA(bmp, x, y, ptr[0], ptr[1], ptr[2], 0xFF);
+            }
+        }
+    }
+
+    goto done;
+error:
+    SET_ERROR(error_message);
+    if(bmp) bm_free(bmp);
+    bmp = NULL;
+done:
+    if (info != NULL) png_free_data(png, info, PNG_FREE_ALL, -1);
+    if (png != NULL) png_destroy_read_struct(&png, &info, NULL);
+    if(rows) {
+        for(y = 0; y < h; y++) {
+            free(rows[y]);
+        }
+        FREEA(rows);
+    }
+    return bmp;
+}
+
+struct Png_io_buffer {
+    const unsigned char *buffer;
+    size_t size;
+    size_t position;
+};
+
+static void user_read_data(png_structp png, png_bytep data, size_t length) {
+    struct Png_io_buffer *io = png_get_io_ptr(png);
+    if(io->position + length >= io->size) {
+        png_error(png, "not enough data in buffer");
+    }
+    memcpy(data, io->buffer + io->position, length);
+    io->position += length;
+}
+
+static Bitmap *bm_load_png_mem(const unsigned char *inbuffer, size_t insize) {
+    Bitmap *bmp = NULL;
+
+    png_structp png = NULL;
+    png_infop info = NULL;
+    png_bytep * volatile rows = NULL;
+
+    struct Png_io_buffer io;
+    io.buffer = inbuffer;
+    io.size = insize;
+    io.position = 0;
+
+    volatile int w, h, ct, bpp, x, y, il, has_alpha = 0;
+
+    const char * volatile error_message = "";
+
+    if(png_sig_cmp(inbuffer, 0, 8)) {
+        error_message = "invalid PNG header";
+        goto error;
+    }
+
+    png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if(!png) {
+        error_message = "png_create_read_struct failed";
+        goto error;
+    }
+    info = png_create_info_struct(png);
+    if(!info) {
+        error_message = "png_create_info_struct failed";
+        goto error;
+    }
+
+    if(setjmp(png_jmpbuf(png))) {
+        goto error;
+    }
+
+    /* See `VI. Modifying/Customizing libpng` in libpng-manual.txt */
+    png_set_read_fn(png, &io, user_read_data);
 
     error_message = "png_read_info failed";
     png_read_info(png, info);
