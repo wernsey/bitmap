@@ -136,18 +136,25 @@ make
     converting images to those palettes.
   * `xpm.c`: Samples on how to use the module with the XPM file
     format. `to_xbm.c` contains a function that can output a bitmap as a XBM.
-  * The `kmeans/` subdirectory contains a program that uses [K-means
-    clustering](https://en.wikipedia.org/wiki/K-means_clustering) to identify
-    the dominant colors in an image.
+  * The `kmeans.c` contains a program that uses
+    [K-means clustering](https://en.wikipedia.org/wiki/K-means_clustering) to
+    identify the dominant colors in an image.
   * `imgdup.c` is a program that scans directories for duplicate images using
     the _dHash_ algorithm.
   * `nanosvg.c` is an example of how to use the library with Mikko Mononen's [NanoSVG][]
     library to load SVG files.
   * `bm_microui.c` contains functions to render `rxi`'s [microui][] graphical
     user interfaces to a `Bitmap` structure.
+  * `cp437.c` and `cp437.h` contains a [Code page 437][cp437] `BmFont` and
+    some utility functions to draw a grid-based [TUI][] screen.
+  * `bgichr.h` is a set of functions that can handle old Borland [BGI][bgi] fonts
+    (usually files with a `.CHR` extension) as `BmFont` objects.
 
 [NanoSVG]: https://github.com/memononen/nanosvg
 [microui]: https://github.com/rxi/microui
+[cp437]: https://en.wikipedia.org/wiki/Code_page_437
+[TUI]: https://en.wikipedia.org/wiki/Text-based_user_interface
+[bgi]: https://en.wikipedia.org/wiki/Borland_Graphics_Interface
 
 ## References
 
