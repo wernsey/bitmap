@@ -99,10 +99,20 @@ bytes, such as OpenGL textures and SDL surfaces.
 The `Makefile` generates HTML documentation from `bmp.h` through the
 [d.awk][dawk] script. Type `make docs` to create the documentation.
 
+A basic `CMakeLists.txt` file is also provided for [CMake][], but you might need
+to adapt it to your specific needs. To build with CMake, use the following commands:
+
+```
+mkdir build; cd build
+cmake -G "Unix Makefiles" ..
+make
+```
+
 [dawk]: https://github.com/wernsey/d.awk
 [zlib]: https://www.zlib.net
 [libpng]: http://www.libpng.org
 [libjpeg]: http://www.ijg.org/
+[CMake]: https://cmake.org/
 
 ## Additional Utilities
 

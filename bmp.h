@@ -1510,9 +1510,6 @@ void bm_set_error(const char *e);
  *       I'm thinking in particular in my color quantization code which is a bit naive at the moment.
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
- * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
- *       actual character you want to draw, so `bm_text_width()` is broken if you
- *       aren't using a fixed width font.
  * - [ ] I only recently learned of [Wuffs][wuffs]. It might be worth integrating it in the same way
  *       I integrate `stb_image` for security sensitive applications.
  *       ([HN link](https://news.ycombinator.com/item?id=26714831))

@@ -8,6 +8,7 @@
 # Generated documentation and utilities
 doc
 util
+build
 
 # The stb-style single header is auto-generated from
 # bmp.c and bmp.h and should not be versioned.
