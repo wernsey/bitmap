@@ -47,7 +47,7 @@ endif
 all: libbmp.a docs utils bmph.h
 
 debug:
-	make BUILD=debug
+	$(MAKE) BUILD=debug
 
 libbmp.a: $(LIB_OBJECTS)
 	ar rs $@ $^
@@ -137,7 +137,7 @@ ftypefont/fttest: ftypefont/fttest.c ftypefont/ftfont.c bmp.c
 util:
 	mkdir -p util
 
-.PHONY : clean lua-bindings
+.PHONY : clean lua-bindings docs
 
 clean:
 	-rm -f *.o $(LIB) bmph.h

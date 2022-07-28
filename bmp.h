@@ -1371,7 +1371,7 @@ int bm_text_height(Bitmap *b, const char *s);
  * #### `void bm_text_measure(Bitmap *b, const char *s)`
  *
  * Returns the width and height in pixels of a text.
- * 
+ *
  * `dx` and `dy` help position the rectangle `<w,h>` around the text.
  */
 void bm_text_measure(Bitmap *b, const char *s, int *w, int* h, int* dx, int* dy);
@@ -1482,10 +1482,9 @@ BmFont *bm_make_sfont(const char *file);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
-/** #### `int bm_stricmp(const char *p, const char *q)`
- * Compares strings `p` and `q` case-insensitively.
+/**
+ * ### Error Handling Functions
  */
-int bm_stricmp(const char *p, const char *q);
 
 /** #### `const char *bm_get_error()`
  * Gets the last error message.
@@ -1501,6 +1500,36 @@ const char *bm_get_error();
  * Sets the internal error message.
  */
 void bm_set_error(const char *e);
+
+/**
+ * ### Utility Functions
+ *
+ * These functions are not directly related to image processing,
+ * bu
+ */
+
+/** #### `int bm_stricmp(const char *p, const char *q)`
+ * Compares strings `p` and `q` case-insensitively.
+ *
+ * It is used the in the same way as `strcmp()` in the standard
+ * C library.
+ */
+int bm_stricmp(const char *p, const char *q);
+
+/** #### `char *bm_strtok_r(char *str, const char *delim, char **saveptr)`
+ * `strtok_r()` implementation for systems where it is unavailable.
+ */
+char *bm_strtok_r(char *str, const char *delim, char **saveptr);
+
+/** #### `const char* bm_utf8_next_codepoint(const char* in, unsigned int* codepoint)`
+ * Decodes the next code point in a UTF-8 encoded string.
+ *
+ * The decoded codepoint is stored in `codepoint`.
+ *
+ * It returns a pointer to the next character after the decoded codepoint.
+ * It returns `NULL` at the end of the string on error.
+ */
+const char* bm_utf8_next_codepoint(const char* in, unsigned int* codepoint);
 
 /**
  * TODO

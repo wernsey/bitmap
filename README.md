@@ -1,8 +1,10 @@
 # Bitmap API
 
 ![GitHub](https://img.shields.io/github/license/wernsey/bitmap)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/wernsey/bitmap)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/wernsey/bitmap)
 
-A C library for manipulating bitmap graphics in memory and on disk.
+A C library for manipulating bitmap/raster graphics in memory and on disk.
 
 ```c
 #include <stdio.h>
@@ -147,6 +149,7 @@ make
     user interfaces to a `Bitmap` structure.
   * `cp437.c` and `cp437.h` contains a [Code page 437][cp437] `BmFont` and
     some utility functions to draw a grid-based [TUI][] screen.
+  * `bdffont.c` contains code to load and draw [BDF][] fonts as `BmFont` objects.
   * `bgichr.h` is a set of functions that can handle old Borland [BGI][bgi] fonts
     (usually files with a `.CHR` extension) as `BmFont` objects.
 
@@ -154,6 +157,7 @@ make
 [microui]: https://github.com/rxi/microui
 [cp437]: https://en.wikipedia.org/wiki/Code_page_437
 [TUI]: https://en.wikipedia.org/wiki/Text-based_user_interface
+[BDF]: https://en.wikipedia.org/wiki/Glyph_Bitmap_Distribution_Format
 [bgi]: https://en.wikipedia.org/wiki/Borland_Graphics_Interface
 
 ## References
@@ -203,8 +207,14 @@ make
 
 ## TODO
 
+* Support for [PCF][] fonts (now that I support BDF fonts).
+  * See also <https://en.wikipedia.org/wiki/Portable_Compiled_Format>
+  * <https://web.archive.org/web/20010215151331if_/http://myhome.hananet.net/~bumchul/xfont/pcf.txt>
+  * You'll find some font examples at <https://github.com/Tecate/bitmap-fonts>
 * If I'm going to have `bm_rotate_cw()` and `bm_rotate_ccw()` functions, then I ought to have
   flip horizontal and vertical functions as well for completeness.
 * Since `bm_rotate_cw()` and `bm_rotate_ccw()` functions take the clipping rect into account,
   I should consider doing the same for some of the other API functions for consistency, like
   `bm_resample()` and co. Also the flip functions suggested above.
+
+[PCF]: https://fontforge.org/docs/techref/pcf-format.html

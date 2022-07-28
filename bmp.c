@@ -727,7 +727,6 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     struct bmpfile_magic magic;
     struct bmpfile_header hdr;
     struct bmpfile_dibinfo dib;
-    //struct bmpfile_colinfo *palette = NULL;
     BmPalette *pal = NULL;
 
     Bitmap *b = NULL;
@@ -824,7 +823,7 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     /* 1. calculate how many bits we have to shift after masking */
     /* 2. calculate the bit depth of the input channels */
     /* 3. calculate the factor that maps the channel to 0-255 */
-    for (int i = 0; i < 3; ++i) {
+    for (i = 0; i < 3; ++i) {
         rgbshift[i] = count_trailing_zeroes(rgbmask[i]);
         uint32_t chdepth = rgbmask[i] >> rgbshift[i];
         rgbcorr[i] = chdepth ? 255.0f / chdepth : 0.0f;
@@ -3245,7 +3244,7 @@ static int tga_decode_pixel(Bitmap *bmp, int x, int y, uint8_t bytes[], struct t
             bpp = head->map_spec.size;
             bytes = &color_map[index * bpp / 8 - head->map_spec.index];
         }
-        // fall through
+        /* fall through */
         case 2: {
             switch(bpp) {
             case 15:
@@ -4705,7 +4704,8 @@ static BmPoint vec2_sub(BmPoint v1, BmPoint v2) {
     return v;
 }
 static int vec2_cross(BmPoint v1, BmPoint v2) {
-    // Fun fact about "2D cross product" https://stackoverflow.com/a/243984/115589
+    /* Fun fact about "2D cross product":
+     https://stackoverflow.com/a/243984/115589 */
     return v1.x * v2.y - v1.y * v2.x;
 }
 
@@ -6237,15 +6237,15 @@ void bm_fillroundrect(Bitmap *b, int x0, int y0, int x1, int y1, int r) {
  * [bez]: http://devmag.org.za/2011/04/05/bzier-curves-a-tutorial/
  */
 void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
-    // Quadratic Bezier curve
+    /* Quadratic Bezier curve */
     int x, y, lx = x0, ly = y0;
 
     assert(b);
 
     bm_putpixel(b, x0, y0);
 
-    // Take a guess as to how many pixels need to be drawn
-    // using the Manhattan distance between the control points
+    /* Take a guess as to how many pixels need to be drawn
+    using the Manhattan distance between the control points */
     int steps = abs(x1 - x0) + abs(y1 - y0) + abs(x2 - x1) + abs(y2 - y1) + abs(x2 - x1) + abs(y2 - y1);
     if(steps == 0)
         return;
@@ -6259,12 +6259,12 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
         int dx = abs(x - lx), dy = abs(y - ly);
 
         if(dx > 1 || dy > 1) {
-            // the new point is too far from the last point, so
-            // decrease `inc` and try again.
+            /* the new point is too far from the last point, so
+            decrease `inc` and try again. */
             inc *= 0.75;
         } else if(dx == 0 && dy == 0) {
-            // The new pixel is on top of the last pixel, so
-            // increase `inc` and try again.
+            /* The new pixel is on top of the last pixel, so
+            increase `inc` and try again. */
             inc *= 1.5;
         } else {
             if(x >= b->clip.x0 && x < b->clip.x1 && y >= b->clip.y0 && y < b->clip.y1)
@@ -6272,10 +6272,10 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
 
             t += inc;
 
-            // This has the effect of smoothing out the curve:
+            /* This has the effect of smoothing out the curve: */
             inc *= 1.05;
 
-            // Remember the last pixel drawn
+            /* Remember the last pixel drawn */
             lx = x;
             ly = y;
         }
@@ -6284,7 +6284,7 @@ void bm_bezier3(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2) {
 }
 
 void bm_bezier4(Bitmap *b, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) {
-    // Cubic Bezier curve
+    /* Cubic Bezier curve */
     int x, y, lx = x0, ly = y0;
 
     assert(b);
@@ -7116,7 +7116,7 @@ BmPalette *bm_quantize(Bitmap *b, int n) {
 
     /* n must be a power of 2, up to 256 */
     assert(n > 1 && n <= 256);
-    assert((n != 0) && ((n & (n - 1)) == 0)); // https://stackoverflow.com/a/600306/115589
+    assert((n != 0) && ((n & (n - 1)) == 0)); /* https://stackoverflow.com/a/600306/115589 */
 
     unsigned int *data = malloc(w * h * sizeof *data);
     if(!data)
@@ -7320,7 +7320,7 @@ BmFont *bm_get_font(Bitmap *b) {
     return b->font;
 }
 
-const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
+const char *bm_utf8_next_codepoint(const char *in, unsigned int *codepoint) {
     if (in == NULL)
         return NULL;
 
@@ -7328,14 +7328,14 @@ const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
         return NULL;
 
     unsigned int cp = 0;
-    if((*in & 0xE0) == 0xC0) { // two-byte
+    if((*in & 0xE0) == 0xC0) { /* two-byte */
         cp += (*in++ & 0x1F) << 6;
         if (*in != 0) cp += (*in++ & 0x3F);
-    } else if((*in & 0xF0) == 0xE0) { // three-byte
+    } else if((*in & 0xF0) == 0xE0) { /* three-byte */
       cp += (*in++ & 0x0F) << 12;
       if (*in != 0) cp += (*in++ & 0x3F) << 6;
       if (*in != 0) cp += (*in++ & 0x3F);
-    } else if((*in & 0xF8) == 0xF0) { // four-byte
+    } else if((*in & 0xF8) == 0xF0) { /* four-byte */
         cp += (*in++ & 0x07) << 18;
         if (*in != 0) cp += (*in++ & 0x3F) << 12;
         if (*in != 0) cp += (*in++ & 0x3F) << 6;
@@ -7344,7 +7344,8 @@ const char *_utf8_get_next_codepoint(const char *in, unsigned int *codepoint) {
         cp = *in++;
     }
 
-    *codepoint = cp;
+    if(codepoint)
+        *codepoint = cp;
     return in;
 }
 
@@ -7358,7 +7359,7 @@ int bm_text_width(Bitmap *b, const char *s) {
 
     const char *ptr = s;
     unsigned int codepoint = 0;
-    while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+    while((ptr = bm_utf8_next_codepoint(ptr, &codepoint))) {
         if(codepoint == '\n') {
             if(width > max_width)
                 max_width = width;
@@ -7386,7 +7387,7 @@ int bm_text_height(Bitmap *b, const char *s) {
 
     const char *ptr = s;
     unsigned int codepoint = 0;
-    while((ptr = _utf8_get_next_codepoint(ptr, &codepoint))) {
+    while((ptr = bm_utf8_next_codepoint(ptr, &codepoint))) {
         if(codepoint == '\n') {
             lines++;
         } else {
@@ -7409,7 +7410,7 @@ void bm_text_measure(Bitmap *b, const char *s, int *w, int* h, int* dx, int* dy)
         b->font->measure(b->font, s, w, h, dx, dy);
     } else {
         *dx = 0;
-        *dy = 0; // assuming this fonts bm_puts() starts top/left
+        *dy = 0; /* assuming this fonts bm_puts() starts top/left */
         *w = bm_text_width(b, s);
         *h = bm_text_height(b, s);
     }
@@ -7933,4 +7934,24 @@ void bm_set_error(const char *e) {
 #if BM_LAST_ERROR
     bm_last_error = e;
 #endif
+}
+
+/* Not all systems have a `strtok_r()`, so here's mine */
+char *bm_strtok_r(char *str, const char *delim, char **saveptr) {
+    char *s;
+    if(!str)
+        str = *saveptr;
+    if(!str[0]) {
+        *saveptr = str;
+        return NULL;
+    }
+    s = strpbrk(str, delim);
+    if(s) {
+        s[0] = '\0';
+        *saveptr = s + 1;
+        while((*saveptr)[0] && strchr(delim, (*saveptr)[0]))
+            (*saveptr)++;
+    } else
+        for(*saveptr = str; (*saveptr)[0]; (*saveptr)++);
+    return str;
 }
