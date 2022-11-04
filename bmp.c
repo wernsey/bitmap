@@ -1371,26 +1371,26 @@ done:
     return bmp;
 }
 
-static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context) {
+struct custom_png_writer {
+    bm_write_fun writef;
+    void *context;
+};
+
+static void png_write(png_structp png, png_bytep data, png_size_t length) {
+    struct custom_png_writer *writer = png_get_io_ptr(png);
+    writer->writef(data, (int)length, writer->context);
+}
+
+static void png_flush(png_structp png) {
+    (void)png;
+}
+
+static int bm_save_png(Bitmap *b, bm_write_fun writef, void *context) {
 
     png_structp png = NULL;
     png_infop info = NULL;
     int y, rv;
-
-#ifdef SAFE_C11
-    FILE *f;
-    errno_t err = fopen_s(&f, fname, "wb");
-    if (err != 0) {
-        SET_ERROR("error opening file for PNG output");
-        return 0;
-    }
-#else
-    FILE *f = fopen(fname, "wb");
-    if (!f) {
-        SET_ERROR("error opening file for PNG output");
-        return 0;
-    }
-#endif
+    struct custom_png_writer writer = {writef, context};
 
     png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if(!png) {
@@ -1409,7 +1409,7 @@ static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context) {
         goto error;
     }
 
-    png_init_io(png, f);
+    png_set_write_fn(png, &writer, png_write, png_flush);
 
     if(setjmp(png_jmpbuf(png))) {
         SET_ERROR("png_write_row failed");
@@ -1434,12 +1434,7 @@ static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context) {
         }
         png_write_row(png, row);
     }
-
-    /* FIXME: Is this a copy/paste error? */
-    if(setjmp(png_jmpbuf(png))) {
-        SET_ERROR("something failed");
-        goto error;
-    }
+     png_write_end(png, NULL);
 
     rv = 1;
     goto done;
@@ -1448,7 +1443,6 @@ error:
 done:
     if(info) png_free_data(png, info, PNG_FREE_ALL, -1);
     if(png) png_destroy_write_struct(&png, NULL);
-    fclose(f);
     return rv;
 }
 #endif
