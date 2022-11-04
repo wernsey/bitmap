@@ -935,58 +935,102 @@ error:
     goto end;
 }
 
-static int bm_save_bmp(Bitmap *b, const char *fname);
-static int bm_save_gif(Bitmap *b, const char *fname);
-static int bm_save_pcx(Bitmap *b, const char *fname);
-static int bm_save_tga(Bitmap *b, const char *fname);
-static int bm_save_ppm(Bitmap *b, const char *fname);
+static int put_byte(char byte, bm_write_fun writef, void *context) {
+    return writef(&byte, 1, context);
+}
+
+static int put_text(bm_write_fun writef, void *context, const char *fmt, ...) {
+    char buffer[256];
+    int len;
+    va_list arg;
+    va_start(arg, fmt);
+    len = vsnprintf(buffer, sizeof buffer, fmt, arg);
+    va_end(arg);
+    return writef(buffer, len, context);
+}
+
+static int bm_file_cb(void *data, int len, void *context) {
+    return fwrite(data, len, 1, (FILE *)context) == 1;
+}
+
+static int bm_save_bmp(Bitmap *b, bm_write_fun cb, void *context);
+static int bm_save_gif(Bitmap *b, bm_write_fun cb, void *context);
+static int bm_save_pcx(Bitmap *b, bm_write_fun cb, void *context);
+static int bm_save_tga(Bitmap *b, bm_write_fun cb, void *context);
+static int bm_save_ppm(Bitmap *b, bm_write_fun cb, void *context, const char *ext);
 #ifdef USEPNG
-static int bm_save_png(Bitmap *b, const char *fname);
+static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context);
 #endif
 #ifdef USEJPG
-static int bm_save_jpg(Bitmap *b, const char *fname);
+static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context);
 #endif
 
-int bm_save(Bitmap *b, const char *fname) {
+int bm_save_cb(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
     SET_ERROR("no error");
+    if(!bm_stricmp(ext, "gif"))
+        return bm_save_gif(b, cb, context);
+    else if(!bm_stricmp(ext, "pcx"))
+        return bm_save_pcx(b, cb, context);
+    else if(!bm_stricmp(ext, "tga"))
+        return bm_save_tga(b, cb, context);
+    else if(!bm_stricmp(ext, "pbm") || !bm_stricmp(ext, "pgm") || !bm_stricmp(ext, "ppm"))
+        return bm_save_ppm(b, cb, context, ext);
+    else if(!bm_stricmp(ext, "png")) {
+#ifdef USEPNG
+        return bm_save_png(b, cb, context);
+#else
+        SET_ERROR("PNG support is not enabled");
+        return 0;
+#endif
+    } else if(!bm_stricmp(ext, "jpg") || !bm_stricmp(ext, "jpeg")) {
+#ifdef USEJPG
+        return bm_save_jpg(b, cb, context);
+#else
+        SET_ERROR("JPEG support is not enabled");
+        return 0;
+#endif
+    } else
+        return bm_save_bmp(b, cb, context);
+}
+
+int bm_save(Bitmap *b, const char *fname) {
+    int ret;
+    FILE *f;
 
     /* Chooses the file type to save as based on the
     extension in the filename */
-    char *lname = strdup(fname), *c,
-        jpg = 0, png = 0, pcx = 0, gif = 0, tga = 0, ppm = 0;
+    char *lname = strdup(fname), *ext, *c;
 
     for(c = lname; *c; c++)
         *c = tolower(*c);
+    ext = strrchr(lname, '.');
+    if(ext)
+        ext++;
+    else
+        ext = "bmp";
 
-    png = !!strstr(lname, ".png");
-    pcx = !!strstr(lname, ".pcx");
-    gif = !!strstr(lname, ".gif");
-    tga = !!strstr(lname, ".tga");
-    jpg = !!strstr(lname, ".jpg") || !!strstr(lname, ".jpeg");
-    ppm = !!strstr(lname, ".pbm") || !!strstr(lname, ".pgm") || !!strstr(lname, ".ppm");
+#ifdef SAFE_C11
+    {
+        errno_t err = fopen_s(&f, fname, "wb");
+        if(err != 0) {
+            SET_ERROR("unable to open file for output");
+            return 0;
+        }
+    }
+#else
+    f = fopen(fname, "wb");
+    if(!f) {
+        SET_ERROR("unable to open file for output");
+        return 0;
+    }
+#endif
+
+    ret = bm_save_cb(b, bm_file_cb, f, ext);
+
+    fclose(f);
     free(lname);
 
-#ifdef USEPNG
-    if(png)
-        return bm_save_png(b, fname);
-#else
-    (void)png;
-#endif
-#ifdef USEJPG
-    if(jpg)
-        return bm_save_jpg(b, fname);
-#else
-    (void)jpg;
-#endif
-    if(gif)
-        return bm_save_gif(b, fname);
-    if(pcx)
-        return bm_save_pcx(b, fname);
-    if(tga)
-        return bm_save_tga(b, fname);
-    if(ppm)
-        return bm_save_ppm(b, fname);
-    return bm_save_bmp(b, fname);
+    return ret;
 }
 
 int bm_savef(Bitmap *b, const char *fmt, ...) {
@@ -999,8 +1043,7 @@ int bm_savef(Bitmap *b, const char *fmt, ...) {
     return bm_save(b, fname);
 }
 
-static int bm_save_bmp(Bitmap *b, const char *fname) {
-    SET_ERROR("no error");
+static int bm_save_bmp(Bitmap *b, bm_write_fun writef, void *context) {
     /* TODO: Now that I have a function to count colors, maybe
         I should choose to save a bitmap as 8-bit if there
         are <= 256 colors in the image? */
@@ -1008,7 +1051,6 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
     struct bmpfile_magic magic = {{'B','M'}};
     struct bmpfile_header hdr;
     struct bmpfile_dibinfo dib;
-    FILE *f;
 
     int rs, padding, i, j;
     unsigned char *data;
@@ -1017,20 +1059,6 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
     if(padding > 3) padding = 0;
     rs = b->w * 3 + padding;
     assert(rs % 4 == 0);
-
-#ifdef SAFE_C11
-    errno_t err = fopen_s(&f, fname, "wb");
-    if(err != 0) {
-        SET_ERROR("unable to open file for output");
-        return 0;
-    }
-#else
-    f = fopen(fname, "wb");
-    if(!f) {
-        SET_ERROR("unable to open file for output");
-        return 0;
-    }
-#endif
 
     hdr.creator1 = 0;
     hdr.creator2 = 0;
@@ -1050,14 +1078,16 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
     dib.bmp_bytesz = rs * b->h;
     hdr.filesz = hdr.bmp_offset + dib.bmp_bytesz;
 
-    fwrite(&magic, sizeof magic, 1, f);
-    fwrite(&hdr, sizeof hdr, 1, f);
-    fwrite(&dib, sizeof dib, 1, f);
+    if(!writef(&magic, sizeof magic, context)
+    || !writef(&hdr, sizeof hdr, context)
+    || !writef(&dib, sizeof dib, context)) {
+        SET_ERROR("unable to write BMP header");
+        return 0;
+    }
 
     data = CAST(unsigned char *)(malloc(dib.bmp_bytesz));
     if(!data) {
         SET_ERROR("out of memory");
-        fclose(f);
         return 0;
     }
     memset(data, 0x00, dib.bmp_bytesz);
@@ -1071,11 +1101,9 @@ static int bm_save_bmp(Bitmap *b, const char *fname) {
         }
     }
 
-    fwrite(data, 1, dib.bmp_bytesz, f);
+    writef(data, dib.bmp_bytesz, context);
 
     free(data);
-
-    fclose(f);
     return 1;
 }
 
@@ -1343,7 +1371,7 @@ done:
     return bmp;
 }
 
-static int bm_save_png(Bitmap *b, const char *fname) {
+static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context) {
 
     png_structp png = NULL;
     png_infop info = NULL;
@@ -1542,7 +1570,7 @@ static Bitmap *bm_load_jpg_mem(const unsigned char *inbuffer, size_t insize) {
     return bmp;
 }
 
-static int bm_save_jpg(Bitmap *b, const char *fname) {
+static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context) {
     struct jpeg_compress_struct cinfo;
     struct jpg_err_handler jerr;
     FILE *f;
@@ -2718,7 +2746,7 @@ reread:
     return buffer;
 }
 
-static int bm_save_gif(Bitmap *b, const char *fname) {
+static int bm_save_gif(Bitmap *b, bm_write_fun writef, void *context) {
     GIF gif;
     GIF_GCE gce;
     GIF_ID gif_id;
@@ -2732,21 +2760,6 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     /* For encoding */
     int len = 0, x, y, p;
     unsigned char *bytes, *pixels;
-
-#ifdef SAFE_C11
-    FILE *f;
-    errno_t err = fopen_s(&f, fname, "wb");
-    if (err != 0) {
-        SET_ERROR("couldn't open GIF output file");
-        return 0;
-    }
-#else
-    FILE *f = fopen(fname, "wb");
-    if(!f) {
-        SET_ERROR("couldn't open GIF output file");
-        return 0;
-    }
-#endif
 
     memcpy(gif.header.signature, "GIF", 3);
     memcpy(gif.header.version, "89a", 3);
@@ -2836,11 +2849,10 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 
         assert(sgct <= 256);
 
-        if(fwrite(&gif.header, sizeof gif.header, 1, f) != 1 ||
-            fwrite(&gif.lsd, sizeof gif.lsd, 1, f) != 1 ||
-            fwrite(gct, sizeof gct[0], sgct, f) != (unsigned)sgct) {
+        if(!writef(&gif.header, sizeof gif.header, context) ||
+            !writef(&gif.lsd, sizeof gif.lsd, context) ||
+            !writef(gct, sizeof gct[0] * sgct, context)) {
             SET_ERROR("couldn't write GIF header");
-            fclose(f);
             return 0;
         }
     }
@@ -2861,10 +2873,9 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
 #endif
     gce.terminator = 0x00;
 
-    fputc(0x21, f);
-    fputc(0xF9, f);
-    if(fwrite(&gce, sizeof gce, 1, f) != 1) {
-        fclose(f);
+    put_byte(0x21, writef, context);
+    put_byte(0xF9, writef, context);
+    if(!writef(&gce, sizeof gce, context)) {
         return 0;
     }
 
@@ -2875,13 +2886,12 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
     gif_id.height = b->h;
     /* Not using local color table or interlacing */
     gif_id.fields = 0;
-    if(fwrite(&gif_id, sizeof gif_id, 1, f) != 1) {
-        fclose(f);
+    if(!writef(&gif_id, sizeof gif_id, context)) {
         SET_ERROR("couldn't write GIF info");
         return 0;
     }
 
-    fputc(code_size, f);
+    put_byte(code_size, writef, context);
 
     /* Perform the LZW compression */
     bytes = lzw_encode_bytes(pixels, b->w * b->h, code_size, &len);
@@ -2892,22 +2902,21 @@ static int bm_save_gif(Bitmap *b, const char *fname) {
         if(p % 0xFF == 0) {
             /* beginning of a new block; lzw_emit_code the length byte */
             if(len - p >= 0xFF) {
-                fputc(0xFF, f);
+                put_byte(0xFF, writef, context);
             } else {
-                fputc(len - p, f);
+                put_byte(len - p, writef, context);
             }
         }
-        fputc(bytes[p], f);
+        put_byte(bytes[p], writef, context);
     }
     free(bytes);
 
-    fputc(0x00, f); /* terminating block */
+    put_byte(0x00, writef, context); /* terminating block */
 
-    fputc(0x3B, f); /* trailer byte */
+    put_byte(0x3B, writef, context); /* trailer byte */
 
     bm_free(b);
 
-    fclose(f);
     return 1;
 }
 
@@ -3033,8 +3042,7 @@ read_error:
     return NULL;
 }
 
-static int bm_save_pcx(Bitmap *b, const char *fname) {
-    FILE *f;
+static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
     int i, x, y, rv = 1;
 
     BmPalette *palette;
@@ -3056,20 +3064,6 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         SET_ERROR("too many palette colors to save PCX");
         return 0;
     }
-
-#ifdef SAFE_C11
-    errno_t err = fopen_s(&f, fname, "wb");
-    if (err != 0) {
-        SET_ERROR("error opening file for PCX output");
-        return 0;
-    }
-#else
-    f = fopen(fname, "wb");
-    if(!f) {
-        SET_ERROR("error opening file for PCX output");
-        return 0;
-    }
-#endif
 
     {
         /* Write the header */
@@ -3097,9 +3091,8 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
         hdr.hscrsize = 0;
         hdr.vscrsize = 0;
 
-        if(fwrite(&hdr, sizeof hdr, 1, f) != 1) {
+        if(!writef(&hdr, sizeof hdr, context)) {
             SET_ERROR("error writing PCX header");
-            fclose(f);
             return 0;
         }
     }
@@ -3126,7 +3119,7 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
 
             i = get_palette_mapping(mapping, c, color_count);
             /* At this point in time, the color MUST be in the palette */
-            assert(i >=0 && i < color_count);
+            assert(i >= 0 && i < color_count);
 
             /*
             i = bm_palette_nearest_index(palette, c);
@@ -3134,27 +3127,25 @@ static int bm_save_pcx(Bitmap *b, const char *fname) {
             */
 
             if(cnt == 1 && i < 192) {
-                fputc(i, f);
+                put_byte(i, writef, context);
             } else {
-                fputc(0xC0 | cnt, f);
-                fputc(i, f);
+                put_byte(0xC0 | cnt, writef, context);
+                put_byte(i, writef, context);
             }
         }
     }
 
-    fputc(12, f);
+    put_byte(12, writef, context);
 
     {
         /* Save the palette */
         struct rgb_triplet rgb[256];
         triplets_from_palette(palette, rgb);
-        if(fwrite(rgb, sizeof rgb[0], 256, f) != 256) {
+        if(!writef(rgb, sizeof rgb[0] * 256, context)) {
             SET_ERROR("error writing PCX palette");
             rv = 0;
         }
     }
-
-    fclose(f);
 
     bm_free(b); /* Delete the copy */
 
@@ -3354,24 +3345,10 @@ error:
     return NULL;
 }
 
-static int bm_save_tga(Bitmap *b, const char *fname) {
+static int bm_save_tga(Bitmap *b, bm_write_fun writef, void *context) {
     /* Always saves as 24-bit TGA */
     struct tga_header head;
 
-#ifdef SAFE_C11
-    FILE *f;
-    errno_t err = fopen_s(&f, fname, "wb");
-    if (err != 0) {
-        SET_ERROR("tga: couldn't open file for writing");
-        return 0;
-    }
-#else
-    FILE *f = fopen(fname, "wb");
-    if(!f) {
-        SET_ERROR("tga: couldn't open file for writing");
-        return 0;
-    }
-#endif
     memset(&head, 0, sizeof head);
 
     head.img_type = (TGA_SAVE_RLE) ? 10 : 2;
@@ -3379,9 +3356,8 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
     head.img_spec.h = b->h;
     head.img_spec.bpp = 24;
 
-    if(fwrite(&head, sizeof head, 1, f) != 1) {
+    if(!writef(&head, sizeof head, context)) {
         SET_ERROR("error opening file for TGA output");
-        fclose(f);
         return 0;
     }
 
@@ -3414,24 +3390,21 @@ static int bm_save_tga(Bitmap *b, const char *fname) {
         }
         assert(n <= 128);
         assert(nb <= sizeof bytes);
-        if(fwrite(&bytes, 1, nb, f) != nb) {
+        if(!writef(&bytes, nb, context)) {
             SET_ERROR("error writing TGA data");
-            fclose(f);
             return 0;
         }
         i += n;
 #else
         bm_get_rgb(c, &bytes[2], &bytes[1], &bytes[0]);
-        if(fwrite(&bytes, 3, 1, f) != 1) {
+        if(!writef(&bytes, 3, context)) {
             SET_ERROR("error writing TGA palette");
-            fclose(f);
             return 0;
         }
         i++;
 #endif
     }
 
-    fclose(f);
     return 1;
 }
 
@@ -3662,22 +3635,15 @@ done:
 
 }
 
-static int bm_save_ppm(Bitmap *b, const char *fname) {
-
-#if !PPM_BINARY
-    const char *file_mode = "w";
-#else
-    const char *file_mode = "wb";
-#endif
+static int bm_save_ppm(Bitmap *b, bm_write_fun writef, void *context, const char *ext) {
 
     int type = 3;
-    char *ext = strrchr(fname, '.');
-    if(!ext || strlen(ext) != 4) {
+    if(!ext || strlen(ext) != 3) {
         SET_ERROR("ppm: bad extension");
         return 0;
     }
 
-    switch(ext[2]) {
+    switch(ext[1]) {
 #if !PPM_BINARY
         case 'b': case 'B': type = 1; break;
         case 'g': case 'G': type = 2; break;
@@ -3689,25 +3655,10 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
 #endif
     }
 
-#ifdef SAFE_C11
-    FILE *f;
-    errno_t err = fopen_s(&f, fname, file_mode);
-    if (err != 0) {
-        SET_ERROR("ppm: couldn't open file for writing");
-        return 0;
-    }
-#else
-    FILE *f = fopen(fname, file_mode);
-    if(!f) {
-        SET_ERROR("ppm: couldn't open file for writing");
-        return 0;
-    }
-#endif
-
-    fprintf(f, "P%d\n", type);
-    fprintf(f, "%d %d\n", b->w, b->h);
+    put_text(writef, context, "P%d\n", type);
+    put_text(writef, context, "%d %d\n", b->w, b->h);
     if(type != 1 && type != 4)
-        fprintf(f, "255\n");
+        put_text(writef, context, "255\n");
 
     int x, y;
     unsigned char p[3] = {0, 0, 0};
@@ -3717,18 +3668,18 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
             for(y = 0; y < b->h; y++) {
                 for(x = 0; x < b->w; x++) {
                     unsigned int c = BM_GET(b, x, y);
-                    fprintf(f, "%c", c & 0xFFFFFF ? '0' : '1');
+                    put_text(writef, context, "%c", c & 0xFFFFFF ? '0' : '1');
                 }
-                fputc('\n',f);
+                put_byte('\n', writef, context);
             }
             break;
         case 2:
             for(y = 0; y < b->h; y++) {
                 for(x = 0; x < b->w; x++) {
                     unsigned int c = BM_GET(b, x, y);
-                    fprintf(f, "%u ", bm_graypixel(c));
+                    put_text(writef, context, "%u ", bm_graypixel(c));
                 }
-                fputc('\n',f);
+                put_byte('\n', writef, context);
             }
             break;
         case 3:
@@ -3736,9 +3687,9 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
                 for(x = 0; x < b->w; x++) {
                     unsigned int c = BM_GET(b, x, y);
                     bm_get_rgb(c, &p[0], &p[1], &p[2]);
-                    fprintf(f, "%u %u %u ", p[0], p[1], p[2]);
+                    put_text(writef, context, "%u %u %u ", p[0], p[1], p[2]);
                 }
-                fputc('\n',f);
+                put_byte('\n', writef, context);
             }
             break;
         case 4: {
@@ -3750,13 +3701,13 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
                     if(!(c & 0xFFFFFF))
                         byte |= mask;
                     if(!(mask >>= 1)) {
-                        fwrite(&byte, 1, 1, f);
+                        writef(&byte, 1, context);
                         byte = 0;
                         mask = 0x80;
                     }
                 }
                 if(mask)
-                    fwrite(&byte, 1, 1, f);
+                    writef(&byte, 1, context);
             }
         } break;
         case 5: {
@@ -3764,7 +3715,7 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
                 for(x = 0; x < b->w; x++) {
                     unsigned int c = BM_GET(b, x, y);
                     unsigned char g = (unsigned char)bm_graypixel(c);
-                    fwrite(&g, 1, 1, f);
+                    writef(&g, 1, context);
                 }
             }
         } break;
@@ -3773,20 +3724,18 @@ static int bm_save_ppm(Bitmap *b, const char *fname) {
                 for(x = 0; x < b->w; x++) {
                     unsigned int c = BM_GET(b, x, y);
                     bm_get_rgb(c, &p[0], &p[1], &p[2]);
-                    fwrite(&p, 1, 3, f);
+                    writef(&p, 3, context);
                 }
             }
             break;
         default: break;
     }
     if(type <= 3)
-        fprintf(f, "\n");
-
+        put_byte('\n', writef, context);
 
     if(type == 4 && p[1])
-        fwrite(&p, 1, 1, f);
+        writef(&p, 1, context);
 
-    fclose(f);
     return 1;
 }
 

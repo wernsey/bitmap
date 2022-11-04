@@ -336,6 +336,15 @@ Bitmap *bm_from_stb(int w, int h, unsigned char *data);
 #endif /* USESTB */
 
 /**
+ *
+ * Takes inspiration from [stb_image_write.h][].
+ *
+ * [stb_image_write.h]: https://github.com/nothings/stb/blob/master/stb_image_write.h
+ */
+typedef int (*bm_write_fun)(void *data, int len, void *context);
+
+
+/**
  * #### `int bm_save(Bitmap *b, const char *fname)`
  *
  * Saves the bitmap `b` to a bitmap file named `fname`.
