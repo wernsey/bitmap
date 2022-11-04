@@ -36,6 +36,7 @@ you may not want to import a bunch of third party libraries.
 #ifdef USEJPG
 #   include <jpeglib.h>
 #   include <setjmp.h>
+#   include <jerror.h>
 #endif
 
 #ifndef BMP_H
@@ -1564,27 +1565,76 @@ static Bitmap *bm_load_jpg_mem(const unsigned char *inbuffer, size_t insize) {
     return bmp;
 }
 
-static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context) {
+/*
+* https://github.com/kornelski/libjpeg/blob/master/libjpeg.doc#L1372
+* `jdatadst.c` has an example of how `jpeg_stdio_dest()` works
+*/
+#define OUTPUT_BUF_SIZE 4096
+
+struct custom_jpg_writer {
+    struct jpeg_destination_mgr pub;
+
+    bm_write_fun writef;
+    void *context;
+
+    JOCTET *buffer;
+    size_t bufsize;
+};
+
+void jpg_custom_init_destination(j_compress_ptr cinfo) {
+    struct custom_jpg_writer *dest = (struct custom_jpg_writer*)cinfo->dest;
+
+    dest->buffer = (JOCTET *)(*cinfo->mem->alloc_small)((j_common_ptr)cinfo, JPOOL_IMAGE, OUTPUT_BUF_SIZE * sizeof(JOCTET));
+
+    dest->pub.next_output_byte = dest->buffer;
+    dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
+}
+
+boolean jpg_custom_empty_output_buffer(j_compress_ptr cinfo) {
+    struct custom_jpg_writer *dest = (struct custom_jpg_writer *) cinfo->dest;
+
+    if(dest->writef(dest->buffer, OUTPUT_BUF_SIZE, dest->context) != 1) {
+        ERREXIT(cinfo, JERR_FILE_WRITE);
+    }
+
+    dest->pub.next_output_byte = dest->buffer;
+    dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
+
+    return TRUE;
+}
+
+void jpg_custom_term_destination(j_compress_ptr cinfo) {
+    struct custom_jpg_writer *dest = (struct custom_jpg_writer *) cinfo->dest;
+    size_t datacount = OUTPUT_BUF_SIZE - dest->pub.free_in_buffer;
+
+    if(datacount > 0) {
+        if(dest->writef(dest->buffer, datacount, dest->context) != 1) {
+            ERREXIT(cinfo, JERR_FILE_WRITE);
+        }
+    }
+}
+
+static void custom_jpg_dest(j_compress_ptr cinfo, bm_write_fun writef, void *context) {
+    struct custom_jpg_writer *dest;
+
+    if(cinfo->dest == NULL) {
+        cinfo->dest = (struct jpeg_destination_mgr*)(*cinfo->mem->alloc_small)((j_common_ptr)cinfo, JPOOL_PERMANENT, sizeof (struct custom_jpg_writer));
+    }
+    dest = (struct custom_jpg_writer *)cinfo->dest;
+    dest->pub.init_destination = jpg_custom_init_destination;
+    dest->pub.empty_output_buffer = jpg_custom_empty_output_buffer;
+    dest->pub.term_destination = jpg_custom_term_destination;
+    dest->writef = writef;
+    dest->context = context;
+}
+
+static int bm_save_jpg(Bitmap *b, bm_write_fun writef, void *context) {
     struct jpeg_compress_struct cinfo;
     struct jpg_err_handler jerr;
-    FILE *f;
     int i, j;
     JSAMPROW row_pointer[1];
     int row_stride;
     unsigned char *data;
-
-#ifdef SAFE_C11
-    errno_t err = fopen_s(&f, fname, "wb");
-    if (err != 0) {
-        SET_ERROR("couldn't open JPEG output file");
-        return 0;
-    }
-#else
-    if (!(f = fopen(fname, "wb"))) {
-        SET_ERROR("couldn't open JPEG output file");
-        return 0;
-    }
-#endif
 
     cinfo.err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = jpg_on_error;
@@ -1594,7 +1644,8 @@ static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context) {
         return 0;
     }
     jpeg_create_compress(&cinfo);
-    jpeg_stdio_dest(&cinfo, f);
+
+    custom_jpg_dest(&cinfo, writef, context);
 
     cinfo.image_width = b->w;
     cinfo.image_height = b->h;
@@ -1609,7 +1660,6 @@ static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context) {
     data = malloc(row_stride);
     if(!data) {
         SET_ERROR("out of memory");
-        fclose(f);
         return 0;
     }
     memset(data, 0x00, row_stride);
@@ -1630,7 +1680,6 @@ static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context) {
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
 
-    fclose(f);
     return 1;
 }
 #endif
