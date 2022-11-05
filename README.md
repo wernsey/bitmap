@@ -41,7 +41,10 @@ Features:
     [stb_image][] image loader library. [stb_image][] supports a couple of
     additional formats, such as PSD, PIC and PNM binary formats. See
     `bm_load_stb()` for more information.
-    A copy of `stb_image.h` has been placed in </3rd-party/stb_image.h>.
+    A copy of `stb_image.h` has been placed in `/3rd-party/stb_image.h`.
+  * Likewise, PNG and JPEG images can be saved through Sean Barrett's
+    [stb_image_write][] image writer library.
+    A copy of `stb_image_write.h` has been placed in `/3rd-party/stb_image_write.h`.
   * [NetPBM][] formats (PBM, PGM and PPM), in ASCII or binary variants.
 * Supports manipulation of OpenGL textures, [SDL](https://www.libsdl.org/)
   surfaces, [GDI](https://en.wikipedia.org/wiki/Graphics_Device_Interface)
@@ -68,6 +71,7 @@ The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 [freetype]: https://www.freetype.org/
 [emscripten]: http://kripken.github.io/emscripten-site/
 [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
+[stb_image_write]: https://github.com/nothings/stb/blob/master/stb_image_write.h
 [sfont]: http://www.linux-games.com/sfont/
 [grafx2]: https://en.wikipedia.org/wiki/GrafX2
 [NetPBM]: https://en.wikipedia.org/wiki/Netpbm
@@ -91,7 +95,11 @@ the `-DUSEJPG` command line option when compiling and add `-ljpeg` to your
 linker options.
 
 To use [stb_image][], put the `stb_image.h` file in the same directory as
-`bmp.c`, and add `-DUSESTB` to your compiler flags.
+`bmp.c` (or use your compiler's `-I` option to point it to `stb_image.h`'s
+path), and add `-DUSESTB` to your compiler flags.
+
+Similarly, to use [stb_image_write][], put the `stb_image_write.h` file in the
+same directory as `bmp.c`, and add `-DUSESTBW` to your compiler flags.
 
 Use `bm_create()` to create `Bitmap` objects and `bm_free()` to destroy them.
 

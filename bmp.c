@@ -966,7 +966,35 @@ static int bm_save_png(Bitmap *b, bm_write_fun cb, void *context);
 static int bm_save_jpg(Bitmap *b, bm_write_fun cb, void *context);
 #endif
 
-int bm_save_cb(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
+#ifdef USESTBW
+#  define STB_IMAGE_WRITE_IMPLEMENTATION
+#  include "stb_image_write.h"
+
+struct stb_writer {
+    bm_write_fun writef;
+    void *context;
+};
+
+static void stb_writer_fun(void *context, void *data, int size) {
+    struct stb_writer *writer = context;
+    writer->writef(data, size, writer->context);
+}
+#endif
+
+static void swap_stb_bytes(int w, int h, unsigned char *data) {
+#if !ABGR
+    /* Unfortunately, the R and B channels of stb_image are
+        swapped from the format I'd prefer them in. */
+    int i;
+    for(i = 0; i < w * h * 4; i += 4) {
+        unsigned char c = data[i];
+        data[i] = data[i+2];
+        data[i+2] = c;
+    }
+#endif
+}
+
+int bm_save_custom(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
     SET_ERROR("no error");
     if(!bm_stricmp(ext, "gif"))
         return bm_save_gif(b, cb, context);
@@ -979,6 +1007,13 @@ int bm_save_cb(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
     else if(!bm_stricmp(ext, "png")) {
 #ifdef USEPNG
         return bm_save_png(b, cb, context);
+#elif defined(USESTBW)
+        int r;
+        struct stb_writer writer = {cb, context};
+        swap_stb_bytes(b->w, b->h, b->data);
+        r = stbi_write_png_to_func(stb_writer_fun, &writer, b->w, b->h, 4, b->data, b->w * 4);
+        swap_stb_bytes(b->w, b->h, b->data);
+        return r;
 #else
         SET_ERROR("PNG support is not enabled");
         return 0;
@@ -986,6 +1021,13 @@ int bm_save_cb(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
     } else if(!bm_stricmp(ext, "jpg") || !bm_stricmp(ext, "jpeg")) {
 #ifdef USEJPG
         return bm_save_jpg(b, cb, context);
+#elif defined(USESTBW)
+        int r;
+        struct stb_writer writer = {cb, context};
+        swap_stb_bytes(b->w, b->h, b->data);
+        r = stbi_write_jpg_to_func(stb_writer_fun, &writer, b->w, b->h, 4, b->data, b->w * 4);
+        swap_stb_bytes(b->w, b->h, b->data);
+        return r;
 #else
         SET_ERROR("JPEG support is not enabled");
         return 0;
@@ -1026,7 +1068,7 @@ int bm_save(Bitmap *b, const char *fname) {
     }
 #endif
 
-    ret = bm_save_cb(b, bm_file_cb, f, ext);
+    ret = bm_save_custom(b, bm_file_cb, f, ext);
 
     fclose(f);
     free(lname);
@@ -3782,32 +3824,18 @@ static int bm_save_ppm(Bitmap *b, bm_write_fun writef, void *context, const char
     return 1;
 }
 
-
-#if defined(USESTB)
-/*
-In the future, I can add support for stb_image_write.h as well.
-See https://github.com/nothings/stb/blob/master/stb_image_write.h
-*/
 Bitmap *bm_from_stb(int w, int h, unsigned char *data) {
 
     Bitmap *b = bm_create_internal(w, h);
     b->data = data;
     b->flags |= FLAG_OWNS_DATA;
 
-#if !ABGR
-    /* Unfortunately, the R and B channels of stb_image are
-        swapped from the format I'd prefer them in. */
-    int i;
-    for(i = 0; i < w * h * 4; i += 4) {
-        unsigned char c = data[i];
-        data[i] = data[i+2];
-        data[i+2] = c;
-    }
-#endif
+    swap_stb_bytes(w, h, data);
 
     return b;
 }
 
+#if defined(USESTB)
 Bitmap *bm_load_stb(const char *filename) {
     int w, h, n;
     unsigned char *data = stbi_load(filename, &w, &h, &n, 4);

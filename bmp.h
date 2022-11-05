@@ -10,9 +10,12 @@
  * * It supports BMP, GIF, PCX and TGA files without any third party dependencies.
  * * PNG support is optional through [libpng][]. Use `-DUSEPNG` when compiling.
  * * JPG support is optional through [libjpeg][]. Use `-DUSEJPG` when compiling.
+ * * Alternatively, JPG and PNG files can be loaded through [stb_image.h][stb_image].
+ *    Put `stb_image.h` in the same directory as `bmp.c` and compile with `-DUSESTB`.
  *
  * [libpng]: http://www.libpng.org/pub/png/libpng.html
  * [libjpeg]: http://www.ijg.org/
+ * [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
  *
  * License
  * -------
@@ -318,10 +321,9 @@ Bitmap *bm_load_rw(SDL_RWops *file);
  *
  * To use this function, `stb_image.h` must be in the same directory
  * as `bmp.c` and `-D USESTB` must be addeed to your compiler flags.
- *
- * [stb_image]: https://github.com/nothings/stb/blob/master/stb_image.h
  */
 Bitmap *bm_load_stb(const char *filename);
+#endif /* USESTB */
 
 /** #### `Bitmap *bm_from_stb(int w, int h, unsigned char *data)`
  *
@@ -333,16 +335,6 @@ Bitmap *bm_load_stb(const char *filename);
  *
  */
 Bitmap *bm_from_stb(int w, int h, unsigned char *data);
-#endif /* USESTB */
-
-/**
- *
- * Takes inspiration from [stb_image_write.h][].
- *
- * [stb_image_write.h]: https://github.com/nothings/stb/blob/master/stb_image_write.h
- */
-typedef int (*bm_write_fun)(void *data, int len, void *context);
-
 
 /**
  * #### `int bm_save(Bitmap *b, const char *fname)`
@@ -364,6 +356,33 @@ int bm_save(Bitmap *b, const char *fname);
  * Like `bm_save()`, but the filename is given as a `printf()`-style format string.
  */
 int bm_savef(Bitmap *b, const char *fname, ...);
+
+/**
+ * #### `int bm_save_custom(Bitmap *b, bm_write_fun fun, void *context, const char *ext)`
+ *
+ * Saves a bitmap `b` using a custom function `fun` to output the individual bytes.
+ *
+ * `context` is a pointer to a structure that is passed directly to the callback function to
+ * receive the bytes.
+ *
+ * The `ext` parameter determines the file type: "bmp", "gif", "pcx", "tga", "pbm", "pgm", "png" or "jpg"
+ * (PNG and JPG support must be enabled through the `USEPNG` and `USEJPG` preprocessor definitions).
+ *
+ * The custom function `fun` has this prototype:
+ *
+ * ```
+ * int (*bm_write_fun)(void *data, int len, void *context);
+ * ```
+ *
+ * * `data` is the bytes to write,
+ * * `len` is the number of bytes to write, and
+ * * `context` is the pointer passed through directly from `bm_save_custom()`
+ *
+ * The `bm_write_fun` should return 1 on success, 0 on failure.
+ */
+typedef int (*bm_write_fun)(void *data, int len, void *context);
+
+int bm_save_custom(Bitmap *b, bm_write_fun fun, void *context, const char *ext);
 
 /**
  * ### Reference Counting Functions
