@@ -7983,6 +7983,173 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing) {
     return font;
 }
 
+/*
+ * Support for Damien Gaurd's ZX Origins fonts.
+ * https://damieng.com/typography/zx-origins/
+ */
+typedef struct {
+    int owned;
+    union {char *b; const uint8_t *c;} bits;
+} ZxoFontInfo;
+
+static void zxo_putc(Bitmap *b, const unsigned char *zxo_bits, int x, int y, unsigned int col, char c) {
+    int byte;
+    int i, j;
+
+    if(c < 32)
+        return;
+
+    byte = (c - 32) * 8;
+    for(j = 0; j < 8 && y + j < b->clip.y1; j++, byte++) {
+		if(y + j >= b->clip.y0) {
+            char bits = zxo_bits[byte];
+            for(i = 0; i < 8 && x + i < b->clip.x1; i++) {
+                if(x + i >= b->clip.x0 && (bits & (0x80 >> i))) {
+                    BM_SET(b, x + i, y + j, col);
+                }
+            }
+        }
+    }
+}
+
+static int zxo_puts(Bitmap *b, int x, int y, const char *text) {
+    ZxoFontInfo *info;
+    int xs = x;
+    unsigned int col = bm_get_color(b);
+
+    if(!b->font) return 0;
+
+    info = CAST(ZxoFontInfo*)(b->font->data);
+	
+    while(text[0]) {
+        if(text[0] == '\n') {
+            y += 8;
+            x = xs;
+        } else if(text[0] == '\t') {
+            x += 4 * 8;
+        } else if(text[0] == '\r') {
+            x = xs;
+        } else {
+            zxo_putc(b, info->bits.c, x, y, col, text[0]);
+            x += 8;
+        }
+        text++;
+        if(y > b->h) {
+            return 1;
+        }
+    }
+    return 1;
+}
+
+static int zxo_width(BmFont *font, unsigned int codepoint) {
+    (void)font; (void)codepoint;
+    return 8;
+}
+
+static int zxo_height(BmFont *font, unsigned int codepoint) {
+    (void)font; (void)codepoint;
+    return 8;
+}
+
+static void zxo_free(BmFont *font) {
+    ZxoFontInfo *info = CAST(ZxoFontInfo *)(font->data);
+    assert(!strcmp(font->type, "ZXO"));
+	if(info->owned)
+		free(info->bits.b);
+    free(info);
+    free(font);
+}
+
+BmFont *bm_make_zxo_font(const uint8_t *bits) {
+    SET_ERROR("no error");
+    BmFont *font;
+    ZxoFontInfo *info;
+    font = CAST(BmFont *)(malloc(sizeof *font));
+    if(!font) {
+        SET_ERROR("out of memory");
+        return NULL;
+    }
+    info = CAST(ZxoFontInfo *)(malloc(sizeof *info));
+    if(!info) {
+        SET_ERROR("out of memory");
+        free(font);
+        return NULL;
+    }
+
+    info->bits.c = bits;
+    info->owned = 0;
+
+    font->type = "ZXO";
+    font->ref_count = 1;
+    font->puts = zxo_puts;
+    font->width = zxo_width;
+    font->height = zxo_height;
+    font->measure = NULL;
+    font->dtor = zxo_free;
+    font->data = info;
+
+    return font;
+}
+
+static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
+	
+    BmFont *font;
+    ZxoFontInfo *info;
+	
+    SET_ERROR("no error");
+    font = CAST(BmFont *)(malloc(sizeof *font));
+    if(!font) {
+        SET_ERROR("out of memory");
+        return NULL;
+    }
+    info = CAST(ZxoFontInfo *)(malloc(sizeof *info));
+    if(!info) {
+        SET_ERROR("out of memory");
+        free(font);
+        return NULL;
+    }
+
+    info->bits.b = malloc(768);
+	if(!info->bits.b) {
+        SET_ERROR("out of memory");
+		free(info);
+		free(font);
+        return NULL;
+	}
+    info->owned = 1;
+	
+	if(rd->fread(info->bits.b, 1, 768, rd->data) != 768) {
+        SET_ERROR("bad font file");
+		free(info->bits.b);
+		free(info);
+		free(font);
+		return NULL;
+	}
+
+    font->type = "ZXO";
+    font->ref_count = 1;
+    font->puts = zxo_puts;
+    font->width = zxo_width;
+    font->height = zxo_height;
+    font->measure = NULL;
+    font->dtor = zxo_free;
+    font->data = info;
+
+    return font;
+}
+
+/* Loads the Spectrum/font.ch8 binary bytes */
+BmFont *bm_load_zxo_font(const char *filename) {
+    SET_ERROR("no error");
+	FILE *f = fopen(filename, "rb");	
+	if(!f) return NULL;
+	BmReader rd = make_file_reader(f);
+	BmFont *font = bm_load_zxo_font_rd(&rd);
+	fclose(f);
+	return font;
+}
+
+
 void bm_reset_font(Bitmap *b) {
     static BmFont font = {"XBM",1,xbmf_puts,xbmf_width,xbmf_height,NULL,NULL,NULL};
     bm_set_font(b, &font);

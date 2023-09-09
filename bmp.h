@@ -1510,15 +1510,56 @@ BmFont *bm_make_sfont(const char *file);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
-/** #### `int bm_stricmp(const char *p, const char *q)`
- * Compares strings `p` and `q` case-insensitively.
+/** #### `BmFont *bm_make_zxo_font(const uint8_t *bits)`
+ *
+ * Creates a `BmFont` object from one of the [ZX-Origins][] fonts' C headers.
+ *
+ * Each of those fonts has a `Source/` directory with a header file
+ * named after the font. You include that file in your program, and
+ * then pass the `uint8_t` array therein to `bm_make_zxo_font()`.
+ *
+ * For example, to use the [Prince][zx-prince] font, you would need
+ * to `#include` the `Prince.h` file, and then call `bm_make_zxo_font()`
+ * with `FONT_PRINCE_BITMAP`.
+ *
+ * ```
+ * #include "Prince/Source/Prince.h"
+ * ...
+ * BmFont *font = bm_make_zxo_font(FONT_PRINCE_BITMAP);
+ * ```
+ *
+ * **NOTE:** The line in the header with the bytes for the `'\'` character ends
+ *  with a`// \` in some of the font, which the C preprocessor will see as a
+ * line continuation and treat the next line (containing the bytes of the `']'`
+ * character) as a comment. This results in the wrong glyph being displayed for
+ * lower case characters. If this happens, simply remove the `// \` from the
+ * header, and recompile.
+ *
+ * [zx-origins]: https://damieng.com/typography/zx-origins/
+ * [zx-prince]: https://damieng.com/typography/zx-origins/prince/
  */
-int bm_stricmp(const char *p, const char *q);
+BmFont *bm_make_zxo_font(const uint8_t *bits);
+
+/** #### `BmFont *bm_load_zxo_font(const char *filename)`
+ *
+ * Creates a `BmFont` object from one of the [ZX-Origins][] fonts Spectrum binary files.
+ *
+ * Each of those fonts has a `Spectrum/` directory with a `.ch8` file that contains the
+ * 768 bytes of the font in a binary file.
+ *
+ * For example, to use the [Prince][zx-prince] font, you would invoke this function like so:
+ *
+ * ```
+ * BmFont * font = bm_load_zxo_font("Prince/Spectrum/Prince.ch8");
+ * ```
+ */
+BmFont *bm_load_zxo_font(const char *filename);
+
 
 /**
  * ### Error Handling Functions
  */
- 
+
 /** #### `const char *bm_get_error()`
  * Gets the last error message.
  *

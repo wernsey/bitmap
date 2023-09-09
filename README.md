@@ -65,6 +65,7 @@ Features:
   PixMap](https://en.wikipedia.org/wiki/X_PixMap) data.
 * Cross platform. It's been known to compile under Windows (MinGW), Linux,
   Android and Web via [Emscripten][emscripten].
+* Support for Damien Guard's [ZX Origins][zx-origins] 8&times;8 pixel fonts.
 
 The `fonts/` directory contains some 8-bit style bitmap fonts in XBM format.
 
@@ -212,6 +213,7 @@ make
   * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>; `SaikyoBlack.png` comes from here
 
 [sfont]: http://www.linux-games.com/sfont/
+[zx-origins]: https://damieng.com/typography/zx-origins/
 
 ## TODO
 
