@@ -323,7 +323,6 @@ Bitmap *bm_load_rw(SDL_RWops *file);
  * as `bmp.c` and `-D USESTB` must be addeed to your compiler flags.
  */
 Bitmap *bm_load_stb(const char *filename);
-#endif /* USESTB */
 
 /** #### `Bitmap *bm_from_stb(int w, int h, unsigned char *data)`
  *
@@ -335,6 +334,7 @@ Bitmap *bm_load_stb(const char *filename);
  *
  */
 Bitmap *bm_from_stb(int w, int h, unsigned char *data);
+#endif /* USESTB */
 
 /**
  * #### `int bm_save(Bitmap *b, const char *fname)`
@@ -1510,10 +1510,15 @@ BmFont *bm_make_sfont(const char *file);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
+/** #### `int bm_stricmp(const char *p, const char *q)`
+ * Compares strings `p` and `q` case-insensitively.
+ */
+int bm_stricmp(const char *p, const char *q);
+
 /**
  * ### Error Handling Functions
  */
-
+ 
 /** #### `const char *bm_get_error()`
  * Gets the last error message.
  *
@@ -1567,6 +1572,9 @@ const char* bm_utf8_next_codepoint(const char* in, unsigned int* codepoint);
  *       I'm thinking in particular in my color quantization code which is a bit naive at the moment.
  * - [ ] `bm_atoi()` does not parse `chucknorris` correctly.  \
  *       See <https://stackoverflow.com/a/8333464/115589>
+ * - [ ] I'm regretting my decision to have the BmFont.width function not look at the
+ *       actual character you want to draw, so `bm_text_width()` is broken if you
+ *       aren't using a fixed width font.
  * - [ ] I only recently learned of [Wuffs][wuffs]. It might be worth integrating it in the same way
  *       I integrate `stb_image` for security sensitive applications.
  *       ([HN link](https://news.ycombinator.com/item?id=26714831))

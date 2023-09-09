@@ -86,6 +86,17 @@ static const char *bm_last_error = "no error";
 #  define SET_ERROR(e) (void)e
 #endif
 
+/* Comparing colors is a bit of a rabbit hole because of how humans perception works.
+If you define RGB_BETTER_COMPARE as non-zero, functions that need to compare colors
+based my solution on this answer: https://stackoverflow.com/a/9085524/115589, which
+in turn cites this document: https://www.compuphase.com/cmetric.htm
+
+See `bm_reduce_palette_nearest()` and `bm_palette_nearest_index()`
+*/
+#ifndef RGB_BETTER_COMPARE
+#  define RGB_BETTER_COMPARE 1
+#endif
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
@@ -1087,6 +1098,7 @@ int bm_savef(Bitmap *b, const char *fmt, ...) {
 }
 
 static int bm_save_bmp(Bitmap *b, bm_write_fun writef, void *context) {
+    SET_ERROR("no error");
     /* TODO: Now that I have a function to count colors, maybe
         I should choose to save a bitmap as 8-bit if there
         are <= 256 colors in the image? */
@@ -3847,6 +3859,8 @@ Bitmap *bm_load_stb(const char *filename) {
 
 Bitmap *bm_copy(Bitmap *b) {
     Bitmap *out = bm_create(b->w, b->h);
+    if(!out)
+        return NULL;
     memcpy(out->data, b->data, BM_BLOB_SIZE(b));
 
     out->color = b->color;
@@ -3864,6 +3878,11 @@ Bitmap *bm_crop(Bitmap *b, int x, int y, int w, int h) {
     if(!o)
         return NULL;
     bm_blit(o, 0, 0, b, x, y, w, h);
+
+    o->color = b->color;
+    bm_set_font(o, b->font);
+    bm_set_palette(o, b->palette);
+
     return o;
 }
 
@@ -5589,9 +5608,7 @@ unsigned int bm_hsla(double H, double S, double L, double A) {
 
 void bm_get_hsl(unsigned int col, double *H, double *S, double *L) {
     unsigned char R, G, B, M, m, C;
-    assert(H);
-    assert(S);
-    assert(L);
+    assert(H && S && L);
     bm_get_rgb(col, &R, &G, &B);
     M = MAX(R, MAX(G, B));
     m = MIN(R, MIN(G, B));
@@ -6669,7 +6686,12 @@ void bm_reduce_palette_nearest(Bitmap *b, BmPalette *pal) {
     for(i = 0; i < np; i++) {
         unsigned char iR, iG, iB;
         bm_get_rgb(bytes[i], &iR, &iG, &iB);
+
+#if RGB_BETTER_COMPARE
+        double minD = INT_MAX;
+#else
         int minD = INT_MAX;
+#endif
         int dk = 0;
         for(k = 0; k < nc; k++) {
             unsigned char pR, pG, pB;
@@ -6677,7 +6699,12 @@ void bm_reduce_palette_nearest(Bitmap *b, BmPalette *pal) {
             int dR = (int)iR - (int)pR;
             int dG = (int)iG - (int)pG;
             int dB = (int)iB - (int)pB;
+#if RGB_BETTER_COMPARE
+            int rmean = ((int)iR + (int)pR) / 2;
+            double d = sqrt( (((512 + rmean)*dR*dR)>>8) + 4*dG*dG + (((767-rmean)*dB*dB)>>8) );
+#else
             int d = dR*dR + dG*dG + dB*dB;
+#endif
             if(d < minD) {
                 minD = d;
                 dk = k;
@@ -6761,16 +6788,32 @@ unsigned int bm_palette_get(BmPalette *pal, int index) {
     return pal->colors[index];
 }
 
-/*
-At some point I experimented with whether a kd-tree would
+/* At some point I experimented with whether a kd-tree would
 improve the performance. It didn't.
-See commit cae63c0a1fad72a76c1e913c8ee26e1293888de0
-(I'm guessing that the function call overheads killed all the
-algorithm's performance gains, although I'll be kicking myself if
-there was some mistake I made along the way)
-*/
+See commit cae63c0a1fad72a76c1e913c8ee26e1293888de0 */
 unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color) {
     int i, m = 0;
+#if RGB_BETTER_COMPARE
+    unsigned char R1, G1, B1, R2, G2, B2;
+    int rmean, r, g, b;
+    double d, md = 1e10;
+    bm_get_rgb(color, &R1, &G1, &B1);
+    for(i = 0; i < pal->ncolors; i++) {
+        bm_get_rgb(pal->colors[i], &R2, &G2, &B2);
+
+        rmean = (R1 + R2) / 2;
+        r = R1 - R2;
+        g = G1 - G2;
+        b = B1 - B2;
+        d = sqrt( (((512 + rmean)*r*r)>>8) + 4*g*g + (((767-rmean)*b*b)>>8) );
+
+        if(d < md) {
+            md = d;
+            m = i;
+        }
+    }
+#else
+    /* This path just takes the euclidean distance */
     unsigned int dr, dg, db;
     unsigned int r0 = (color >> 16) & 0xFF,
         g0 = (color >> 8) & 0xFF,
@@ -6796,6 +6839,7 @@ unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color) {
             m = i;
         }
     }
+#endif
     return m;
 }
 
@@ -7311,6 +7355,7 @@ BmPalette *bm_quantize_random(Bitmap *b, int K) {
 }
 
 void bm_set_palette(Bitmap *b, BmPalette *pal) {
+    assert(b);
     if(pal)
         bm_palette_retain(pal);
     if(b->palette)
@@ -7319,6 +7364,7 @@ void bm_set_palette(Bitmap *b, BmPalette *pal) {
 }
 
 BmPalette *bm_get_palette(const Bitmap *b) {
+    assert(b);
     return b->palette;
 }
 

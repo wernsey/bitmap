@@ -224,5 +224,9 @@ make
 * Since `bm_rotate_cw()` and `bm_rotate_ccw()` functions take the clipping rect into account,
   I should consider doing the same for some of the other API functions for consistency, like
   `bm_resample()` and co. Also the flip functions suggested above.
+* Support for [QOI][] files. I was going to just pull in the [reference implementation][qui.h], but
+  the `qoi_decode()` function didn't look like it'd fit in nicely with the `BmReader` interface.
 
 [PCF]: https://fontforge.org/docs/techref/pcf-format.html
+[QOI]: https://phoboslab.org/log/2021/11/qoi-fast-lossless-image-compression
+[qui.h]: https://github.com/phoboslab/qoi/blob/master/qoi.h
