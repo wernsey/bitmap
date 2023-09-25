@@ -4572,6 +4572,11 @@ void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, do
     "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal, July 01, 2001
     http://www.drdobbs.com/architecture-and-design/fast-bitmap-rotation-and-scaling/184416337
     See also http://www.efg2.com/Lab/ImageProcessing/RotateScanline.htm
+
+    Addendum: I only recently learned about the technique of rotating a
+    bitmap with three sheers, and it would be a nice addition to this library.
+    <https://cohost.org/tomforsyth/post/891823-rotation-with-three> and
+    <https://www.ocf.berkeley.edu/~fricke/projects/israel/paeth/rotation_by_shearing.html>
     */
     int x,y;
 
@@ -8020,7 +8025,7 @@ static int zxo_puts(Bitmap *b, int x, int y, const char *text) {
     if(!b->font) return 0;
 
     info = CAST(ZxoFontInfo*)(b->font->data);
-	
+
     while(text[0]) {
         if(text[0] == '\n') {
             y += 8;
@@ -8092,10 +8097,10 @@ BmFont *bm_make_zxo_font(const uint8_t *bits) {
 }
 
 static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
-	
+
     BmFont *font;
     ZxoFontInfo *info;
-	
+
     SET_ERROR("no error");
     font = CAST(BmFont *)(malloc(sizeof *font));
     if(!font) {
@@ -8117,7 +8122,7 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
         return NULL;
 	}
     info->owned = 1;
-	
+
 	if(rd->fread(info->bits.b, 1, 768, rd->data) != 768) {
         SET_ERROR("bad font file");
 		free(info->bits.b);
@@ -8141,7 +8146,7 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
 /* Loads the Spectrum/font.ch8 binary bytes */
 BmFont *bm_load_zxo_font(const char *filename) {
     SET_ERROR("no error");
-	FILE *f = fopen(filename, "rb");	
+	FILE *f = fopen(filename, "rb");
 	if(!f) return NULL;
 	BmReader rd = make_file_reader(f);
 	BmFont *font = bm_load_zxo_font_rd(&rd);

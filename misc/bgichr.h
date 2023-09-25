@@ -53,6 +53,7 @@
  */
 
 #ifndef BGICHR_H
+#define BGICHR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -153,7 +154,7 @@ static void bgi_draw_char(Bitmap *bmp, BgiFont *font, int xo, int yo, unsigned c
 static int bgi_puts(Bitmap *b, int x, int y, const char *s) {
     BmFont *font = bm_get_font(b);
     assert(!strcmp(font->type, "BGIFONT"));
-    BgiFont *chrfnt = font->data;
+    BgiFont *chrfnt = (BgiFont*) font->data;
 
     int x0 = x, lw = 0;
 
@@ -189,21 +190,21 @@ static int bgi_puts(Bitmap *b, int x, int y, const char *s) {
 
 static int bgi_width(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "BGIFONT"));
-    BgiFont *chrfnt = font->data;
+    BgiFont *chrfnt = (BgiFont*) font->data;
     return chr_width(chrfnt, codepoint);
 }
 
 static int bgi_height(BmFont *font, unsigned int codepoint) {
     assert(!strcmp(font->type, "BGIFONT"));
     (void)codepoint;
-    BgiFont *chrfnt = font->data;
+    BgiFont *chrfnt = (BgiFont*) font->data;
     return chr_height(chrfnt);
 }
 
 static void bgi_dtor(BmFont *font) {
     if(!font || strcmp(font->type, "BGIFONT"))
         return;
-    BgiFont *chrfnt = font->data;
+    BgiFont *chrfnt = (BgiFont*) font->data;
     free(chrfnt->widths);
     free(chrfnt->offsets);
     free(chrfnt->strokes);
@@ -278,7 +279,7 @@ BmFont *bm_make_bgi_font(const char *filename) {
     /* The stroke header is padded to be 0x0010 bytes in size */
     fseek(f, hdr_size + 0x0010, SEEK_SET);
 
-    chrfnt = malloc(sizeof *chrfnt);
+    chrfnt = (BgiFont*) malloc(sizeof *chrfnt);
     if(!chrfnt) {
         bm_set_error("out of memory");
         fclose(f);
@@ -292,8 +293,8 @@ BmFont *bm_make_bgi_font(const char *filename) {
     chrfnt->orig_to_baseline = stroke_hdr.orig_to_baseline;
     chrfnt->orig_to_descender = stroke_hdr.orig_to_descender;
 
-    chrfnt->offsets = malloc(stroke_hdr.char_count * sizeof chrfnt->offsets[0]);
-    chrfnt->widths = malloc(stroke_hdr.char_count * sizeof chrfnt->widths[0]);
+    chrfnt->offsets = (uint16_t*) malloc(stroke_hdr.char_count * sizeof chrfnt->offsets[0]);
+    chrfnt->widths = (uint8_t*) malloc(stroke_hdr.char_count * sizeof chrfnt->widths[0]);
     chrfnt->strokes = NULL;
     if(!chrfnt->offsets || !chrfnt->widths) {
         bm_set_error("out of memory");
@@ -311,7 +312,7 @@ BmFont *bm_make_bgi_font(const char *filename) {
     }
 
     strokes_size = size - ftell(f);
-    chrfnt->strokes = malloc(strokes_size);
+    chrfnt->strokes = (uint8_t*) malloc(strokes_size);
     if(!chrfnt->strokes) {
         bm_set_error("out of memory");
         goto error;
@@ -324,7 +325,7 @@ BmFont *bm_make_bgi_font(const char *filename) {
 
     fclose(f);
 
-    font = malloc(sizeof *font);
+    font = (BmFont*) malloc(sizeof *font);
     if(!font) {
         bm_set_error("out of memory");
         goto error;
@@ -353,7 +354,7 @@ void bm_chr_scale(BmFont *font, double scale) {
     if(strcmp(font->type, "BGIFONT"))
         return;
     assert(scale > 0);
-    BgiFont *chrfnt = font->data;
+    BgiFont *chrfnt = (BgiFont*) font->data;
     chrfnt->scale = scale;
 }
 

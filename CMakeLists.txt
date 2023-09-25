@@ -1,10 +1,10 @@
+cmake_minimum_required(VERSION 3.5.0)
 project(libbmp)
-cmake_minimum_required(VERSION 3.15.0)
 add_library(${PROJECT_NAME} STATIC bmp.c)
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
-add_compile_definitions(USESTB)
+add_compile_definitions(USEJPG)
 target_sources(${PROJECT_NAME} PRIVATE bmp.c)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "3rd-party")
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "../jpeg")
 if (MSVC)
   # Statically link with the C runtime library
   set(CompilerFlags
