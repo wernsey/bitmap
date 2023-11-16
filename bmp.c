@@ -504,7 +504,7 @@ Bitmap *bm_load_fp(FILE *f) {
             ispcx = 1;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
             ispng = 1;
-        if(magic[0] == 'P' && strchr("123456", magic[1]))
+        else if(magic[0] == 'P' && strchr("123456", magic[1]))
             ispbm = 1;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
@@ -596,7 +596,7 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
             ispcx = 1;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
             ispng = 1;
-        if(magic[0] == 'P' && strchr("123456", magic[1]))
+        else if(magic[0] == 'P' && strchr("123456", magic[1]))
             ispbm = 1;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
