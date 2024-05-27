@@ -46,6 +46,7 @@ static unsigned char tom_thumb_bits[] = {
 static void tt_putc(Bitmap *b, int x, int y, unsigned short c) {
 	int frow, fcol, byte;
     unsigned int col;
+	BmRect clip = bm_get_clip(b);
     int i, j;
     if(c < 32 || c > 127) c = 127;
     c -= 0x20;
@@ -55,12 +56,13 @@ static void tt_putc(Bitmap *b, int x, int y, unsigned short c) {
     frow = c & 0x7;    
     byte = frow * 5 * 6 + fcol;
     col = bm_get_color(b);
-    for(j = 0; j < 5 && y + j < b->clip.y1; j++) {
-        if(y + j >= b->clip.y0) {
+	
+    for(j = 0; j < 5 && y + j < clip.y1; j++) {
+        if(y + j >= clip.y0) {
             unsigned char bits = tom_thumb_bits[byte];
             if(shf) bits >>= 4;
-            for(i = 0; i < 4 && x + i < b->clip.x1; i++) {
-                if(x + i >= b->clip.x0 && !(bits & (1 << i))) {
+            for(i = 0; i < 4 && x + i < clip.x1; i++) {
+                if(x + i >= clip.x0 && !(bits & (1 << i))) {
                     bm_set(b, x + i, y + j, col);
                 }
             }
@@ -90,18 +92,23 @@ static int tt_puts(Bitmap *b, int x, int y, const char *s) {
 	return 1;
 }
 
-static int tt_width(struct bitmap_font *font) {
+static int tt_width(struct bitmap_font *font, unsigned int codepoint) {
+	(void)font,(void)codepoint;
     return 4;
 }
-static int tt_height(struct bitmap_font *font) {
+static int tt_height(struct bitmap_font *font, unsigned int codepoint) {
+    (void)font,(void)codepoint;
     return 6;
 }
 
 BmFont tomthumb = {
     "TOMTHUMB",
+    1,
     tt_puts,
     tt_width,
     tt_height,
+    NULL,
+    NULL,
     NULL
 };
 
