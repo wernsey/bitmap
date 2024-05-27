@@ -1183,6 +1183,14 @@ BmPalette *bm_quantize_random(Bitmap *b, int K);
 void bm_reduce_palette(Bitmap *b, BmPalette *palette);
 
 /**
+ * #### `void bm_reduce_palette_atk(Bitmap *b, BmPalette *palette)`
+ *
+ * Reduces the colors in the bitmap `b` to the colors in `palette`
+ * by applying [Atkinson dithering](https://en.wikipedia.org/wiki/Atkinson_dithering)
+ */
+void bm_reduce_palette_atk(Bitmap *b, BmPalette *pal);
+
+/**
  * #### `void bm_reduce_palette_OD4(Bitmap *b, BmPalette *palette)`
  *
  * Reduces the colors in the bitmap `b` to the colors in `palette`
@@ -1510,7 +1518,7 @@ BmFont *bm_make_sfont(const char *file);
  */
 BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
 
-/** #### `BmFont *bm_make_zxo_font(const uint8_t *bits)`
+/** #### `BmFont *bm_make_zxo_font(const unsigned char *bits)`
  *
  * Creates a `BmFont` object from one of the [ZX-Origins][] fonts' C headers.
  *
@@ -1538,7 +1546,7 @@ BmFont *bm_make_xbm_font(const unsigned char *bits, int spacing);
  * [zx-origins]: https://damieng.com/typography/zx-origins/
  * [zx-prince]: https://damieng.com/typography/zx-origins/prince/
  */
-BmFont *bm_make_zxo_font(const uint8_t *bits);
+BmFont *bm_make_zxo_font(const unsigned char *bits);
 
 /** #### `BmFont *bm_load_zxo_font(const char *filename)`
  *

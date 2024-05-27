@@ -2084,6 +2084,9 @@ static int mapping_color_comp(const void *ap, const void *bp) {
 static int make_palette_mapping(BmPalette *palette, struct palette_mapping mapping[256], int *count) {
     int i;
     *count = bm_palette_count(palette);
+	
+	/* FIXME : Tried to save a PCX without specifying a palette, and this assertion failed: */
+	
     assert(*count > 0 && *count <= 256);
     for(i = 0; i < *count; i++) {
         mapping[i].color = bm_palette_get(palette, i);
@@ -6608,6 +6611,63 @@ void bm_reduce_palette(Bitmap *b, BmPalette *pal) {
     }
 }
 
+static void atk_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb) {
+    int c, R, G, B;
+    if(x < 0 || x >= b->w || y < 0 || y >= b->h)
+        return;
+    c = BM_GET(b, x, y);
+
+    R = ((c >> 16) & 0xFF) + (er >> 3);
+    G = ((c >> 8) & 0xFF) + (eg >> 3);
+    B = ((c >> 0) & 0xFF) + (eb >> 3);
+
+    if(R > 255) R = 255;
+    if(R < 0) R = 0;
+    if(G > 255) G = 255;
+    if(G < 0) G = 0;
+    if(B > 255) B = 255;
+    if(B < 0) B = 0;
+
+    BM_SET_RGBA(b, x, y, R, G, B, 0);
+}
+
+void bm_reduce_palette_atk(Bitmap *b, BmPalette *pal) {
+    /* Atkinson Dithering:
+	 * https://beyondloom.com/blog/dither.html
+	 * https://en.wikipedia.org/wiki/Atkinson_dithering
+	 *
+	 * "Atkinson's algorithm seems to produce richer contrast, at the cost of 
+	 * some detail in very light or dark areas of the image." - beyondloom
+	 */
+    int x, y;
+    if(!b)
+        return;
+    assert(pal);
+    for(y = 0; y < b->h; y++) {
+        for(x = 0; x < b->w; x++) {
+            unsigned int r1, g1, b1;
+            unsigned int r2, g2, b2;
+            unsigned int er, eg, eb;
+            unsigned int newpixel, oldpixel = BM_GET(b, x, y);
+
+            newpixel = bm_palette_nearest_color(pal, oldpixel);
+
+            bm_set(b, x, y, newpixel);
+
+            r1 = (oldpixel >> 16) & 0xFF; g1 = (oldpixel >> 8) & 0xFF; b1 = (oldpixel >> 0) & 0xFF;
+            r2 = (newpixel >> 16) & 0xFF; g2 = (newpixel >> 8) & 0xFF; b2 = (newpixel >> 0) & 0xFF;
+            er = r1 - r2; eg = g1 - g2; eb = b1 - b2;
+
+            atk_add_factor(b, x + 1, y    , er, eg, eb);
+            atk_add_factor(b, x + 2, y    , er, eg, eb);
+            atk_add_factor(b, x - 1, y + 1, er, eg, eb);
+            atk_add_factor(b, x    , y + 1, er, eg, eb);
+            atk_add_factor(b, x + 1, y + 1, er, eg, eb);
+            atk_add_factor(b, x    , y + 2, er, eg, eb);
+        }
+    }
+}
+
 static int bayer4x4[16] = { /* (1/17) */
     1,  9,  3, 11,
     13, 5, 15,  7,
@@ -8065,7 +8125,7 @@ static void zxo_free(BmFont *font) {
     free(font);
 }
 
-BmFont *bm_make_zxo_font(const uint8_t *bits) {
+BmFont *bm_make_zxo_font(const unsigned char *bits) {
     SET_ERROR("no error");
     BmFont *font;
     ZxoFontInfo *info;
