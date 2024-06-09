@@ -2084,9 +2084,7 @@ static int mapping_color_comp(const void *ap, const void *bp) {
 static int make_palette_mapping(BmPalette *palette, struct palette_mapping mapping[256], int *count) {
     int i;
     *count = bm_palette_count(palette);
-	
-	/* FIXME : Tried to save a PCX without specifying a palette, and this assertion failed: */
-	
+
     assert(*count > 0 && *count <= 256);
     for(i = 0; i < *count; i++) {
         mapping[i].color = bm_palette_get(palette, i);
@@ -3105,7 +3103,7 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
         int p;
         for(p = 0; p < hdr.planes; p++) {
             int x = 0;
-            while(x < b->w) {
+            while(x < hdr.bytes_per_line) {
                 int cnt = 1;
                 unsigned char i;
                 if(rd.fread(&i, sizeof i, 1, rd.data) != 1)
@@ -3118,8 +3116,10 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
                 }
                 if(hdr.planes == 1) {
                     unsigned int c = bm_palette_get(pal, i);
-                    while(cnt--)
-                        bm_set(b, x++, y, c);
+                    while(cnt--) {
+                        if(x == b->w) goto next;
+                        BM_SET(b, x++, y, c);
+                    }
                 } else {
                     while(cnt--) {
                         int c = BM_GET(b, x, y);
@@ -3132,6 +3132,7 @@ static Bitmap *bm_load_pcx_rd(BmReader rd) {
                     }
                 }
             }
+next:       continue;
         }
     }
 
@@ -3149,6 +3150,7 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
 
     struct palette_mapping mapping[256];
     int color_count;
+    struct pcx_header hdr;
 
     if(!b)
         return 0;
@@ -3167,8 +3169,6 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
 
     {
         /* Write the header */
-        struct pcx_header hdr;
-
         memset(&hdr, 0, sizeof hdr);
 
         hdr.manuf = 0x0A;
@@ -3186,7 +3186,9 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
 
         hdr.reserved = 0;
         hdr.planes = 1;
-        hdr.bytes_per_line = hdr.xmax - hdr.xmin + 1;
+        hdr.bytes_per_line = b->w;
+        if(hdr.bytes_per_line & 0x1) /* Must be an even number */
+            hdr.bytes_per_line++;
         hdr.paltype = 1;
         hdr.hscrsize = 0;
         hdr.vscrsize = 0;
@@ -3200,6 +3202,7 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
     /* Copy the image and dither it to match the palette */
     b = bm_copy(b);
     bm_reduce_palette(b, palette);
+    bm_set_palette(b, palette);
 
     if(!make_palette_mapping(palette, mapping, &color_count))
         return 0;
@@ -3232,6 +3235,10 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
                 put_byte(0xC0 | cnt, writef, context);
                 put_byte(i, writef, context);
             }
+        }
+        while(x < hdr.bytes_per_line) {
+            put_byte(0x00, writef, context);
+            x++;
         }
     }
 
@@ -6633,12 +6640,12 @@ static void atk_add_factor(Bitmap *b, int x, int y, int er, int eg, int eb) {
 
 void bm_reduce_palette_atk(Bitmap *b, BmPalette *pal) {
     /* Atkinson Dithering:
-	 * https://beyondloom.com/blog/dither.html
-	 * https://en.wikipedia.org/wiki/Atkinson_dithering
-	 *
-	 * "Atkinson's algorithm seems to produce richer contrast, at the cost of 
-	 * some detail in very light or dark areas of the image." - beyondloom
-	 */
+     * https://beyondloom.com/blog/dither.html
+     * https://en.wikipedia.org/wiki/Atkinson_dithering
+     *
+     * "Atkinson's algorithm seems to produce richer contrast, at the cost of
+     * some detail in very light or dark areas of the image." - beyondloom
+     */
     int x, y;
     if(!b)
         return;
@@ -8066,7 +8073,7 @@ static void zxo_putc(Bitmap *b, const unsigned char *zxo_bits, int x, int y, uns
 
     byte = (c - 32) * 8;
     for(j = 0; j < 8 && y + j < b->clip.y1; j++, byte++) {
-		if(y + j >= b->clip.y0) {
+        if(y + j >= b->clip.y0) {
             char bits = zxo_bits[byte];
             for(i = 0; i < 8 && x + i < b->clip.x1; i++) {
                 if(x + i >= b->clip.x0 && (bits & (0x80 >> i))) {
@@ -8119,8 +8126,8 @@ static int zxo_height(BmFont *font, unsigned int codepoint) {
 static void zxo_free(BmFont *font) {
     ZxoFontInfo *info = CAST(ZxoFontInfo *)(font->data);
     assert(!strcmp(font->type, "ZXO"));
-	if(info->owned)
-		free(info->bits.b);
+    if(info->owned)
+        free(info->bits.b);
     free(info);
     free(font);
 }
@@ -8175,21 +8182,21 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
     }
 
     info->bits.b = malloc(768);
-	if(!info->bits.b) {
+    if(!info->bits.b) {
         SET_ERROR("out of memory");
-		free(info);
-		free(font);
+        free(info);
+        free(font);
         return NULL;
-	}
+    }
     info->owned = 1;
 
-	if(rd->fread(info->bits.b, 1, 768, rd->data) != 768) {
+    if(rd->fread(info->bits.b, 1, 768, rd->data) != 768) {
         SET_ERROR("bad font file");
-		free(info->bits.b);
-		free(info);
-		free(font);
-		return NULL;
-	}
+        free(info->bits.b);
+        free(info);
+        free(font);
+        return NULL;
+    }
 
     font->type = "ZXO";
     font->ref_count = 1;
@@ -8206,12 +8213,12 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
 /* Loads the Spectrum/font.ch8 binary bytes */
 BmFont *bm_load_zxo_font(const char *filename) {
     SET_ERROR("no error");
-	FILE *f = fopen(filename, "rb");
-	if(!f) return NULL;
-	BmReader rd = make_file_reader(f);
-	BmFont *font = bm_load_zxo_font_rd(&rd);
-	fclose(f);
-	return font;
+    FILE *f = fopen(filename, "rb");
+    if(!f) return NULL;
+    BmReader rd = make_file_reader(f);
+    BmFont *font = bm_load_zxo_font_rd(&rd);
+    fclose(f);
+    return font;
 }
 
 
