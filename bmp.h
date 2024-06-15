@@ -56,8 +56,11 @@ extern "C" {
 #endif
 
 /**
- * ### Structures
+ * ### Types
  */
+
+
+typedef unsigned int bm_color_t;
 
 /**
  * #### `typedef struct bitmap Bitmap;`
@@ -523,22 +526,22 @@ void bm_flip_vertical(Bitmap *b);
  */
 
 /**
- * #### `unsigned int bm_get(Bitmap *b, int x, int y)`
+ * #### `bm_color_t bm_get(Bitmap *b, int x, int y)`
  *
  * Retrieves the value of the pixel at `x,y` as an integer.
  *
  * The return value is in the form `0xAABBGGRR`
  */
-unsigned int bm_get(Bitmap *b, int x, int y);
+bm_color_t bm_get(Bitmap *b, int x, int y);
 
 /**
- * #### `void bm_set(Bitmap *b, int x, int y, unsigned int c)`
+ * #### `void bm_set(Bitmap *b, int x, int y, bm_color_t c)`
  *
  * Sets the value of the pixel at `x,y` to the color `c`.
  *
  * `c` is in the form `0xAABBGGRR`.
  */
-void bm_set(Bitmap *b, int x, int y, unsigned int c);
+void bm_set(Bitmap *b, int x, int y, bm_color_t c);
 
 /**
  * ### Color functions
@@ -546,19 +549,19 @@ void bm_set(Bitmap *b, int x, int y, unsigned int c);
  */
 
 /**
- * #### `void bm_set_color(Bitmap *bm, unsigned int col)`
+ * #### `void bm_set_color(Bitmap *bm, bm_color_t col)`
  *
  * Sets the color of the pen to a color represented
  * by an integer, like `0xAARRGGBB`
  */
-void bm_set_color(Bitmap *bm, unsigned int col);
+void bm_set_color(Bitmap *bm, bm_color_t col);
 
 /**
- * #### `unsigned int bm_get_color(Bitmap *bc)`
+ * #### `bm_color_t bm_get_color(Bitmap *bc)`
  *
  * Retrieves the pen color.
  */
-unsigned int bm_get_color(Bitmap *bm);
+bm_color_t bm_get_color(Bitmap *bm);
 
 /**
  * #### `void bm_set_alpha(Bitmap *bm, int a)`
@@ -568,7 +571,7 @@ unsigned int bm_get_color(Bitmap *bm);
 void bm_set_alpha(Bitmap *bm, int a);
 
 /**
- * #### `unsigned int bm_picker(Bitmap *bm, int x, int y)`
+ * #### `bm_color_t bm_picker(Bitmap *bm, int x, int y)`
  *
  * Sets the color of the pen to the color of the pixel at <x,y>
  * on the bitmap.
@@ -577,10 +580,10 @@ void bm_set_alpha(Bitmap *bm, int a);
  *
  * It returns the integer representation of the color.
  */
-unsigned int bm_picker(Bitmap *bm, int x, int y);
+bm_color_t bm_picker(Bitmap *bm, int x, int y);
 
 /**
- * #### `unsigned int bm_atoi(const char *text)`
+ * #### `bm_color_t bm_atoi(const char *text)`
  *
  * Converts a text string like "#FF00FF" or "white" to
  * an integer of the form `0xFF00FF`.
@@ -598,31 +601,31 @@ unsigned int bm_picker(Bitmap *bm, int x, int y);
  *
  * It returns 0 (black) if the string couldn't be parsed.
  */
-unsigned int bm_atoi(const char *text);
+bm_color_t bm_atoi(const char *text);
 
 /**
- * #### `unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B)`
+ * #### `bm_color_t bm_rgb(unsigned char R, unsigned char G, unsigned char B)`
  *
  * Builds a color from the specified `(R,G,B)` values
  */
-unsigned int bm_rgb(unsigned char R, unsigned char G, unsigned char B);
+bm_color_t bm_rgb(unsigned char R, unsigned char G, unsigned char B);
 
 /**
- * #### `unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`
+ * #### `bm_color_t bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A)`
  *
  * Builds a color from the specified `(R,G,B,A)` values
  */
-unsigned int bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A);
+bm_color_t bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned char A);
 
 /**
- * #### `void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned char *B)`
+ * #### `void bm_get_rgb(bm_color_t col, unsigned char *R, unsigned char *G, unsigned char *B)`
  *
  * Decomposes a color `col` into its `R,G,B` components.
  */
-void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned char *B);
+void bm_get_rgb(bm_color_t col, unsigned char *R, unsigned char *G, unsigned char *B);
 
 /**
- * #### `unsigned int bm_hsl(double H, double S, double L)`
+ * #### `bm_color_t bm_hsl(double H, double S, double L)`
  *
  * Creates a color from the given Hue/Saturation/Lightness values.
  * See <https://en.wikipedia.org/wiki/HSL_and_HSV> for more information.
@@ -630,30 +633,30 @@ void bm_get_rgb(unsigned int col, unsigned char *R, unsigned char *G, unsigned c
  * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
  * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
  */
-unsigned int bm_hsl(double H, double S, double L);
+bm_color_t bm_hsl(double H, double S, double L);
 
 /**
- * #### `unsigned int bm_hsla(double H, double S, double L, double A)`
+ * #### `bm_color_t bm_hsla(double H, double S, double L, double A)`
  *
  * Creates a color from the given Hue/Saturation/Lightness and alpha values.
  *
  * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
  * Saturation (`S`) and Lightness (`L`) and Alpha (`A`) are given as percentages from 0 to 100%.
  */
-unsigned int bm_hsla(double H, double S, double L, double A);
+bm_color_t bm_hsla(double H, double S, double L, double A);
 
 /**
- * #### `bm_get_hsl(unsigned int col, double *H, double *S, double *L)`
+ * #### `bm_get_hsl(bm_color_t col, double *H, double *S, double *L)`
  *
  * Decomposes a color `col` into its Hue/Saturation/Lightness components.
  *
  * Hue (`H`) is given as an angle in degrees from 0&deg; to 360&deg;.
  * Saturation (`S`) and Lightness (`L`) are given as percentages from 0 to 100%.
  */
-void bm_get_hsl(unsigned int col, double *H, double *S, double *L);
+void bm_get_hsl(bm_color_t col, double *H, double *S, double *L);
 
 /**
- * #### `int bm_colcmp(unsigned int c1, unsigned int c2)`
+ * #### `int bm_colcmp(bm_color_t c1, bm_color_t c2)`
  *
  * Compares the RGB values of two colors, ignoring the alphas values
  * (If the alpha values are important you can just use `==`).
@@ -661,10 +664,10 @@ void bm_get_hsl(unsigned int col, double *H, double *S, double *L);
  * Returns non-zero if the RGB values of `c1` and `c2` are the same,
  * zero otherwise.
  */
-int bm_colcmp(unsigned int c1, unsigned int c2);
+int bm_colcmp(bm_color_t c1, bm_color_t c2);
 
 /**
- * #### `unsigned int bm_byte_order(unsigned int col)`
+ * #### `bm_color_t bm_byte_order(bm_color_t col)`
  *
  * Fixes the input color to be in the proper byte order.
  *
@@ -672,33 +675,33 @@ int bm_colcmp(unsigned int c1, unsigned int c2);
  * will be in either `0xAARRGGBB` or `0xAABBGGRR` depending on how the
  * library was compiled.
  */
-unsigned int bm_byte_order(unsigned int col);
+bm_color_t bm_byte_order(bm_color_t col);
 
 /**
- * #### `unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t)`
+ * #### `bm_color_t bm_lerp(bm_color_t color1, bm_color_t color2, double t)`
  *
  * Computes the color that is a distance `t` along the line between
  * `color1` and `color2`.
  *
  * If `t` is 0 it returns `color1`. If `t` is 1.0 it returns `color2`.
  */
-unsigned int bm_lerp(unsigned int color1, unsigned int color2, double t);
+bm_color_t bm_lerp(bm_color_t color1, bm_color_t color2, double t);
 
 /**
- * #### `unsigned int bm_graypixel(unsigned int c)`
+ * #### `bm_color_t bm_graypixel(bm_color_t c)`
  *
  * Converts a color to its grayscale value.
  *
  * See <https://en.wikipedia.org/wiki/Grayscale>
  */
-unsigned int bm_graypixel(unsigned int c);
+bm_color_t bm_graypixel(bm_color_t c);
 
 /**
- * #### `void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest)`
+ * #### `void bm_swap_color(Bitmap *b, bm_color_t src, bm_color_t dest)`
  *
  * Replaces all pixels of color `src` in bitmap `b` with the color `dest`.
  */
-void bm_swap_color(Bitmap *b, unsigned int src, unsigned int dest);
+void bm_swap_color(Bitmap *b, bm_color_t src, bm_color_t dest);
 
 /**
  * #### `Bitmap *bm_swap_rb(Bitmap *b)`
@@ -751,7 +754,7 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
  *
  * The callback function takes this form:
  *
- *     typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color)
+ *     typedef bm_color_t (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color)
  *
  * Where
  *
@@ -765,7 +768,7 @@ void bm_blit_ex(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx
  * before calling the callback, so that the callback can rely on it (The
  * clipping region will be restored afterwards).
  */
-typedef unsigned int (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
+typedef bm_color_t (*bm_sampler_function)(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color);
 
 void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, int sx, int sy, int sw, int sh, bm_sampler_function fun);
 
@@ -781,10 +784,10 @@ void bm_blit_callback(Bitmap *dst, int dx, int dy, int dw, int dh, Bitmap *src, 
  * - `bm_smp_blend50` - Uses a bit shift trick to do a 50/50 blend between
  *    the source and destination pixels
  */
-unsigned int bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
-unsigned int bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
-unsigned int bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
-unsigned int bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, unsigned int dest_color);
+bm_color_t bm_smp_outline(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color);
+bm_color_t bm_smp_border(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color);
+bm_color_t bm_smp_binary(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color);
+bm_color_t bm_smp_blend50(Bitmap *dst, int dx, int dy, Bitmap *src, int sx, int sy, bm_color_t dest_color);
 
 /**
  * #### `void bm_rotate_blit(Bitmap *dst, int ox, int oy, Bitmap *src, int px, int py, double angle, double scale);`
@@ -1045,7 +1048,7 @@ int bm_make_palette(Bitmap *b);
 int bm_palette_count(BmPalette *pal);
 
 /**
- * #### `int bm_palette_add(BmPalette *pal, unsigned int color)`
+ * #### `int bm_palette_add(BmPalette *pal, bm_color_t color)`
  *
  * Adds a new color `color` to the palette `pal`.
  *
@@ -1053,41 +1056,41 @@ int bm_palette_count(BmPalette *pal);
  *
  * It returns the index of the added color.
  */
-int bm_palette_add(BmPalette *pal, unsigned int color);
+int bm_palette_add(BmPalette *pal, bm_color_t color);
 
 /**
- * #### `int bm_palette_set(BmPalette *pal, int index, unsigned int color)`
+ * #### `int bm_palette_set(BmPalette *pal, int index, bm_color_t color)`
  *
  * Changes the color in the palette `pal` at position `index` to the value `color`
  *
  * It returns the index, or -1 if the index is invalid.
  */
-int bm_palette_set(BmPalette *pal, int index, unsigned int color);
+int bm_palette_set(BmPalette *pal, int index, bm_color_t color);
 
 /**
- * #### `unsigned int bm_palette_get(BmPalette *pal, int index)`
+ * #### `bm_color_t bm_palette_get(BmPalette *pal, int index)`
  *
  * Retrieves the color at position `index` in the palette `pal`.
  *
  * It returns black (#000000) if the index is invalid.
  */
-unsigned int bm_palette_get(BmPalette *pal, int index);
+bm_color_t bm_palette_get(BmPalette *pal, int index);
 
 /**
- * #### `unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color)`
+ * #### `unsigned int bm_palette_nearest_index(BmPalette *pal, bm_color_t color)`
  *
  * Finds the index of the color in the palette `pal` that is closest to `color`.
  */
-unsigned int bm_palette_nearest_index(BmPalette *pal, unsigned int color);
+unsigned int bm_palette_nearest_index(BmPalette *pal, bm_color_t color);
 
 /**
- * #### `unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color)`
+ * #### `bm_color_t bm_palette_nearest_color(BmPalette *pal, bm_color_t color)`
  *
  * Finds the color in the palette `pal` that is closest to `color`.
  *
  * It is functionally equivalent to `bm_palette_get(pal, bm_palette_nearest_index(pal, color));`
  */
-unsigned int bm_palette_nearest_color(BmPalette *pal, unsigned int color);
+bm_color_t bm_palette_nearest_color(BmPalette *pal, bm_color_t color);
 
 /**
  * #### `BmPalette *bm_load_palette(const char * filename)`
@@ -1362,6 +1365,14 @@ void bm_fillpoly(Bitmap *b, BmPoint points[], unsigned int n);
  * The color of the pen is used as the target color.
  */
 void bm_fill(Bitmap *b, int x, int y);
+
+/**
+ * #### `Bitmap *bm_isolate(Bitmap *b, bm_color_t color)`
+ *
+ * Changes `b` so that all pixels that matches `color` are
+ * 0xFFFFFF (white), and all others are 0x000000 (black).
+ */
+Bitmap *bm_isolate(Bitmap *b, bm_color_t color);
 
 /**
  * ### Font Routines
