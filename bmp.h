@@ -1498,6 +1498,17 @@ unsigned int bm_font_release(BmFont *font);
  */
 BmFont *bm_make_ras_font(const char *file, int spacing);
 
+/**
+ * #### `BmFont *bm_make_ras_font_mem(const unsigned char *buffer, long len, int spacing)`
+ *
+ * Creates a raster font from a bitmap file in a memory buffer `buffer`
+ * of size `len` in any of the supported file types.
+ *
+ * See [bm_make_ras_font()](#bmfont-bm_make_ras_fontconst-char-file-int-spacing)
+ * for details on how the font should be laid out.
+ */
+BmFont *bm_make_ras_font_mem(const unsigned char *buffer, long len, int spacing);
+
 /** #### `BmFont *bm_make_sfont(const char *file)`
  *
  * Creates a raster font from a SFont or a GrafX2-style font from any of

@@ -7698,6 +7698,43 @@ BmFont *bm_make_ras_font(const char *file, int spacing) {
     return font;
 }
 
+BmFont *bm_make_ras_font_mem(const unsigned char *buffer, long len, int spacing) {
+    unsigned int bg = 0;
+    BmFont *font = CAST(BmFont *)(malloc(sizeof *font));
+    if (!font)
+        return NULL;
+    font->type = "RASTER_FONT";
+    font->ref_count = 1;
+    font->puts = rf_puts;
+    font->width = rf_width;
+    font->height = rf_height;
+    font->measure = NULL;
+    font->dtor = rf_free_font;
+    RasterFontData *data = CAST(RasterFontData *)(malloc(sizeof *data));
+    if (!data) {
+        SET_ERROR("out of memory");
+        free(font);
+        return NULL;
+    }
+    data->bmp = bm_load_mem(buffer, len);
+    if(!data->bmp) {
+        free(data);
+        free(font);
+        return NULL;
+    }
+    /* The top-left character is a space, so we can safely assume that that pixel
+       is the transparent color. */
+    bg = BM_GET(data->bmp, 0, 0);
+    bm_set_color(data->bmp, bg);
+    /* The width/height depends on the bitmap being laid out as prescribed */
+    data->width = data->bmp->w / 16;
+    data->height = data->bmp->h / 6;
+    if(spacing <= 0) spacing = data->width;
+    data->spacing = spacing;
+    font->data = data;
+    return font;
+}
+
 /** SFont and GraFX2 Font Functions ********************************************/
 
 typedef struct {

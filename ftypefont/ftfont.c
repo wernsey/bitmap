@@ -4,6 +4,7 @@ freetype-supported fonts on Bitmaps from my bitmap module (as defined in bmp.h)
 http://www.freetype.org/freetype2/docs/tutorial/step1.html
 */
 #include <stdio.h>
+#include <stdint.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H

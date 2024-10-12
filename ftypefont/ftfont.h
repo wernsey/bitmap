@@ -18,6 +18,13 @@
  * ---
  */
 
+#ifndef FTFONT_H
+#define FTFONT_H
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /** `int bmft_init()`  \
  * Initializes the FreeType wrapper.  \
  * Returns 1 on success, 0 on failure.
@@ -45,3 +52,9 @@ BmFont *bmft_load_font_rw(SDL_RWops *rw, const char *name);
  * Returns 1 on success, 0 on failure.
  */
 int bmft_set_size(BmFont *font, int px);
+
+#if defined(__cplusplus)
+} /* extern "C" */
+#endif
+
+#endif /* FTFONT_H */
