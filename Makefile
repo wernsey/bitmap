@@ -1,3 +1,7 @@
+#
+# Type `make help` for a list of all the targets
+#
+
 CC=gcc
 CFLAGS=-c -Wall -Wextra -I /usr/local/include `libpng-config --cflags` -DUSEPNG -DUSEJPG
 LDFLAGS=`libpng-config --ldflags` -lz -ljpeg -lm
@@ -11,7 +15,11 @@ LIB=libbmp.a
 # To build luabmp, link against the lua library
 LUALIBS=-llua
 
-DOCS=doc/bitmap.html doc/README.html doc/freetype-fonts.html doc/built-in-fonts.html doc/LICENSE
+DOC_DIR = doc
+
+DOCS=$(DOC_DIR)/bitmap.html $(DOC_DIR)/README.html \
+	$(DOC_DIR)/freetype-fonts.html $(DOC_DIR)/built-in-fonts.html \
+	$(DOC_DIR)/LICENSE
 
 ifeq ($(BUILD),debug)
 # Debug
@@ -44,40 +52,49 @@ else
 
 endif
 
-all: libbmp.a docs utils bmph.h
+all: libbmp.a docs utils stb   ## Builds everything
 
-debug:
-	$(MAKE) BUILD=debug
+debug:    ## Build a library with debugging symbols
+	@$(MAKE) BUILD=debug
 
 libbmp.a: $(LIB_OBJECTS)
-	ar rs $@ $^
+	@echo $@
+	@ar rs $@ $^
 
 .c.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo $@
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 bmp.o: bmp.c bmp.h
 
-docs: doc $(DOCS)
+docs: $(DOCS) | $(DOC_DIR)   ## Generates documentation
 
-doc:
-	mkdir -p doc
+$(DOC_DIR):
+	@echo $@
+	@mkdir -p doc
 
-doc/bitmap.html: bmp.h d.awk | doc
-	$(AWK) -v Title="API Documentation" -f d.awk $< > $@
+$(DOC_DIR)/bitmap.html: bmp.h d.awk | $(DOC_DIR)
+	@echo $@
+	@$(AWK) -v Title="API Documentation" -f d.awk $< > $@
 
-doc/LICENSE: LICENSE | doc
-	cp $< $@
+$(DOC_DIR)/LICENSE: LICENSE | $(DOC_DIR)
+	@echo $@
+	@cp $< $@
 
-doc/README.html: README.md d.awk | doc
-	$(AWK) -f d.awk -v Clean=1 -v Title="README" $< > $@
+$(DOC_DIR)/README.html: README.md d.awk | $(DOC_DIR)
+	@echo $@
+	@$(AWK) -f d.awk -v Clean=1 -v Title="README" $< > $@
 
-doc/freetype-fonts.html: ftypefont/ftfont.h d.awk | doc
-	$(AWK) -v Title="FreeType Font Support" -f d.awk $< > $@
+$(DOC_DIR)/freetype-fonts.html: ftypefont/ftfont.h d.awk | $(DOC_DIR)
+	@echo $@
+	@$(AWK) -v Title="FreeType Font Support" -f d.awk $< > $@
 
-doc/built-in-fonts.html: fonts/instructions.md d.awk | doc
-	$(AWK) -v Title="Raster Font Support" -f d.awk -v Clean=1 $< > $@
+$(DOC_DIR)/built-in-fonts.html: fonts/instructions.md d.awk | $(DOC_DIR)
+	@echo $@
+	@$(AWK) -v Title="Raster Font Support" -f d.awk -v Clean=1 $< > $@
 
 # Single header file library
+stb: bmph.h      ## Package into a single header library
 bmph.h: bmp.c bmp.h
 	@echo Making stb-style single header library $@ from $^
 	@echo '/* STB-style single header bitmap library.'                                 > $@
@@ -105,44 +122,57 @@ bmph.h: bmp.c bmp.h
 	@cat bmp.c                                                                        >> $@
 	@echo '#endif /* BMPH_IMPLEMENTATION */'                                          >> $@
 
-utils: util/hello util/bmfont util/dumpfonts util/cvrt util/imgdup
+utils: util/hello util/bmfont util/dumpfonts util/cvrt util/imgdup  ## Build utilities
 
 util/hello: hello.o libbmp.a | util
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 util/bmfont: fonts/bmfont.o misc/to_xbm.o libbmp.a | util
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 util/dumpfonts: fonts/dumpfonts.o misc/to_xbm.o libbmp.a | util
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 util/cvrt: misc/cvrt.o libbmp.a | util
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
 util/imgdup: misc/imgdup.o libbmp.a | util
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS)
 
-lua-bindings : $(LUA_EXEC)
+lua-bindings : $(LUA_EXEC) ## Builds a Lua interpreter for working with bitmaps
 
 $(LUA_EXEC): misc/luabmp.o libbmp.a | doc
-	$(CC) -o $@ $^ $(LDFLAGS) $(LUALIBS)
-	awk -f d.awk misc/luabmp.c > doc/luabmp.html
+	@echo $@
+	@$(CC) -o $@ $^ $(LDFLAGS) $(LUALIBS)
+	@awk -f d.awk misc/luabmp.c > doc/luabmp.html
 
 misc/luabmp.o: misc/luabmp.c
-	$(CC) $(CFLAGS) -I . -c $< -o $@
+	@echo $@
+	@$(CC) $(CFLAGS) -I . -c $< -o $@
 
 ftypefont/fttest: ftypefont/fttest.c ftypefont/ftfont.c bmp.c
-	$(CC) -I . -I /usr/local/include/freetype2/ -o $@ $^ -lfreetype $(LDFLAGS)
+	@echo $@
+	@$(CC) -I . -I /usr/local/include/freetype2/ -o $@ $^ -lfreetype $(LDFLAGS)
 
 util:
-	mkdir -p util
+	@echo $@
+	@mkdir -p util
 
-.PHONY : clean lua-bindings docs
+.PHONY : clean lua-bindings docs help stb
 
-clean:
-	-rm -f *.o $(LIB) bmph.h
-	-rm -f $(LUA_EXEC) hello *.exe test/*.exe
-	-rm -rf $(DOCS)
-	-rm -rf util doc misc/*.o fonts/*.o
+help:  ## Shows this message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+clean:   ## Cleans all the build files
+	@-rm -f *.o $(LIB) bmph.h
+	@-rm -f $(LUA_EXEC) hello *.exe test/*.exe
+	@-rm -rf $(DOCS)
+	@-rm -rf util doc misc/*.o fonts/*.o
+	@echo Cleaned
 
 # The .exe above is for MinGW, btw.
