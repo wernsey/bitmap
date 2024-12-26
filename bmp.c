@@ -59,7 +59,14 @@ FIXME: Not all functions that should respect IGNORE_ALPHA does so.
 #endif
 
 /* Use RLE when saving TGA files? */
+#ifndef TGA_SAVE_RLE
 #define TGA_SAVE_RLE    1
+#endif
+
+/* Save TGA in indexed/true color? */
+#ifndef TGA_SAVE_INDEXED
+#define TGA_SAVE_INDEXED 0
+#endif
 
 /* Save NetPBM in binary format (P4,P5,P6)? */
 #ifndef PPM_BINARY
@@ -3388,14 +3395,13 @@ static Bitmap *bm_load_tga_rd(BmReader rd) {
         rd.fseek(rd.data, head.id_length, SEEK_CUR);
     }
 
-    uint8_t bytes[4];
-    uint8_t *color_map = NULL;
     Bitmap *bmp = bm_create(head.img_spec.w, head.img_spec.h);
     if(!bmp)
         return NULL;
 
+    uint8_t *color_map = NULL;
     if(head.map_type) {
-        color_map = CAST(uint8_t*)(calloc(head.map_spec.length, head.map_spec.size));
+        color_map = CAST(uint8_t*)(calloc(head.map_spec.length, head.map_spec.size / 8));
         int r = rd.fread(color_map, head.map_spec.size / 8, head.map_spec.length, rd.data);
         if(r != head.map_spec.length) {
             SET_ERROR("error reading TGA color map");
@@ -3430,6 +3436,7 @@ static Bitmap *bm_load_tga_rd(BmReader rd) {
 
             assert(x < bmp->w);
             assert(y < bmp->h);
+            uint8_t bytes[4];
             if(!(rle & 0x80) || ((rle & 0x80) && !j)) {
                 if(rd.fread(bytes, head.img_spec.bpp / 8, 1, rd.data) != 1) {
                     SET_ERROR("error reading TGA data");
@@ -3453,33 +3460,73 @@ error:
 }
 
 static int bm_save_tga(Bitmap *b, bm_write_fun writef, void *context) {
-    /* Always saves as 24-bit TGA */
     struct tga_header head;
 
     memset(&head, 0, sizeof head);
 
-    head.img_type = (TGA_SAVE_RLE) ? 10 : 2;
     head.img_spec.w = b->w;
     head.img_spec.h = b->h;
-    head.img_spec.bpp = 24;
 
-    if(!writef(&head, sizeof head, context)) {
-        SET_ERROR("error opening file for TGA output");
+#if !TGA_SAVE_INDEXED
+    head.img_type = (TGA_SAVE_RLE) ? 10 : 2;
+    head.img_spec.bpp = 24;
+#else
+	BmPalette *palette = bm_get_palette(b);
+    if(!palette) {
+        if(!bm_make_palette(b))
+            return 0;
+        palette = bm_get_palette(b);
+        assert(palette);
+    }
+    if(bm_palette_count(palette) > 256) {
+        SET_ERROR("too many palette colors to save TGA");
         return 0;
     }
 
+    head.img_type = (TGA_SAVE_RLE) ? 9 : 1;
+    head.img_spec.bpp = 8;
+
+    head.map_type = 1;
+    head.map_spec.index = 0;
+    head.map_spec.size = 3 * 8;
+    head.map_spec.length = bm_palette_count(palette);
+
+    uint8_t *color_map = CAST(uint8_t*)(calloc(head.map_spec.length, head.map_spec.size));
+    for(int i = 0; i < bm_palette_count(palette); i++) {
+        bm_get_rgb(bm_palette_get(palette, i), &color_map[i*3 + 2], &color_map[i*3 + 1], &color_map[i*3 + 0]);
+    }
+#endif
+
+    if(!writef(&head, sizeof head, context)) {
+        SET_ERROR("unable to write TGA header");
+        goto error;
+    }
+
+#if TGA_SAVE_INDEXED
+    if(!writef(color_map, head.map_spec.length * head.map_spec.size / 8, context)) {
+        SET_ERROR("unable to write TGA color map");
+        free(color_map);
+        return 0;
+    }
+#endif
+
     int i = 0;
     while(i < b->w * b->h) {
-        int x, y;
         uint8_t bytes[1 + 3*128];
-        y = i / b->w;
-        y = b->h - 1 - y;
-        x = i % b->w;
-        bm_color_t c = BM_GET(b, x, y);
+        int y = b->h - 1 - (i / b->w);
+        int x = i % b->w;
+        unsigned int c = BM_GET(b, x, y);
 #if TGA_SAVE_RLE
         uint8_t n = 1;
-        size_t nb = 4;
+
+#if !TGA_SAVE_INDEXED
         bm_get_rgb(c, &bytes[3], &bytes[2], &bytes[1]);
+        size_t nb = 4;
+#else
+		bytes[1] = bm_palette_nearest_index(palette, c);
+        size_t nb = 2;
+#endif
+
         if(x < b->w - 1 && BM_GET(b, x + 1, y) == c) {
             while(n < 128 && x + n < b->w && BM_GET(b, x + n, y) == c)
                 n++;
@@ -3489,8 +3536,13 @@ static int bm_save_tga(Bitmap *b, bm_write_fun writef, void *context) {
                 c = BM_GET(b, x + n, y);
                 if(x + n + 1 < b->w && BM_GET(b, x + n + 1, y) == c)
                     break;
+#if !TGA_SAVE_INDEXED
                 bm_get_rgb(c, &bytes[nb + 2], &bytes[nb + 1], &bytes[nb + 0]);
                 nb += 3;
+#else
+				bytes[nb] = bm_palette_nearest_index(palette, c);
+                nb++;
+#endif
                 n++;
             }
             bytes[0] = (n - 1);
@@ -3499,20 +3551,34 @@ static int bm_save_tga(Bitmap *b, bm_write_fun writef, void *context) {
         assert(nb <= sizeof bytes);
         if(!writef(&bytes, nb, context)) {
             SET_ERROR("error writing TGA data");
-            return 0;
+            goto error;
         }
         i += n;
 #else
+#if !TGA_SAVE_INDEXED
         bm_get_rgb(c, &bytes[2], &bytes[1], &bytes[0]);
         if(!writef(&bytes, 3, context)) {
-            SET_ERROR("error writing TGA palette");
+            SET_ERROR("error writing TGA data");
+            goto error;
+        }
+#else
+		bytes[0] = bm_palette_nearest_index(palette, c);
+        if(!writef(&bytes, 1, context)) {
+            SET_ERROR("error writing TGA data");
+            free(color_map);
             return 0;
         }
+#endif
         i++;
 #endif
     }
 
     return 1;
+error:
+#if TGA_SAVE_INDEXED
+	free(color_map);
+#endif
+	return 0;
 }
 
 /*
