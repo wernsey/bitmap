@@ -8324,7 +8324,13 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
 /* Loads the Spectrum/font.ch8 binary bytes */
 BmFont *bm_load_zxo_font(const char *filename) {
     SET_ERROR("no error");
+#ifdef SAFE_C11
+    FILE *f;
+    errno_t err = fopen_s(&f, filename, "rb");
+    if (err != 0) f = 0;
+#else
     FILE *f = fopen(filename, "rb");
+#endif
     if(!f) return NULL;
     BmReader rd = make_file_reader(f);
     BmFont *font = bm_load_zxo_font_rd(&rd);
