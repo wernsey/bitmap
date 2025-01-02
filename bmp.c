@@ -7679,9 +7679,37 @@ typedef struct {
     int spacing;
 } RasterFontData;
 
+static void rf_putc(Bitmap *b, const RasterFontData *rf_data, int x, int y, bm_color_t col, char c) {
+    if(c < 32)
+        return;
+
+    c -= 32;
+    int sy = (c >> 4) * rf_data->height;
+    int sx = (c & 0xF) * rf_data->width;
+
+    for(int j = 0; j < rf_data->height && y + j < b->clip.y1; j++) {
+        if(y + j >= b->clip.y0) {
+            for(int i = 0; i < rf_data->width && x + i < b->clip.x1; i++) {
+                if(x + i >= b->clip.x0) {
+                    bm_color_t c = BM_GET(rf_data->bmp, sx + i, sy + j);
+                    bm_color_t bg = rf_data->bmp->color;
+#if IGNORE_ALPHA
+                        c = c & 0x00FFFFFF;
+                        bg = bg & 0x00FFFFFF;
+#endif
+                    if(c != bg) {
+                        BM_SET(b, x + i, y + j, col);
+                    }
+                }
+            }
+        }
+    }
+}
+
 static int rf_puts(Bitmap *b, int x, int y, const char *s) {
     assert(!strcmp(b->font->type, "RASTER_FONT"));
     RasterFontData *data = CAST(RasterFontData *)(b->font->data);
+    bm_color_t col = bm_get_color(b);
     int x0 = x;
     while(*s) {
         if(*s == '\n') {
@@ -7694,11 +7722,7 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
         } else if(*s == '\t') {
             x += 4 * data->spacing;
         } else {
-            int c = *s;
-            c -= 32;
-            int sy = (c >> 4) * data->height;
-            int sx = (c & 0xF) * data->width;
-            bm_maskedblit(b, x, y, data->bmp, sx, sy, data->width, data->height);
+            rf_putc(b, data, x, y, col, *s);
             x += data->spacing;
         }
         s++;
