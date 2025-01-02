@@ -10,6 +10,9 @@ doc
 util
 build
 
+# Built libs
+lib
+
 # The stb-style single header is auto-generated from
 # bmp.c and bmp.h and should not be versioned.
 bmph.h
