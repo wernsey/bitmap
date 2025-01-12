@@ -779,9 +779,10 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     if (dib.bitspp != 1 &&
         dib.bitspp != 4 &&
         dib.bitspp != 8 &&
+        dib.bitspp != 16 &&
         dib.bitspp != 24 &&
         dib.bitspp != 32) {
-        /* Unsupported BMP type. Only 16bpp is missing now */
+        /* Unsupported BMP type. Should never happen */
         SET_ERROR("unsupported BMP type");
         return NULL;
     }
@@ -918,6 +919,23 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             uint32_t y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
                 uint32_t p = y * rs + i * 4;
+
+                uint32_t* pixel = (uint32_t*)(data + p);
+                uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
+                uint32_t g_unc = (*pixel & rgbmask[1]) >> rgbshift[1];
+                uint32_t b_unc = (*pixel & rgbmask[2]) >> rgbshift[2];
+
+                BM_SET_RGBA(b, i, j,
+                    (unsigned char)(r_unc * rgbcorr[0]),
+                    (unsigned char)(g_unc * rgbcorr[1]),
+                    (unsigned char)(b_unc * rgbcorr[2]), 0xFF);
+            }
+        }
+    } else if (dib.bitspp == 16) {
+        for(j = 0; j < b->h; j++) {
+            uint32_t y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                uint32_t p = y * rs + i * 2;
 
                 uint32_t* pixel = (uint32_t*)(data + p);
                 uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
