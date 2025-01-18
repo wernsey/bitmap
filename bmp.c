@@ -779,9 +779,10 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
     if (dib.bitspp != 1 &&
         dib.bitspp != 4 &&
         dib.bitspp != 8 &&
+        dib.bitspp != 16 &&
         dib.bitspp != 24 &&
         dib.bitspp != 32) {
-        /* Unsupported BMP type. Only 16bpp is missing now */
+        /* Unsupported BMP type. Should never happen */
         SET_ERROR("unsupported BMP type");
         return NULL;
     }
@@ -918,6 +919,23 @@ static Bitmap *bm_load_bmp_rd(BmReader rd) {
             uint32_t y = b->h - j - 1;
             for(i = 0; i < b->w; i++) {
                 uint32_t p = y * rs + i * 4;
+
+                uint32_t* pixel = (uint32_t*)(data + p);
+                uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
+                uint32_t g_unc = (*pixel & rgbmask[1]) >> rgbshift[1];
+                uint32_t b_unc = (*pixel & rgbmask[2]) >> rgbshift[2];
+
+                BM_SET_RGBA(b, i, j,
+                    (unsigned char)(r_unc * rgbcorr[0]),
+                    (unsigned char)(g_unc * rgbcorr[1]),
+                    (unsigned char)(b_unc * rgbcorr[2]), 0xFF);
+            }
+        }
+    } else if (dib.bitspp == 16) {
+        for(j = 0; j < b->h; j++) {
+            uint32_t y = b->h - j - 1;
+            for(i = 0; i < b->w; i++) {
+                uint32_t p = y * rs + i * 2;
 
                 uint32_t* pixel = (uint32_t*)(data + p);
                 uint32_t r_unc = (*pixel & rgbmask[0]) >> rgbshift[0];
@@ -7679,9 +7697,37 @@ typedef struct {
     int spacing;
 } RasterFontData;
 
+static void rf_putc(Bitmap *b, const RasterFontData *rf_data, int x, int y, bm_color_t col, char c) {
+    if(c < 32)
+        return;
+
+    c -= 32;
+    int sy = (c >> 4) * rf_data->height;
+    int sx = (c & 0xF) * rf_data->width;
+
+    for(int j = 0; j < rf_data->height && y + j < b->clip.y1; j++) {
+        if(y + j >= b->clip.y0) {
+            for(int i = 0; i < rf_data->width && x + i < b->clip.x1; i++) {
+                if(x + i >= b->clip.x0) {
+                    bm_color_t c = BM_GET(rf_data->bmp, sx + i, sy + j);
+                    bm_color_t bg = rf_data->bmp->color;
+#if IGNORE_ALPHA
+                        c = c & 0x00FFFFFF;
+                        bg = bg & 0x00FFFFFF;
+#endif
+                    if(c != bg) {
+                        BM_SET(b, x + i, y + j, col);
+                    }
+                }
+            }
+        }
+    }
+}
+
 static int rf_puts(Bitmap *b, int x, int y, const char *s) {
     assert(!strcmp(b->font->type, "RASTER_FONT"));
     RasterFontData *data = CAST(RasterFontData *)(b->font->data);
+    bm_color_t col = bm_get_color(b);
     int x0 = x;
     while(*s) {
         if(*s == '\n') {
@@ -7694,11 +7740,7 @@ static int rf_puts(Bitmap *b, int x, int y, const char *s) {
         } else if(*s == '\t') {
             x += 4 * data->spacing;
         } else {
-            int c = *s;
-            c -= 32;
-            int sy = (c >> 4) * data->height;
-            int sx = (c & 0xF) * data->width;
-            bm_maskedblit(b, x, y, data->bmp, sx, sy, data->width, data->height);
+            rf_putc(b, data, x, y, col, *s);
             x += data->spacing;
         }
         s++;
@@ -8324,7 +8366,13 @@ static BmFont *bm_load_zxo_font_rd(BmReader *rd) {
 /* Loads the Spectrum/font.ch8 binary bytes */
 BmFont *bm_load_zxo_font(const char *filename) {
     SET_ERROR("no error");
+#ifdef SAFE_C11
+    FILE *f;
+    errno_t err = fopen_s(&f, filename, "rb");
+    if (err != 0) f = 0;
+#else
     FILE *f = fopen(filename, "rb");
+#endif
     if(!f) return NULL;
     BmReader rd = make_file_reader(f);
     BmFont *font = bm_load_zxo_font_rd(&rd);
