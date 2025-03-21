@@ -139,11 +139,11 @@ See __STDC_LIB_EXT1__
 /* FLAG_OWNS_DATA - set if the Bitmap owns the memory allocated to Bitmap::data.
     If it is set, then bm_free() will free it.
  */
-#define FLAG_OWNS_DATA  1
-
-/* TODO: I want to add flags to check if the bitmap had a palette and an alpha channel
-    and so on in the file it was loaded from, etc.
- */
+enum BitmapFlags {
+    FLAG_OWNS_DATA = 1,
+    FLAG_HAS_ALPHA = 2, /* Set if the image has an alpha channel */
+    FLAG_sRGB = 4,      /* Only here because QoI reports it at the moment */
+};
 
 /*
  * Structure containing a bitmap image.
@@ -188,6 +188,10 @@ struct bitmap {
 
     /* (optional) Palette associated with the bitmap */
     BmPalette *palette;
+};
+
+enum file_type {
+    f_unknown, f_bmp, f_png, f_jpg, f_pcx, f_qoi, f_gif, f_pbm, f_tga
 };
 
 struct bitmap_palette {
@@ -477,6 +481,7 @@ static uint32_t count_trailing_zeroes(uint32_t v);
 static Bitmap *bm_load_bmp_rd(BmReader rd);
 static Bitmap *bm_load_gif_rd(BmReader rd);
 static Bitmap *bm_load_pcx_rd(BmReader rd);
+static Bitmap *bm_load_qoi_rd(BmReader rd);
 static Bitmap *bm_load_tga_rd(BmReader rd);
 static Bitmap *bm_load_ppm_rd(BmReader rd);
 #ifdef USEPNG
@@ -492,31 +497,32 @@ Bitmap *bm_load_fp(FILE *f) {
     SET_ERROR("no error");
     unsigned char magic[4];
 
-    long start, isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0, ispbm = 0;
-
     BmReader rd = make_file_reader(f);
-    start = rd.ftell(rd.data);
+    long start = rd.ftell(rd.data);
 
     /* Tries to detect the type of file by looking at the first bytes.
     http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html
     */
+    enum file_type ftype = f_unknown;
     if(rd.fread(magic, sizeof magic, 1, rd.data) == 1) {
         if(!memcmp(magic, "BM", 2))
-            isbmp = 1;
+            ftype = f_bmp;
         else if(!memcmp(magic, "GIF", 3))
-            isgif = 1;
+            ftype = f_gif;
+        else if(!memcmp(magic, "qoif", 4))
+            ftype = f_qoi;
         else if(magic[0] == 0xFF && magic[1] == 0xD8)
-            isjpg = 1;
+            ftype = f_jpg;
         else if(magic[0] == 0x0A)
-            ispcx = 1;
+            ftype = f_pcx;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
-            ispng = 1;
+            ftype = f_png;
         else if(magic[0] == 'P' && strchr("123456", magic[1]))
-            ispbm = 1;
+            ftype = f_pbm;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
             rd.fseek(rd.data, start, SEEK_SET);
-            istga = is_tga_file(rd);
+            if(is_tga_file(rd)) ftype = f_tga;
         }
     } else {
         SET_ERROR("couldn't determine filetype");
@@ -524,7 +530,8 @@ Bitmap *bm_load_fp(FILE *f) {
     }
     rd.fseek(rd.data, start, SEEK_SET);
 
-    if(isjpg) {
+    switch(ftype) {
+    case f_jpg: {
 #ifdef USEJPG
         return bm_load_jpg_fp(f);
 #elif defined(USESTB)
@@ -536,12 +543,11 @@ Bitmap *bm_load_fp(FILE *f) {
         }
         return bm_from_stb(x, y, data);
 #else
-        (void)isjpg;
         SET_ERROR("JPEG support is not enabled");
         return NULL;
 #endif
     }
-    if(ispng) {
+    case f_png: {
 #ifdef USEPNG
         return bm_load_png_fp(f);
 #elif defined(USESTB)
@@ -553,36 +559,26 @@ Bitmap *bm_load_fp(FILE *f) {
         }
         return bm_from_stb(x, y, data);
 #else
-        (void)ispng;
         SET_ERROR("PNG support is not enabled");
         return NULL;
 #endif
     }
-    if(isgif) {
-        return bm_load_gif_rd(rd);
+    case f_gif: return bm_load_gif_rd(rd);
+    case f_pcx: return bm_load_pcx_rd(rd);
+    case f_qoi: return bm_load_qoi_rd(rd);
+    case f_bmp: return bm_load_bmp_rd(rd);
+    case f_tga: return bm_load_tga_rd(rd);
+    case f_pbm: return bm_load_ppm_rd(rd);
+    default:
+        SET_ERROR("unsupported file type");
+        return NULL;
     }
-    if(ispcx) {
-        return bm_load_pcx_rd(rd);
-    }
-    if(isbmp) {
-        return bm_load_bmp_rd(rd);
-    }
-    if(istga) {
-        return bm_load_tga_rd(rd);
-    }
-    if(ispbm) {
-        return bm_load_ppm_rd(rd);
-    }
-    SET_ERROR("unsupported file type");
-    return NULL;
 }
 
 Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     SET_ERROR("no error");
 
     unsigned char magic[4];
-
-    long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0, istga = 0, ispbm = 0;
 
     BmMemReader memr;
     memr.buffer = buffer;
@@ -592,23 +588,26 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     /* Tries to detect the type of file by looking at the first bytes.
     http://www.astro.keele.ac.uk/oldusers/rno/Computing/File_magic.html
     */
+    enum file_type ftype = f_unknown;
     if(rd.fread(magic, sizeof magic, 1, rd.data) == 1) {
         if(!memcmp(magic, "BM", 2))
-            isbmp = 1;
+            ftype = f_bmp;
         else if(!memcmp(magic, "GIF", 3))
-            isgif = 1;
+            ftype = f_gif;
+        else if(!memcmp(magic, "qoif", 4))
+            ftype = f_qoi;
         else if(magic[0] == 0xFF && magic[1] == 0xD8)
-            isjpg = 1;
+            ftype = f_jpg;
         else if(magic[0] == 0x0A)
-            ispcx = 1;
+            ftype = f_pcx;
         else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
-            ispng = 1;
+            ftype = f_png;
         else if(magic[0] == 'P' && strchr("123456", magic[1]))
-            ispbm = 1;
+            ftype = f_pbm;
         else {
             /* Might be a TGA. TGA does not have a magic number :( */
             rd.fseek(rd.data, 0, SEEK_SET);
-            istga = is_tga_file(rd);
+            if(is_tga_file(rd)) ftype = f_tga;
         }
     } else {
         SET_ERROR("couldn't determine filetype");
@@ -616,7 +615,11 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
     }
     rd.fseek(rd.data, 0, SEEK_SET);
 
-    if(isjpg) {
+    /* You'd think that you can share this code with `bm_load_fp` above,
+    but there's a difference in how PNGs and JPGs are handled... */
+
+    switch(ftype) {
+    case f_jpg: {
 #ifdef USEJPG
         return bm_load_jpg_mem(buffer, len);
 #elif defined(USESTB)
@@ -628,12 +631,11 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
         }
         return bm_from_stb(x, y, data);
 #else
-        (void)isjpg;
         SET_ERROR("JPEG support is not enabled");
         return NULL;
 #endif
     }
-    if(ispng) {
+    case f_png: {
 #ifdef USEPNG
         return bm_load_png_mem(buffer, len);
 #elif defined(USESTB)
@@ -645,28 +647,20 @@ Bitmap *bm_load_mem(const unsigned char *buffer, long len) {
         }
         return bm_from_stb(x, y, data);
 #else
-        (void)ispng;
         SET_ERROR("PNG support is not enabled");
         return NULL;
 #endif
     }
-    if(isgif) {
-        return bm_load_gif_rd(rd);
+    case f_gif: return bm_load_gif_rd(rd);
+    case f_pcx: return bm_load_pcx_rd(rd);
+    case f_qoi: return bm_load_qoi_rd(rd);
+    case f_bmp: return bm_load_bmp_rd(rd);
+    case f_tga: return bm_load_tga_rd(rd);
+    case f_pbm: return bm_load_ppm_rd(rd);
+    default:
+        SET_ERROR("unsupported file type"); /* should not happen */
+        return NULL;
     }
-    if(ispcx) {
-        return bm_load_pcx_rd(rd);
-    }
-    if(isbmp) {
-        return bm_load_bmp_rd(rd);
-    }
-    if(istga) {
-        return bm_load_tga_rd(rd);
-    }
-    if(ispbm) {
-        return bm_load_ppm_rd(rd);
-    }
-    SET_ERROR("unsupported file type"); /* should not happen */
-    return NULL;
 }
 
 Bitmap *bm_load_base64(const char *base64) {
@@ -993,6 +987,7 @@ static int bm_file_cb(void *data, int len, void *context) {
 static int bm_save_bmp(Bitmap *b, bm_write_fun cb, void *context);
 static int bm_save_gif(Bitmap *b, bm_write_fun cb, void *context);
 static int bm_save_pcx(Bitmap *b, bm_write_fun cb, void *context);
+static int bm_save_qoi(Bitmap *b, bm_write_fun cb, void *context);
 static int bm_save_tga(Bitmap *b, bm_write_fun cb, void *context);
 static int bm_save_ppm(Bitmap *b, bm_write_fun cb, void *context, const char *ext);
 #ifdef USEPNG
@@ -1038,6 +1033,8 @@ int bm_save_custom(Bitmap *b, bm_write_fun cb, void *context, const char *ext) {
         return bm_save_pcx(b, cb, context);
     else if(!bm_stricmp(ext, "tga"))
         return bm_save_tga(b, cb, context);
+    else if(!bm_stricmp(ext, "qoi"))
+        return bm_save_qoi(b, cb, context);
     else if(!bm_stricmp(ext, "pbm") || !bm_stricmp(ext, "pgm") || !bm_stricmp(ext, "ppm"))
         return bm_save_ppm(b, cb, context, ext);
     else if(!bm_stricmp(ext, "png")) {
@@ -1776,56 +1773,63 @@ static Bitmap *bm_load_jpg_rw(SDL_RWops *rw);
 
 Bitmap *bm_load_rw(SDL_RWops *rw) {
     SET_ERROR("no error");
-    unsigned char magic[3];
+    unsigned char magic[4];
     long start = SDL_RWtell(rw);
-    long isbmp = 0, ispng = 0, isjpg = 0, ispcx = 0, isgif = 0;
+    enum file_type ftype = f_unknown;
     if(SDL_RWread(rw, magic, sizeof magic, 1) == 1) {
         if(!memcmp(magic, "BM", 2))
-            isbmp = 1;
+            ftype = f_bmp;
         else if(!memcmp(magic, "GIF", 3))
-            isgif = 1;
+            ftype = f_gif;
+        else if(!memcmp(magic, "qoif", 4))
+            ftype = f_qoi;
         else if(magic[0] == 0xFF && magic[1] == 0xD8)
-            isjpg = 1;
+            ftype = f_jpg;
         else if(magic[0] == 0x0A)
-            ispcx = 1;
-        else
-            ispng = 1; /* Assume PNG by default.
-                    JPG and BMP magic numbers are simpler */
+            ftype = f_pcx;
+        else if(magic[0] == 0x89 && !memcmp(magic+1, "PNG", 3))
+            ftype = f_png;
+        else if(magic[0] == 'P' && strchr("123456", magic[1]))
+            ftype = f_pbm;
+        /* TODO: TGA */
+    } else {
+        SET_ERROR("couldn't determine filetype");
+        return NULL;
     }
     SDL_RWseek(rw, start, RW_SEEK_SET);
 
-    if(isjpg) {
+    switch(ftype) {
+        case f_jpg: {
 #  ifdef USEJPG
-        return bm_load_jpg_rw(rw);
+            return bm_load_jpg_rw(rw);
 #  else
-        (void)isjpg;
-        SET_ERROR("JPEG support is not enabled");
-        return NULL;
+            SET_ERROR("JPEG support is not enabled");
+            return NULL;
 #  endif
-    }
-    if(ispng) {
+        }
+        case f_png: {
 #  ifdef USEPNG
-        return bm_load_png_rw(rw);
+            return bm_load_png_rw(rw);
 #  else
-        (void)ispng;
-        SET_ERROR("PNG support is not enabled");
-        return NULL;
+            SET_ERROR("PNG support is not enabled");
+            return NULL;
 #  endif
+        }
+        default: {
+            BmReader rd = make_rwops_reader(rw);
+            switch(ftype) {
+            case f_gif: return bm_load_gif_rd(rd);
+            case f_pcx: return bm_load_pcx_rd(rd);
+            case f_qoi: return bm_load_qoi_rd(rd);
+            case f_bmp: return bm_load_bmp_rd(rd);
+            case f_tga: return bm_load_tga_rd(rd);
+            case f_pbm: return bm_load_ppm_rd(rd);
+            default:
+                SET_ERROR("unsupported filetype");
+                return NULL;
+            }
+        }
     }
-    if(isgif) {
-        BmReader rd = make_rwops_reader(rw);
-        return bm_load_gif_rd(rd);
-    }
-    if(ispcx) {
-        BmReader rd = make_rwops_reader(rw);
-        return bm_load_pcx_rd(rd);
-    }
-    if(isbmp) {
-        BmReader rd = make_rwops_reader(rw);
-        return bm_load_bmp_rd(rd);
-    }
-    SET_ERROR("unsupported filetype");
-    return NULL;
 }
 
 #  ifdef USEPNG
@@ -3283,6 +3287,224 @@ static int bm_save_pcx(Bitmap *b, bm_write_fun writef, void *context) {
 
     return rv;
 }
+
+
+
+#pragma pack(push, 1)
+struct qoi_header {
+    char magic[4];
+    uint32_t width, height;
+    uint8_t channels, colorspace;
+};
+#pragma pack(pop)
+
+#define QOI_HASH(p) (p.r * 3 + p.g * 5 + p.b * 7 + p.a * 11) & 0x3F
+
+static char qoi_footer[] = {0,0,0,0, 0,0,0,1};
+
+static uint32_t swap_endian32(uint32_t in) {
+    uint32_t out = 0;
+    for(int i = 0 ; i < 4; i++) {
+        out = out << 8 | (in & 0xFF);
+        in >>= 8;
+    }
+    return out;
+}
+
+static Bitmap *bm_load_qoi_rd(BmReader rd) {
+    struct qoi_header hdr;
+
+    if(rd.fread(&hdr, sizeof hdr, 1, rd.data) != 1) {
+        SET_ERROR("unable to read qoi header");
+        return NULL;
+    }
+    if(memcmp(hdr.magic, "qoif", 4)) {
+        SET_ERROR("invalid QOI magic");
+        return NULL;
+    }
+
+    hdr.width = swap_endian32(hdr.width);
+    hdr.height = swap_endian32(hdr.height);
+
+    // TODO: Set the flags in Bitmap::flags
+
+    union {
+        struct { uint8_t b,g,r,a; };
+        uint32_t c;
+    } pixel = {.r=0, .g=0, .b=0, .a = 0xFF};
+
+    bm_color_t buffer[64];
+    memset(buffer, 0, sizeof buffer);
+
+    Bitmap *b = bm_create(hdr.width, hdr.height);
+    if(!b) return NULL;
+
+    unsigned int *pixels = (unsigned int *)bm_raw_data(b);
+    int npixels = hdr.width * hdr.height;
+    for(int pos = 0; pos < npixels;) {
+
+        unsigned char byt, bytes[4];
+        if(rd.fread(&byt, sizeof byt, 1, rd.data) != 1) {
+            goto eos_error;
+        }
+
+        if(byt == 0xFE) {
+            if(rd.fread(&bytes, 1, 3, rd.data) != 3) {
+                goto eos_error;
+            }
+            pixel.r = bytes[0]; pixel.g = bytes[1]; pixel.b = bytes[2];
+            pixels[pos++] = pixel.c;
+        } else if(byt == 0xFF) {
+            if(rd.fread(&bytes, 1, 4, rd.data) != 4) {
+                goto eos_error;
+            }
+            pixel.r = bytes[0]; pixel.g = bytes[1]; pixel.b = bytes[2]; pixel.a = bytes[3];
+            pixels[pos++] = pixel.c;
+        } else if((byt & 0xC0) == 0) {
+            //int index = byt & 0x3F;
+            pixel.c = buffer[byt];
+            pixels[pos++] = pixel.c;
+        } else if((byt & 0xC0) == 0x40) {
+            int dr = ((byt & 0x30) >> 4) - 2;
+            int dg = ((byt & 0x0C) >> 2) - 2;
+            int db = ((byt & 0x03) >> 0) - 2;
+            pixel.r += dr;
+            pixel.g += dg;
+            pixel.b += db;
+            pixels[pos++] = pixel.c;
+        } else if((byt & 0xC0) == 0x80) {
+            int dg = (byt & 0x3F) - 32;
+            if(rd.fread(&byt, sizeof byt, 1, rd.data) != 1) {
+                goto eos_error;
+            }
+            int dr = ((byt & 0xF0) >> 4) - 8 + dg;
+            int db = ((byt & 0x0F) >> 0) - 8 + dg;
+            pixel.r += dr;
+            pixel.g += dg;
+            pixel.b += db;
+
+            pixels[pos++] = pixel.c;
+        } else if((byt & 0xC0) == 0xC0) {
+            int run_length = (byt & 0x3F) + 1;
+            while(run_length-- > 0)
+                pixels[pos++] = pixel.c;
+        }
+
+        int idx = QOI_HASH(pixel);
+        buffer[idx] = pixel.c;
+    }
+
+    return b;
+
+eos_error:
+    SET_ERROR("unexpected end of stream");
+    bm_free(b);
+    return NULL;
+}
+
+static int bm_save_qoi(Bitmap *b, bm_write_fun writef, void *context) {
+    struct qoi_header hdr;
+
+    memcpy(hdr.magic, "qoif", 4);
+    hdr.width = swap_endian32(bm_width(b));
+    hdr.height = swap_endian32(bm_height(b));
+    hdr.channels = 4;
+    hdr.colorspace = 1; // FIXME: Use b->flags...
+
+    if(!writef(&hdr, sizeof hdr, context)) {
+        SET_ERROR("unable to write header");
+        return 0;
+    }
+
+    union {
+        struct { uint8_t b,g,r,a; };
+        uint32_t c;
+    } pixel = {.r=0, .g=0, .b=0, .a = 0xFF}, prev;
+    prev = pixel;
+
+    bm_color_t buffer[64];
+    memset(buffer, 0, sizeof buffer);
+
+    int run = 0;
+
+    unsigned char byt, bytes[5];
+
+    unsigned int *pixels = (unsigned int *)bm_raw_data(b);
+
+    for(int pos = 0; pos < bm_width(b) * bm_height(b); pos++) {
+        pixel.c = pixels[pos];
+        int idx = QOI_HASH(pixel);
+
+        if(pixel.c == prev.c) {
+            run++;
+            if(run == 62) {
+                byt = 0xC0 | (run - 1);
+
+                if(!put_byte(byt, writef, context)) return 0;
+
+                run = 0;
+            }
+        } else {
+            if(run) {
+                byt = 0xC0 | (run - 1);
+
+                if(!put_byte(byt, writef, context)) return 0;
+
+                run = 0;
+            }
+
+            int dr = pixel.r - prev.r;
+            int dg = pixel.g - prev.g;
+            int db = pixel.b - prev.b;
+            int da = pixel.a - prev.a;
+
+            int dr_dg = dr - dg;
+            int db_dg = db - dg;
+
+            if(buffer[idx] == pixel.c) {
+                // byt = (idx & 0x3F) | 0x00;
+                if(!put_byte(idx, writef, context)) return 0;
+            } else if(da == 0 && dr >= -2 && dr <= 1 && dg >= -2 && dg <= 1 && db >= -2 && db <= 1) {
+                byt = 0x40 | ((dr + 2) << 4) | ((dg + 2) << 2) | (db + 2);
+                if(!put_byte(byt, writef, context)) return 0;
+            } else if(da == 0 && dg >= -32 && dg <= 31 && dr_dg >= -8 && dr_dg <= 7 && db_dg >= -8 && db_dg <= 7) {
+                bytes[0] = 0x80 | (dg + 32);
+                bytes[1] = ((dr_dg + 8) << 4) | (db_dg + 8);
+                if(!writef(bytes, 2, context)) return 0;
+            } else if(pixel.a == prev.a) {
+                bytes[0] = 0xFE;
+                bytes[1] = pixel.r;
+                bytes[2] = pixel.g;
+                bytes[3] = pixel.b;
+                if(!writef(bytes, 4, context)) return 0;
+            } else {
+                bytes[0] = 0xFF;
+                bytes[1] = pixel.r;
+                bytes[2] = pixel.g;
+                bytes[3] = pixel.b;
+                bytes[4] = pixel.a;
+                if(!writef(bytes, 5, context)) return 0;
+            }
+
+            buffer[idx] = pixel.c;
+            prev.c = pixel.c;
+        }
+    }
+
+    if(run) {
+        byt = 0xC0 | (run - 1);
+        if(!put_byte(byt, writef, context)) return 0;
+    }
+
+    if(writef(&qoi_footer, sizeof qoi_footer, context) != 1) {
+        SET_ERROR("unable to write footer");
+        return 0;
+    }
+
+    return 1;
+}
+
+
 
 /*
 Targa (.TGA) support

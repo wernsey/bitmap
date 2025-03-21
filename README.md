@@ -32,7 +32,7 @@ Attribution is appreciated, but not required.
 Features:
 * Supported formats:
   * Windows BMP: loads 4-, 8- and 24-bit uncompressed BMP files, saves as 24-bit.
-  * GIF, PCX and TGA files can be loaded and saved without
+  * GIF, PCX, [QOI][] and TGA files can be loaded and saved without
     third-party dependencies.
   * PNG through [libpng](http://www.libpng.org)
     * support for palettized images is incomplete.
@@ -195,6 +195,9 @@ make
 * <http://paulbourke.net/dataformats/tga/>
 * <http://www.ludorg.net/amnesia/TGA_File_Format_Spec.html>
 * [X PixMap](https://en.wikipedia.org/wiki/X_PixMap) on Wikipedia
+* [Quite okay Image format][QOI] files.
+  * The [original blog](https://phoboslab.org/log/2021/11/qoi-fast-lossless-image-compression)
+  * The [reference implementation][qoi.h].
 * [A simple libpng example program](http://zarb.org/~gc/html/libpng.html)
 * <http://www.fileformat.info/format/xpm/egff.htm>
 * "Fast Bitmap Rotation and Scaling" By Steven Mortimer, Dr Dobbs' Journal,
@@ -214,9 +217,17 @@ make
 
 [sfont]: http://www.linux-games.com/sfont/
 [zx-origins]: https://damieng.com/typography/zx-origins/
+[QOI]: https://qoiformat.org/
+[qoi.h]: https://github.com/phoboslab/qoi/blob/master/qoi.h
 
 ## TODO
 
+* I want to add flags to check if the bitmap had a palette and an alpha channel
+  and so on in the file it was loaded from, etc.
+* The `bm_load_pcx_rd()` and `bm_load_qoi_rd()` functions should be modified to read a couple
+  of bytes at a time through some _buffered reader_-type mechanism
+* There's a lot of redundancy between `bm_load_fp()` and `bm_load_mem()` (and `bm_load_rw()`
+  for that matter), but also a couple of subtle differences. An opportunity to refactor.
 * Support for [PCF][] fonts (now that I support BDF fonts).
   * See also <https://en.wikipedia.org/wiki/Portable_Compiled_Format>
   * <https://web.archive.org/web/20010215151331if_/http://myhome.hananet.net/~bumchul/xfont/pcf.txt>
@@ -226,10 +237,6 @@ make
 * Since `bm_rotate_cw()` and `bm_rotate_ccw()` functions take the clipping rect into account,
   I should consider doing the same for some of the other API functions for consistency, like
   `bm_resample()` and co. Also the flip functions suggested above.
-* Support for [QOI][] files. I was going to just pull in the [reference implementation][qui.h], but
-  the `qoi_decode()` function didn't look like it'd fit in nicely with the `BmReader` interface.
-* Rotating ritmaps with three sheers: <https://cohost.org/tomforsyth/post/891823-rotation-with-three>
+* Rotating Bitmaps with three sheers: <https://cohost.org/tomforsyth/post/891823-rotation-with-three>
 
 [PCF]: https://fontforge.org/docs/techref/pcf-format.html
-[QOI]: https://phoboslab.org/log/2021/11/qoi-fast-lossless-image-compression
-[qui.h]: https://github.com/phoboslab/qoi/blob/master/qoi.h
