@@ -59,8 +59,76 @@ extern "C" {
  * ### Types
  */
 
-
+/**
+ * #### `typedef unsigned int bm_color_t`
+ * 
+ * For normal operations, colors are stored in 32-bit ARGB values
+ * (that is `0xAARRGGBB`)
+ */
 typedef unsigned int bm_color_t;
+
+
+/**
+ * #### `typedef union rgb_t`
+ * 
+ * Structure for more complicated operations on RGB values
+ * 
+ * ```
+ * typedef union {
+ *  double v[3];
+ *  struct { double r, g, b; };
+ * } rgb_t;
+ * ```
+ * 
+ * The `r`, `g` and `b` values are scaled to be between 0 and 1.
+ * 
+ * See [bm_to_rgb()](#rgb_t-bm_to_rgbbm_color_t-col)
+ * and [bm_from_rgb()](#bm_color_t-bm_from_rgbrgb_t-rgb)
+ */
+typedef union {
+  double v[3];
+  struct { double r, g, b; };
+} rgb_t;
+
+/**
+ * #### `typedef struct hsl_t`
+ * 
+ * Structure to represent a color as a [HSL][] value.
+ * 
+ * ```
+ * typedef struct {
+ *  double h, s, l;
+ * } hsl_t;
+ * ```
+ * 
+ * See [bm_to_hsl()](#hsl_t-bm_to_hslbm_color_t-col)
+ * and [bm_from_hsl()](#bm_color_t-bm_from_hslhsl_t-hsl)
+ * 
+ * [hsl]: https://en.wikipedia.org/wiki/HSL_and_HSV
+ */
+typedef struct {
+  double h, s, l;
+} hsl_t;
+
+/**
+ * #### `typedef struct oklab_t`
+ * 
+ * Structure to represent [Oklab][] L, a and b values.
+ * 
+ * ```
+ * typedef struct {
+ *   double L, a, b;
+ * } oklab_t;
+ * ```
+ * 
+ * See [bm_to_oklab()](#oklab_t-bm_to_oklabbm_color_t-col) 
+ * and [bm_from_oklab()](#bm_color_t-bm_from_oklaboklab_t-lab)
+ * 
+ * [oklab]: https://bottosson.github.io/posts/oklab/
+ */
+typedef struct {
+  double L, a, b;
+} oklab_t;
 
 /**
  * #### `typedef struct bitmap Bitmap;`
@@ -625,6 +693,34 @@ bm_color_t bm_rgba(unsigned char R, unsigned char G, unsigned char B, unsigned c
 void bm_get_rgb(bm_color_t col, unsigned char *R, unsigned char *G, unsigned char *B);
 
 /**
+ * #### `rgb_t bm_to_rgb(bm_color_t col)`
+ *
+ * Converts a 32-bit color value to a `rgb_t` structure
+ */
+rgb_t bm_to_rgb(bm_color_t col);
+
+/**
+ * #### `bm_color_t bm_from_rgb(rgb_t rgb)`
+ * 
+ * Converts a `rgb_t` structure to a 32-bit integer representing the color
+ */
+bm_color_t bm_from_rgb(rgb_t rgb);
+
+/**
+ * #### `rgb_t bm_srgb_to_lrgb(rgb_t srgb)`
+ * 
+ * Converts a sRGB value to a Linear RGB value.
+ */
+rgb_t bm_srgb_to_lrgb(rgb_t srgb);
+
+/**
+ * #### `rgb_t bm_lrgb_to_srgb(rgb_t rgb)`
+ * 
+ * Converts a Linear RGB value to a sRGB value.
+ */
+rgb_t bm_lrgb_to_srgb(rgb_t rgb);
+
+/**
  * #### `bm_color_t bm_hsl(double H, double S, double L)`
  *
  * Creates a color from the given Hue/Saturation/Lightness values.
@@ -656,6 +752,65 @@ bm_color_t bm_hsla(double H, double S, double L, double A);
 void bm_get_hsl(bm_color_t col, double *H, double *S, double *L);
 
 /**
+ * #### `hsl_t bm_to_hsl(bm_color_t col)`
+ * 
+ * Creates a `hsl_t` structure from a 32-bit color value
+ */
+hsl_t bm_to_hsl(bm_color_t col);
+
+/**
+ * #### `bm_color_t bm_from_hsl(hsl_t hsl)`
+ * 
+ * Creates a 32-bit color value from a `hsl_t` structure
+ */
+bm_color_t bm_from_hsl(hsl_t hsl);
+
+/**
+ * #### `oklab_t bm_to_oklab(bm_color_t col)`
+ * 
+ * Computes [Oklab][] L,a,b values from a 32-bit color value
+ */
+oklab_t bm_to_oklab(bm_color_t col);
+
+/**
+ * #### `bm_color_t bm_from_oklab(oklab_t lab)`
+ * 
+ * Converts [Oklab][] L,a,b values to a 32-bit color value.
+ */
+bm_color_t bm_from_oklab(oklab_t lab);
+
+/**
+ * #### `oklab_t bm_rgb_to_oklab(rgb_t col)`
+ * 
+ * Computes [Oklab][] L,a,b values from sRGB values 
+ */
+oklab_t bm_rgb_to_oklab(rgb_t col);
+
+/**
+ * #### `rgb_t bm_oklab_to_rgb(oklab_t lab)`
+ * 
+ * Converts [Oklab][] L,a,b values to a sRGB color value.
+ */
+rgb_t bm_oklab_to_rgb(oklab_t lab);
+
+/**
+ * #### `double bm_oklab_dist(oklab_t c0, oklab_t c1)`
+ * 
+ * Computes the distance between two colors in Oklab color space
+ */
+double bm_oklab_dist(oklab_t c0, oklab_t c1);
+
+/**
+ * #### `oklab_t bm_oklab_lerp(oklab_t c0, oklab_t c1, double t)`
+ * 
+ * Linearly interpolates between two colors `c0` and `c1` in 
+ * [Oklab][] color space.
+ *
+ * If `t` is `0` it returns `c0`. If `t` is `1.0` it returns `c1`.
+ */
+oklab_t bm_oklab_lerp(oklab_t c0, oklab_t c1, double t);
+
+/**
  * #### `int bm_colcmp(bm_color_t c1, bm_color_t c2)`
  *
  * Compares the RGB values of two colors, ignoring the alphas values
@@ -680,10 +835,12 @@ bm_color_t bm_byte_order(bm_color_t col);
 /**
  * #### `bm_color_t bm_lerp(bm_color_t color1, bm_color_t color2, double t)`
  *
- * Computes the color that is a distance `t` along the line between
- * `color1` and `color2`.
+ * Linearly interpolates the value `t` between `color1` and `color2`.
  *
  * If `t` is 0 it returns `color1`. If `t` is 1.0 it returns `color2`.
+ * 
+ * Prefer [bm_oklab_lerp()](#oklab_t-bm_oklab_lerpoklab_t-c0-oklab_t-c1-double-t)
+ * if possible because it provides better visual uniformity
  */
 bm_color_t bm_lerp(bm_color_t color1, bm_color_t color2, double t);
 

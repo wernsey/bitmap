@@ -5882,6 +5882,47 @@ void bm_get_rgb(bm_color_t col, unsigned char *R, unsigned char *G, unsigned cha
 #endif
 }
 
+rgb_t bm_to_rgb(bm_color_t col) {
+    rgb_t rgb;
+    unsigned char r, g, b;
+    bm_get_rgb(col, &r, &g, &b);
+    rgb.r = (double)r / 255.0;
+    rgb.g = (double)g / 255.0;
+    rgb.b = (double)b / 255.0;
+    return rgb;
+}
+
+#define CLAMP01(x) (((x) < 0) ? 0 : (((x) > 1) ? 1 : (x))) 
+
+bm_color_t bm_from_rgb(rgb_t rgb) {
+    unsigned char r = (unsigned char)(CLAMP01(rgb.r) * 255.0);
+    unsigned char g = (unsigned char)(CLAMP01(rgb.g) * 255.0);
+    unsigned char b = (unsigned char)(CLAMP01(rgb.b) * 255.0);
+    return bm_rgb(r,g,b);
+}
+
+rgb_t bm_srgb_to_lrgb(rgb_t srgb) {
+  rgb_t rgb;
+  for(int i = 0; i < 3; i++) {
+    if(srgb.v[i] <= 0.04045)
+      rgb.v[i] = srgb.v[i] / 12.92;
+    else
+      rgb.v[i] = pow((srgb.v[i] + 0.055) / 1.055, 2.4);
+  }
+  return rgb;
+}
+
+rgb_t bm_lrgb_to_srgb(rgb_t rgb) {
+    rgb_t srgb;
+    for(int i = 0; i < 3; i++) {
+        if(rgb.v[i] <= 0.0031308)
+            srgb.v[i] = 12.92 * rgb.v[i];
+        else
+            srgb.v[i] = 1.055 * pow(rgb.v[i], 1.0/2.4) - 0.055;
+    }
+    return srgb;
+}
+
 bm_color_t bm_hsl(double H, double S, double L) {
     /* The formula is based on the one on the wikipedia:
      * https://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
@@ -5953,6 +5994,78 @@ void bm_get_hsl(bm_color_t col, double *H, double *S, double *L) {
     }
     *L *= 100;
     *S *= 100;
+}
+
+hsl_t bm_to_hsl(bm_color_t col) {
+    hsl_t hsl;
+    bm_get_hsl(col, &hsl.h, &hsl.s, &hsl.l);
+    return hsl;
+}
+
+bm_color_t bm_from_hsl(hsl_t hsl) {
+    return bm_hsl(hsl.h, hsl.s, hsl.l);
+}
+
+oklab_t bm_to_oklab(bm_color_t col) {
+    rgb_t srgb = bm_to_rgb(col);
+    return bm_rgb_to_oklab(srgb);
+}
+
+bm_color_t bm_from_oklab(oklab_t lab) {
+    rgb_t srgb = bm_oklab_to_rgb(lab);
+    return bm_from_rgb(srgb);
+}
+
+/* After I typed all the matrices out from wikipedia and
+ * so on I discovered that the code in [the original][oklab] was
+ * public domain licensed anyway 
+ */
+oklab_t bm_rgb_to_oklab(rgb_t rgb) {
+    oklab_t o;
+    rgb = bm_srgb_to_lrgb(rgb);
+
+    double l = 0.4122214708 * rgb.r + 0.5363325363 * rgb.g + 0.0514459929 * rgb.b;
+    double m = 0.2119034982 * rgb.r + 0.6806995451 * rgb.g + 0.1073969566 * rgb.b;
+    double s = 0.0883024619 * rgb.r + 0.2817188376 * rgb.g + 0.6299787005 * rgb.b;
+    l = pow(l, 1.0/3.0);
+    m = pow(m, 1.0/3.0);
+    s = pow(s, 1.0/3.0);
+
+    o.L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+    o.a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+    o.b = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+    return o;
+}
+
+rgb_t bm_oklab_to_rgb(oklab_t o) {
+    rgb_t rgb;
+    double l = 1.0 * o.L + 0.3963377774 * o.a + 0.2158037573 * o.b;
+    double m = 1.0 * o.L - 0.1055613458 * o.a - 0.0638541728 * o.b;
+    double s = 1.0 * o.L - 0.0894841775 * o.a - 1.2914855480 * o.b;
+    l = pow(l, 3); 
+    m = pow(m, 3); 
+    s = pow(s, 3);
+    rgb.r =  4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    rgb.g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    rgb.b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+    return bm_lrgb_to_srgb(rgb);
+}
+
+double bm_oklab_dist(oklab_t c0, oklab_t c1) {
+    double dl = (c1.L - c0.L);
+    double da = (c1.a - c0.a);
+    double db = (c1.b - c0.b);
+    return sqrt( dl * dl + da * da + db * db );
+}
+
+oklab_t bm_oklab_lerp(oklab_t c0, oklab_t c1, double t) {
+    oklab_t out;
+    if(t < 0.0) t = 0.0;
+    if(t > 1.0) t = 1.0; 
+    out.L = c0.L + t * (c1.L - c0.L);
+    out.a = c0.a + t * (c1.a - c0.a);
+    out.b = c0.b + t * (c1.b - c0.b);
+    return out;
 }
 
 bm_color_t bm_byte_order(bm_color_t col) {

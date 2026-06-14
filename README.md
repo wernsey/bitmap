@@ -214,14 +214,22 @@ make
   * <https://opengameart.org/content/a-package-of-8-bit-fonts-for-grafx2-and-linux>
   * <https://opengameart.org/content/new-original-grafx2-font-collection>
   * <https://opengameart.org/content/the-collection-of-8-bit-fonts-for-grafx2-r2>; `SaikyoBlack.png` comes from here
+* The orignal [oklab][] blog post by Björn Ottosson
+* [Oklab on Wikipedia](https://en.wikipedia.org/wiki/Oklab_color_space)
 
 [sfont]: http://www.linux-games.com/sfont/
 [zx-origins]: https://damieng.com/typography/zx-origins/
 [QOI]: https://qoiformat.org/
 [qoi.h]: https://github.com/phoboslab/qoi/blob/master/qoi.h
+[oklab]: https://bottosson.github.io/posts/oklab/
 
 ## TODO
 
+* Now that I support [Oklab][], I really should be using that for the
+  paletting and dithering colors to find the closest colors, specifically
+  `bm_palette_nearest_index()` (which is used by all the dithering functions) 
+  and `kmeans_categorize_pixels()` (called from `bm_quantize_kmeans()`). 
+  Also look at `bm_quantize()` again.
 * I want to add flags to check if the bitmap had a palette and an alpha channel
   and so on in the file it was loaded from, etc.
 * The `bm_load_pcx_rd()` and `bm_load_qoi_rd()` functions should be modified to read a couple
